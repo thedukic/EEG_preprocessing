@@ -1,0 +1,18 @@
+Based on these instructions: 
+https://lonelyneuron.substack.com/p/install-cudaica-for-windows-10?s=w
+
+1. Install the CUDA toolkit: https://developer.nvidia.com/cuda-downloads
+2. Download: https://github.com/CloudyDory/cudaica_win.git
+3. Copy "CudaICA1.1" folder to "plugins" subfolder of EEGLAB
+4. Download: nuget.exe CLI 
+(see: https://docs.microsoft.com/en-us/nuget/consume-packages/install-use-packages-nuget-cli)
+5. Save that .exe file to a suitable folder (e.g. C:\NUGET)
+6. Open cmd
+7. Navigate using the "cd" command to the "nuget" folder
+8. Run in cmd: nuget install intelmkl.devel.win-x64
+9. Copy those 3 files from the "nuget" folder to "CudaICA1.1" folder, as in the instructions 
+(Folder: ...\intelmkl.redist.win-x64.2022.0.3.171\runtimes\win-x64\native)
+(Files: mkl_core.2.dll; mkl_def.2.dll; mkl_intel_thread.2.dll)
+10. Replace the "pop_runica" file with the relevant one (from "CudaICA1.1\replace" folder)
+10. Edit "cudaica.m" as in the instructions
+11. Example: EEG = pop_runica(EEG,'icatype','cudaica','pca',DATARANK);
