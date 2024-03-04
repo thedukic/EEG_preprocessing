@@ -1,0 +1,144 @@
+function EEG = detect_extremelybadepochs2(EEG)
+
+% Select these
+chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
+chaneog  = strcmp({EEG.chanlocs.labels},'VEOG');
+dataeeg  = EEG.data(chaneeg,:);
+dataeog  = EEG.data(chaneog,:);
+
+%% Absolute threshold to identify absolute amplitude extreme values:
+% More than +- 500 uV
+extremeMask = any(abs(dataeeg)>500);
+
+if any(extremeMask)
+    mspersamp = 1000/EEG.srate;
+    popshift  = round(25/mspersamp);
+    extremeMask = movmean(extremeMask,popshift)>0;
+
+    % jump = find(diff([false, extremeMask, false])~=0);
+    % mspersamp = 1000/EEG.srate;
+    % popshift  = round(50/mspersamp);
+    % extremeNoiseEpochs3 = [jump(1:2:end)-popshift; jump(2:2:end)+popshift]';
+    % extremeNoiseEpochs3(extremeNoiseEpochs3<1) = 1;
+    % extremeNoiseEpochs3(extremeNoiseEpochs3>EEG.pnts) = EEG.pnts;
+else
+    extremeMask = false(1,size(dataeeg,2));
+end
+
+% Log
+EEG.ALSUTRECHT.extremeNoise.absoluteAmplitudeExceededThreshold = extremeMask;
+
+%% Strong EMG
+% EOG: Temporarily filter, lowpass 6 Hz
+[bl, al] = butter(2,6/(EEG.srate/2),'low');
+assert(isstable(bl,al));
+dataeog = filtfilt(bl,al,dataeog);
+
+treshold = prctile(dataeog,75,2) + 3*iqr(dataeog,2);
+mask = dataeog<treshold;
+
+data2 = dataeog;
+data2(mask)  = 0;
+data2(~mask) = 20;
+
+data2 = conv(data2,ones(1,2),'same');
+data2 = movmean(data2',16)';
+
+% EOG mask looks like it is lagging wrt EEG mask by ~d samples
+d = 20;
+data2(1:d) = [];
+data2 = [data2, data2(end)*ones(1,d)];
+assert(length(data2)==length(dataeog));
+
+% EEG: Temporarily filter, highpass 25 Hz
+[bl, al] = butter(5,25/(EEG.srate/2),'high');
+assert(isstable(bl,al));
+dataeeg = filtfilt(bl,al,dataeeg);
+dataeeg = [zeros(sum(chaneeg),1), diff(dataeeg')'];
+dataeeg = abs(dataeeg);
+
+% % Check
+% EEG0 = EEG;
+% EEG0.data(chaneeg,:) = dataeeg;
+% vis_artifacts(EEG,EEG0);
+
+treshold = prctile(dataeeg,75,2) + 3*iqr(dataeeg,2);
+mask = dataeeg<treshold;
+
+data1 = dataeeg;
+data1(mask)  = 0;
+data1(~mask) = 1;
+
+for i = 1:size(data1,1)
+    data1(i,:) = conv(data1(i,:),ones(1,10),'same');
+end
+data1 = movmean(data1',64)';
+
+% Mask
+% extremeMask = data1>0;
+% extremeMask = 100*mean(extremeMask,1);
+% extremeMask(extremeMask<25) = 0;
+
+% At least 25% of electrodes must be affected
+extremeMask = data1>0.1*max(data1,[],"all");
+extremeMask = 100*mean(extremeMask,1);
+extremeMask(extremeMask<25) = 0;
+extremeMask = movmean(extremeMask,64)>0;
+
+% extremeMask = sum(data1,1);
+% treshold = prctile(extremeMask,75,2) + 2*iqr(extremeMask,2);
+% extremeMask(extremeMask<treshold) = 0;
+% extremeMask(extremeMask>=treshold) = 1;
+
+% % Check
+% EEG0 = EEG;
+% EEG0.data = EEG0.data*0;
+% EEG0.data(chaneeg,:) = 10*data1;
+% EEG0.data(chaneog,:) = 10*data2;
+% EEG0.data(end,:)     = 500*extremeMask;
+% vis_artifacts(EEG,EEG0);
+
+% Log
+EEG.ALSUTRECHT.extremeNoise.muscleExceededThreshold = extremeMask;
+
+%% Finish and log
+% Cobine masks
+EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections = ...
+    EEG.ALSUTRECHT.extremeNoise.absoluteAmplitudeExceededThreshold | ...
+    EEG.ALSUTRECHT.extremeNoise.muscleExceededThreshold;
+
+% Epoch into 1s, needed only for EMG MWF
+extremeMask = EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections;
+
+L = EEG.srate;
+N = floor(length(extremeMask)/L);
+extremeNoiseEpochs2 = any(reshape(extremeMask(1:N*L),L,N));
+
+% Get epoch start-stop samples
+jump = find(diff([false, extremeMask, false])~=0);
+extremeNoiseEpochs3 = [jump(1:2:end); jump(2:2:end)]';
+
+% % Make sure bad epochs have minimal length
+% if ~isempty(jump)
+%     durall = jump(2:2:end)-jump(1:2:end);
+% end
+% mspersamp = 1000/EEG.srate;
+% mindur    = round(100/mspersamp);
+% extremeNoiseEpochs3(durall<mindur,:) = [];
+
+% Log
+EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier = mean(extremeMask);
+EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1                 = extremeMask;
+EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2                 = extremeNoiseEpochs2;
+EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3                 = extremeNoiseEpochs3;
+
+fprintf('Percentage of extremly bad EEG: %1.2f\n', EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier);
+fprintf('These data will be excluded from MWF and ICA.\n');
+
+fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
+fprintf(EEG.ALSUTRECHT.subject.fid,'Extremly bad epochs\n');
+fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
+fprintf(EEG.ALSUTRECHT.subject.fid,'These data will be excluded from MWF and ICA.\n');
+fprintf(EEG.ALSUTRECHT.subject.fid,'Detected: %1.2f\n', EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier);
+
+end
