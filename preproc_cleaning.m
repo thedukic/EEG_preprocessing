@@ -11,7 +11,6 @@ function issues_to_check = preproc_cleaning(myfolders,id)
 
 % Preprocessing settings
 cfg = preproc_parameters;
-chanlocs = readlocs('biosemi128_eeglab.ced');
 
 % =========================================================================
 subject         = [];
@@ -72,6 +71,7 @@ end
 EEG = eeg_checkset(EEG,'loaddata');
 
 % Channel locations
+chanlocs = readlocs('biosemi128_eeglab.ced');
 EEG = fix_chanlocs(EEG,chanlocs);
 
 % Subject info
@@ -127,6 +127,9 @@ end
 
 % Merge datasets
 EEGM = pop_mergeset(EEG,1:NBLK);
+if strcmpi(myfolders.task,'MT')
+    EMG = pop_mergeset(EMG,1:NBLK);
+end
 
 % Mark where each RS block starts/ends
 if strcmpi(myfolders.task,'RS')
