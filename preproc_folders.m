@@ -1,14 +1,13 @@
 function [myfolders, myfiles] = preproc_folders
 
 % Set paths
-myfolders.mycodes     = 'C:\DATA\MATLAB\myCodes\SDukic\Preprocessing';
-% myfolders.mytlbxs     = 'C:\DATA\MATLAB\Toolboxes';
-myfolders.rootrawdata = 'E:\1_EEG_DATA';
-myfolders.rootpreproc = 'E:\3_PREPROCESSED_DATA';
+myfolders.mycodes     = 'C:\DATA\MATLAB\myCodes\SDukic\Preprocessing';  % Pipeline
+myfolders.rootrawdata = 'E:\1_EEG_DATA';                                % Input 
+myfolders.rootpreproc = 'E:\3_PREPROCESSED_DATA';                       % Output
 
 % Set group/task/visit
-myfiles.task  = 'RS'; % MMN/SART/RS/MT
-myfiles.group = {'AFM','ALS','PLS','PMA','CONTROL'};
+myfiles.task  = 'MT';     % MMN/SART/RS/MT
+myfiles.group = {'ALS','CONTROL','AFM','PLS','PMA'};
 myfiles.visit = {'T1'};   % T1/T2/...
 
 % Add subfolders
@@ -32,10 +31,5 @@ if any(contains(subFolderPaths,'mwf'))
     addpath(genpath(subFolderPaths{contains(subFolderPaths,'mwf')}));
 end
 
-% addpath([myfolders.mytlbxs 'NoiseTools']);
-% addpath([myfolders.mytlbxs 'eeglab2023.1']);
-% addpath([myfolders.mytlbxs 'fieldtrip-20230913']);
-
 % Initialise the toolboxes
-% ft_defaults; ft_hastoolbox('cellfunction',1);
 eeglab; close all;
