@@ -6,7 +6,7 @@ function EEG = remove_datasetends(EEG,thisTask)
 %
 
 fprintf('Cutting the ends of each block...\n');
-fprintf('Making sure that the data  is divisible into 1s epochs...');
+fprintf('Making sure that the data is divisible into 1s epochs.\n');
 NTRL = length(EEG);
 
 switch thisTask

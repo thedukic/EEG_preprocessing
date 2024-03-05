@@ -37,16 +37,11 @@ if strcmp(thisTask,'SART')
                 eventinfo{i,2} = [eventinfo{i,2}, EEG(i).event(j).latency];
             end
         end
-
-        % Remove the first irrelevant events
-        pause; % FIX THIS - is it needed???
-        % mask = find(eventinfo{i,1}==6, 1);
-        % eventinfo{i,1} = eventinfo{i,1}(mask:end);
-        % eventinfo{i,2} = eventinfo{i,2}(mask:end);
         assert(length(eventinfo{i,1})==length(eventinfo{i,2}));
 
         eventinfo{i,3} = sum(eventinfo{i,1}==3 | eventinfo{i,1}==6);
         eventinfo{i,4} = EEG(i).srate;
+        fprintf('SART%d has %d trials (Go+NoGo).\n',i,eventinfo{i,3});
     end
 elseif strcmp(thisTask,'MMN')
     disp('Extracting MMN event information...');
@@ -87,6 +82,7 @@ elseif strcmp(thisTask,'MMN')
 
         eventinfo{i,3} = sum(eventinfo{i,1}==labels2(1) | eventinfo{i,1}==labels2(2));
         eventinfo{i,4} = EEG(i).srate;
+        fprintf('MMN%d has %d trials (standard+deviant).\n',i,eventinfo{i,3});
     end
 elseif strcmp(thisTask,'MT')
     disp('Extracting MT event information...');
@@ -123,10 +119,11 @@ elseif strcmp(thisTask,'MT')
 
         eventinfo{i,3} = sum(eventinfo{i,1}==labels2(1) | eventinfo{i,1}==labels2(2) | eventinfo{i,1}==labels2(3));
         eventinfo{i,4} = EEG(i).srate;
+        fprintf('MT%d has %d trials.\n',i,floor(eventinfo{i,3}/3));
     end
 
 elseif strcmp(thisTask,'RS')
-    disp('Resting-state data does not have any events. Returning an empty variable...');
+    disp('Resting-state data does not have any events by default. Returning an empty variable...');
 end
 
 % Log

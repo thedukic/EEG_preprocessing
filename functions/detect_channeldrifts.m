@@ -24,7 +24,7 @@ dataeog = abs(dataeog);
 % See: RELAX_blinks_IQR_method
 EOGIQR = iqr(dataeog);
 EOG75P = prctile(dataeog,75);
-treshold = EOG75P + 2*EOGIQR;
+treshold = EOG75P + 1.5*EOGIQR;
 eyeBlinksEpochs = dataeog>=treshold;
 
 noiseMask1 = zeros(1,EEG.pnts);
@@ -44,9 +44,12 @@ if any(eyeBlinksEpochs)
         jumpStart = jump(1:2:end);
         jumpStop  = jump(2:2:end);
 
-        jumpStart = jumpStart-round(25/mspersamp);
+        EOGfocus = 200; % ms
+        EOGfocussamples = round(EOGfocus/mspersamp);
+
+        jumpStart = jumpStart-EOGfocussamples;
         jumpStart(jumpStart<1) = 1;
-        jumpStop = jumpStop+round(25/mspersamp);
+        jumpStop = jumpStop+EOGfocussamples;
         jumpStop(jumpStop>EEG.pnts) = EEG.pnts;
 
         fh = figure; hold on;
@@ -69,7 +72,7 @@ if any(eyeBlinksEpochs)
         close(fh);
 
         TEOG = mean(durheog)/EEG.srate*1000;
-        fprintf('HEOG average duration is %2.0fms wrt the detected peaks.\n',TEOG);
+        fprintf('HEOG average duration is %2.0fms.\n',TEOG);
 
         for i = 1:NHEOG
             noiseMask1(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i))) = 1;

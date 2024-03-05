@@ -63,8 +63,9 @@ cfg.ica.icMax   = 50; % PCA reduction prior ICA
 cfg.ica.iclabel = [NaN NaN; 0.8 1; 0.5 1; NaN NaN; NaN NaN; 0.5 1; NaN NaN];
 
 %% Event triggers
-cfg.trg.mmn  = {[12 17],[-0.2 0.5]};
-cfg.trg.sart = {[3 6],[-0.2 0.9]};
-cfg.trg.mt   = {[21 31 51],[-5 10]};
+cfg.trg.mmn   = {[12 17],[-0.2 0.5]};
+cfg.trg.sart1 = {[3 6],[-0.2 0.9]};
+cfg.trg.sart2 = {1,[-0.45 0.45]};
+cfg.trg.mt    = {[21 31 51],[-5 10]};
 
 end

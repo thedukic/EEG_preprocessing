@@ -1,9 +1,14 @@
 function rank2 = getrank(data)
 
+% EEGLAB sometimes forces data to be single
+data = double(data);
+
+% Reshape if data is cut into trials
 if size(data,3)>1
     data = reshape(data,size(data,1),[]);
 end
 
+% MATLAB's func
 rank1 = rank(data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -15,9 +20,9 @@ rank1 = rank(data);
 % This threshold might not work for MEG data???
 if ~diff(size(data))
     % if  sqaure matrix
-    rank2 = sum(eig(double(data)) > 1e-7);
+    rank2 = sum(eig(data) > 1e-7);
 else
-    rank2 = sum(eig(cov(double(data'))) > 1e-7);
+    rank2 = sum(eig(cov(data')) > 1e-7);
 end
 
 if rank1 ~= rank2
