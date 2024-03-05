@@ -5,14 +5,14 @@ function issues_to_check = preproc_cleaning(myfolders,id)
 %
 % =========================================================================
 % SDukic edits
-% v1, February 2024
+% v1, March 2024
 % =========================================================================
 %
 
-% Preprocessing settings
+% Load preprocessing settings
 cfg = preproc_parameters;
 
-% =========================================================================
+% Define paths and files
 subject         = [];
 subject.id      = id;
 subject.rawdata = fullfile(myfolders.rawdata, subject.id);
@@ -24,13 +24,13 @@ subject.clnfile = [subject.id '_' myfolders.visit '_' myfolders.task '_cleandata
 % Find datasets to load
 [subject.datablocks, NBLK] = list_datasets(subject.rawdata,myfolders.task);
 
+% Make folders
 if exist(subject.preproc,'dir')~=7, mkdir(subject.preproc); end
 % if exist(subject.icapath,'dir')~=7, mkdir(subject.icapath); end
 
-% Prepare text file for the report
+% Open a report
 subject.fid = fopen(fullfile(subject.preproc,['report_preprocess_v' cfg.rnum '.txt']),'w+');
-
-% Timestamp and basic info
+% Log basic info
 t0 = datetime("now");
 proctime = strrep(strrep(char(t0),':','-'),' ','-');
 fprintf('\n\n%s | %s | %s dataset\n',myfolders.group,subject.id,myfolders.task);
@@ -100,7 +100,7 @@ for j = 1:NBLK
     EEG(j).ref = 'average';
 end
 
-% Remove the line noise
+% Remove the line noise, filter first?
 EEG = reduce_linenoise(EEG);
 
 % Filter
@@ -149,7 +149,7 @@ EEGM = report_badelectrodes(EEGM);
 % EEGM = detect_extremelybadepochs(EEGM); % Too sensitive?
 EEGM = detect_extremelybadepochs2(EEGM);
 
-% Check if EC has eye blinks
+% Check if EC has eye blinks, too sensitive?
 if strcmpi(myfolders.task,'RS')
     EEGM = check_eyesclosedeyeblinks(EEGM);
 end
@@ -212,7 +212,7 @@ EEGM = pop_icflag(EEGM,cfg.ica.iclabel);
 % ICA log/report
 EEGM = report_ica(EEGM);
 
-% Save the dataset
+% Interim data saving
 % EEGM = pop_saveset(EEGM,'filename',[subject.icafile '.set'],'filepath',subject.preproc);
 
 % Do wICA
@@ -225,64 +225,10 @@ if strcmpi(myfolders.task,'MT')
     EEGM = merge_eeglabsets(EEGM,EMG);
 end
 
-% =========================================================================
 % Record warnings about potential issues
-issues_to_check.aFileName = subject.id;
+EEGM = report_issues(EEGM,myfolders.task);
+issues_to_check = EEGM.ALSUTRECHT.issues_to_check;
 
-issues_to_check.FlatElectrodesDiscrepancy = EEGM.ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy;
-if length(EEGM.ALSUTRECHT.badchaninfo.badElectrodes)/128>0.2
-    issues_to_check.RejectedTooManyElectrodes = length(EEGM.ALSUTRECHT.badchaninfo.badElectrodes);
-else
-    issues_to_check.RejectedTooManyElectrodes = 0;
-end
-if EEGM.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier>0.2
-    issues_to_check.HighProportionExcludedAsExtremeOutlier = EEGM.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier;
-else
-    issues_to_check.HighProportionExcludedAsExtremeOutlier = 0;
-end
-if EEGM.ALSUTRECHT.MWF.EMG.ProportionOfDataShowingMuscleActivityTotal > 0.5
-    issues_to_check.HighProportionOfEMG = EEGM.ALSUTRECHT.MWF.EMG.ProportionOfDataShowingMuscleActivityTotal;
-else
-    issues_to_check.HighProportionOfEMG = 0;
-end
-MFWrounds = fields(EEGM.ALSUTRECHT.MWF);
-for j = 1:length(MFWrounds)
-    issues_to_check.(['MWF' MFWrounds{j} 'Status1']) =  EEGM.ALSUTRECHT.MWF.(MFWrounds{j}).status;
-
-    if isnan(EEGM.ALSUTRECHT.MWF.(MFWrounds{j}).signalToErrorRatio) || isnan(EEGM.ALSUTRECHT.MWF.(MFWrounds{j}).artifactToResidueRatio)
-        issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  false;
-    else
-        issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  true;
-    end
-
-    if EEGM.ALSUTRECHT.MWF.(MFWrounds{j}).proportionMarkedForMWF>0.6
-        issues_to_check.(['MWF' MFWrounds{j} 'BadData']) =  EEGM.ALSUTRECHT.MWF.(MFWrounds{j}).proportionMarkedForMWF;
-    else
-        issues_to_check.(['MWF' MFWrounds{j} 'BadData']) =  0;
-    end
-end
-% if ~isempty(tmpLabels)
-%     issues_to_check.HighProportionOfBadDataMWF = strjoin(aField(tmpLabels),', ');
-% else
-%     issues_to_check.HighProportionOfBadDataMWF = 0;
-% end
-
-if EEGM.ALSUTRECHT.ica.proportionArtifactICsReducedbywICA>0.3
-    issues_to_check.HighProportionOfArtifactICs = EEGM.ALSUTRECHT.ica.proportionArtifactICsReducedbywICA;
-else
-    issues_to_check.HighProportionOfArtifactICs = 0;
-end
-issues_to_check.DataTooShortForValidICA = EEGM.ALSUTRECHT.ica.DataLengthForValidICA;
-if strcmpi(myfolders.task,'RS')
-    if EEGM.ALSUTRECHT.blockinfo.ec_blinks>0
-        issues_to_check.ECEyeBinksDetected = EEGM.ALSUTRECHT.blockinfo.ec_blinks;
-    else
-        issues_to_check.ECEyeBinksDetected = 0;
-    end
-end
-EEGM.ALSUTRECHT.issues_to_check = issues_to_check;
-
-% =========================================================================
 % Save cleaned data
 fprintf('\n%s: Saving preprocessed data...\n\n',subject.id);
 save(fullfile(subject.preproc, subject.clnfile),'EEGM','cfg','proctime');
@@ -294,41 +240,4 @@ fprintf(subject.fid,'\nFinish: %s\n',t1);
 fprintf(subject.fid,'Running time: %d min.\n',dd);
 fclose(subject.fid);
 
-%%
-% =========================================================================
-%                              HELPER FUNCTIONS
-% =========================================================================
-
-% % =========================================================================
-% % 1
-% % =========================================================================
-% function EEG = fix_noisemask(EEG,noisemask0)
-% % Make a mask for each trial
-% % eg
-% % 111 000 000
-% % 000 111 000
-% % 000 000 111
-% N = cellfun(@(x,y) size(x,2),{EEG(:).data});
-% assert(size(EEG(1).data,1)<=136);
-%
-% NBLK = length(EEG);
-% mask_trial = false(NBLK,sum(N));
-% for j = 1:NBLK
-%     if j == 1
-%         mask_trial(j,1:N(1)) = true;
-%     else
-%         mask_trial(j,sum(N(1:j-1))+1:sum(N(1:j))) = true;
-%     end
-% end
-%
-% NCHN = EEG(1).nbchan+1;
-% % noisemask = cell(1,NBLK);
-% for j = 1:NBLK
-%     % noisemask{j} = [noisemask0(mask_trial(j,:))];
-%     EEG(j).data(NCHN,:) = [noisemask0(mask_trial(j,:))];
-%     EEG(j).nbchan = NCHN;
-%     EEG(j).chanlocs(NCHN).labels = 'NOISE';
-%     EEG(j).chanlocs(NCHN).type   = 'MSK';
-% end
-% % Check
-% EEG = eeg_checkset(EEG);
+end

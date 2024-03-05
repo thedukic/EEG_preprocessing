@@ -21,10 +21,12 @@ for i = 1:length(myfiles.group)
     subjects = list_subjects(myfolders.rawdata,[]);
     for j = 1:length(subjects)
         output = preproc_cleaning(myfolders,subjects{j});
-        
+
         % Record warnings for all participants in single table
         summaries(j,:) = struct2table(output,'AsArray',true);
     end
+    save(fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task]),'summaries');
+    writetable(summaries,fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task '.xlsx']));
 end
 
 %% ========================================================================

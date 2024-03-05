@@ -31,8 +31,13 @@ switch thisTask
             indx = max(indx1,indx2);
             lat(2) = latency{indx}./EEG(i).srate + 2; % seconds
 
+            % Just in case there is not enough buffer after the last trial
+            if lat(2)>EEG(i).times(end)/1000-1
+                lat(2) = EEG(i).times(end)/1000-1;
+            end
+
             % Remove the ends
-            lat = round(lat,1);
+            % lat = round(lat,1);
             timedif = mod(lat,1);
             if timedif(1)>timedif(2)
                 lat(2) = lat(2)+abs(diff(timedif));
@@ -63,8 +68,13 @@ switch thisTask
             indx = max(indx1,indx2);
             lat(2) = latency{indx}./EEG(i).srate + 2; % seconds
 
+            % Just in case there is not enough buffer after the last trial
+            if lat(2)>EEG(i).times(end)/1000-1
+                lat(2) = EEG(i).times(end)/1000-1;
+            end
+
             % Remove the ends
-            lat = round(lat,1);
+            % lat = round(lat,1);
             timedif = mod(lat,1);
             if timedif(1)>timedif(2)
                 lat(2) = lat(2)+abs(diff(timedif));
@@ -103,8 +113,13 @@ switch thisTask
             % Last event
             lat(2) = latency{end}./EEG(i).srate + 2; % seconds
 
+            % MT2 often does not have buffer after the last trial
+            if lat(2)>EEG(i).times(end)/1000-1
+                lat(2) = EEG(i).times(end)/1000-1;
+            end
+
             % Remove the ends
-            lat = round(lat,1);
+            % lat = round(lat,1);
             timedif = mod(lat,1);
             if timedif(1)>timedif(2)
                 lat(2) = lat(2)+abs(diff(timedif));
@@ -112,7 +127,12 @@ switch thisTask
                 lat(2) = floor(lat(2))+1+(timedif(1));
             end
             assert(mod(diff(lat),1)==0);
-            lat(2) = lat(2)-1/EEG(1).srate;
+            lat(2) = lat(2)-1/EEG(i).srate;
+
+            % [a,b] = min(abs(EEG(i).times/1000-lat(1)));
+            % lat = lat + (EEG(i).times(b)/1000-lat(1));
+            % lat(1) = EEG(i).times(b)/1000;
+
             EEG(i) = pop_select(EEG(i),'time',lat);
 
             L = EEG(i).srate;
