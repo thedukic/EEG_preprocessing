@@ -54,7 +54,10 @@ if ~isempty(subject.datablocks)
     end
 else
     warning([subject.id ' is missing ' myfolders.task ' data!']);
-    issues_to_check = [];
+    EEG.ALSUTRECHT.subject.id = subject.id;
+    EEG = report_issues(EEG,myfolders.task);
+    issues_to_check = EEG.ALSUTRECHT.issues_to_check;
+
     return;
 end
 

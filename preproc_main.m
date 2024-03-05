@@ -1,7 +1,7 @@
 %
 % EEG preprocessing main file
 %
-% 1. CUDICA must be set up, see instructions in its folder
+% 1. CUDICA must be set up, see instructions in external\eeglab2024.0\plugins\CudaICA
 % 2. Set/check paths (and settings):
 %    a. preproc_folders;
 %    b. preproc_parameters;
@@ -23,15 +23,19 @@ for i = 1 % :length(myfiles.group)
         output = preproc_cleaning(myfolders,subjects{j});
 
         % Record warnings for all participants in single table
-        if isempty(output)
-            summaries(j,1) = subjects(j);
-            summaries(j,2:end) = {NaN};
-        else
-            summaries(j,:) = struct2table(output,'AsArray',true);
-        end
+        summaries(j,:) = struct2table(output,'AsArray',true);
+        % if isempty(output)
+        % summaries(j,1) = subjects(j);
+        % summaries(j,2:end) = {NaN};
+        % else
+        % summaries(j,:) = struct2table(output,'AsArray',true);
+        % end
     end
+
+    % Save the summary report
     save(fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task]),'summaries');
     writetable(summaries,fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task '.xlsx']));
+    clearvars summaries
 end
 
 %% ========================================================================
