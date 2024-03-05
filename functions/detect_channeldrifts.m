@@ -182,14 +182,14 @@ if EEG.ALSUTRECHT.MWF.drift.proportionMarkedForMWF>0.05
 
     % EEG.ALSUTRECHT.MWF.drift.estimatedArtifactInEachChannel = d;
     % EEG.ALSUTRECHT.MWF.drift.matrixUsedToEstimateArtifacts  = W;
-    EEG.ALSUTRECHT.MWF.drift.status                 = true;
+    EEG.ALSUTRECHT.MWF.drift.status                 = 1;
     EEG.ALSUTRECHT.MWF.drift.signalToErrorRatio     = SER;
     EEG.ALSUTRECHT.MWF.drift.artifactToResidueRatio = ARR;
 
     fprintf(EEG.ALSUTRECHT.subject.fid,'Signal to error ratio:     %1.2f\n',SER);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Artifact to residue ratio: %1.2f\n',ARR);
 else
-    EEG.ALSUTRECHT.MWF.drift.status                 = false;
+    EEG.ALSUTRECHT.MWF.drift.status                 = 0;
     EEG.ALSUTRECHT.MWF.drift.signalToErrorRatio     = NaN;
     EEG.ALSUTRECHT.MWF.drift.artifactToResidueRatio = NaN;
 

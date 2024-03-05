@@ -39,17 +39,23 @@ fprintf(subject.fid,'Code version %s\n',cfg.rnum);
 fprintf(subject.fid,'Start: %s\n',t0);
 
 % Load data
-if strcmpi(myfolders.task,'MT')
-    EEG = pop_biosig(subject.datablocks,'channels',1:168);
-    EEG = pop_select(EEG,'rmchannel',[131 132 143:160]);
-else
-    EEG = pop_biosig(subject.datablocks,'channels',1:136);
-
-    % Rare cases of RS datasets
-    if any([EEG(:).srate] == 2048)
+if ~isempty(subject.datablocks)
+    if strcmpi(myfolders.task,'MT')
         EEG = pop_biosig(subject.datablocks,'channels',1:168);
-        EEG = pop_select(EEG,'channel',[1:128 161:168]);
+        EEG = pop_select(EEG,'rmchannel',[131 132 143:160]);
+    else
+        EEG = pop_biosig(subject.datablocks,'channels',1:136);
+
+        % Rare cases of RS datasets
+        if any([EEG(:).srate] == 2048)
+            EEG = pop_biosig(subject.datablocks,'channels',1:168);
+            EEG = pop_select(EEG,'channel',[1:128 161:168]);
+        end
     end
+else
+    warning([subject.id ' is missing ' myfolders.task ' data!']);
+    issues_to_check = [];
+    return;
 end
 
 % Manually fix datasets in some rare cases
@@ -100,7 +106,12 @@ for j = 1:NBLK
     EEG(j).ref = 'average';
 end
 
-% Remove the line noise, filter first?
+% Maybe better:
+% 1. Filter
+% 2. Cute ends
+% 3. Remove line noise
+
+% Remove the line noise
 EEG = reduce_linenoise(EEG);
 
 % Filter
@@ -149,9 +160,9 @@ EEGM = report_badelectrodes(EEGM);
 % EEGM = detect_extremelybadepochs(EEGM); % Too sensitive?
 EEGM = detect_extremelybadepochs2(EEGM);
 
-% Check if EC has eye blinks, too sensitive?
+% Check if EC has eye blinks
 if strcmpi(myfolders.task,'RS')
-    EEGM = check_eyesclosedeyeblinks(EEGM);
+    EEGM = check_eyesclosedeyeblinks(EEGM); % Too sensitive?
 end
 
 % Do Multi-channel Wiener filtering
