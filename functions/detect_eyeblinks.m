@@ -152,14 +152,14 @@ if EEG.ALSUTRECHT.MWF.eyeBlinks.proportionMarkedForMWF>0.05
 
     % EEG.ALSUTRECHT.MWF.eyeBlinks.estimatedArtifactInEachChannel = d;
     % EEG.ALSUTRECHT.MWF.eyeBlinks.matrixUsedToEstimateArtifacts  = W;
-    EEG.ALSUTRECHT.MWF.eyeBlinks.status                 = true;
+    EEG.ALSUTRECHT.MWF.eyeBlinks.status                 = 1;
     EEG.ALSUTRECHT.MWF.eyeBlinks.signalToErrorRatio     = SER;
     EEG.ALSUTRECHT.MWF.eyeBlinks.artifactToResidueRatio = ARR;
 
     fprintf(EEG.ALSUTRECHT.subject.fid,'Signal to error ratio:     %1.2f\n',SER);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Artifact to residue ratio: %1.2f\n',ARR);
 else
-    EEG.ALSUTRECHT.MWF.eyeBlinks.status                 = false;
+    EEG.ALSUTRECHT.MWF.eyeBlinks.status                 = 0;
     EEG.ALSUTRECHT.MWF.eyeBlinks.signalToErrorRatio     = NaN;
     EEG.ALSUTRECHT.MWF.eyeBlinks.artifactToResidueRatio = NaN;
 

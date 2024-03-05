@@ -10,6 +10,7 @@ chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
 chanecg  = strcmp({EEG.chanlocs.labels},'ECG');
 
 if any(chanecg)
+    % ECG recorded
     dataeeg  = EEG.data(chaneeg,:);
     dataecg  = EEG.data(chanecg,:);
 
@@ -101,11 +102,12 @@ if any(chanecg)
     assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask));
     noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
 
-    % Log info
+    % Log
     EEG.ALSUTRECHT.MWF.heartBeats.badElectrodes          = NaN;
     EEG.ALSUTRECHT.MWF.heartBeats.noiseMask              = noiseMask;
     EEG.ALSUTRECHT.MWF.heartBeats.proportionMarkedForMWF = mean(noiseMask,'omitnan');
 
+    fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.heartBeats.proportionMarkedForMWF);
     fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
     fprintf(EEG.ALSUTRECHT.subject.fid,'MWF (ECG) heart beats\n');
     fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
@@ -114,8 +116,6 @@ if any(chanecg)
     fprintf(EEG.ALSUTRECHT.subject.fid,'Number of heart beats detected:   %d\n',NECG);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Heart beat duration for MWF: %1.2f\n',TECG);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.heartBeats.proportionMarkedForMWF);
-
-    fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.heartBeats.proportionMarkedForMWF);
 
     if EEG.ALSUTRECHT.MWF.heartBeats.proportionMarkedForMWF>0.05
         [cleanEEG, d, W, SER, ARR] = mwf_process(dataeeg,noiseMask,8);
@@ -129,14 +129,14 @@ if any(chanecg)
 
         % EEG.ALSUTRECHT.MWF.heartBeats.estimatedArtifactInEachChannel = d;
         % EEG.ALSUTRECHT.MWF.heartBeats.matrixUsedToEstimateArtifacts  = W;
-        EEG.ALSUTRECHT.MWF.heartBeats.status                 = true;
+        EEG.ALSUTRECHT.MWF.heartBeats.status                 = 1;
         EEG.ALSUTRECHT.MWF.heartBeats.signalToErrorRatio     = SER;
         EEG.ALSUTRECHT.MWF.heartBeats.artifactToResidueRatio = ARR;
 
         fprintf(EEG.ALSUTRECHT.subject.fid,'Signal to error ratio:     %1.2f\n',SER);
         fprintf(EEG.ALSUTRECHT.subject.fid,'Artifact to residue ratio: %1.2f\n',ARR);
     else
-        EEG.ALSUTRECHT.MWF.heartBeats.status                 = false;
+        EEG.ALSUTRECHT.MWF.heartBeats.status                 = 0;
         EEG.ALSUTRECHT.MWF.heartBeats.signalToErrorRatio     = NaN;
         EEG.ALSUTRECHT.MWF.heartBeats.artifactToResidueRatio = NaN;
 
@@ -150,7 +150,10 @@ else
     fprintf(EEG.ALSUTRECHT.subject.fid,'MWF is not done as this participant does not have ECG recorded (but likely L/R earlobes instead).\n');
     fprintf('MWF is not done as this participant does not have ECG recorded (but likely L/R earlobes instead).\n');
         
-    EEG.ALSUTRECHT.MWF.heartBeats.status                 = false;
+    EEG.ALSUTRECHT.MWF.heartBeats.status                 = 0;
+    EEG.ALSUTRECHT.MWF.heartBeats.badElectrodes          = NaN;
+    EEG.ALSUTRECHT.MWF.heartBeats.noiseMask              = NaN;
+    EEG.ALSUTRECHT.MWF.heartBeats.proportionMarkedForMWF = NaN;
     EEG.ALSUTRECHT.MWF.heartBeats.signalToErrorRatio     = NaN;
     EEG.ALSUTRECHT.MWF.heartBeats.artifactToResidueRatio = NaN;
 end

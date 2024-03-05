@@ -1,11 +1,11 @@
 function EEG = reduce_artifacts(EEG,cfgbch)
 %
-% Detect artifacts and try to fix them using Multi-channel Wiener filter
+% Detect artifacts and minimise them using Multi-channel Wiener filter
 %
-%   3 sequential MWF:
-% - cleaning muscle activity first, then
-% - eye blinks, then
-% - horizontal eye movement and voltage drift
+% RELAXL: Three sequential MWF:
+% 1. cleaning muscle activity first, then
+% 2. eye blinks, then
+% 3. horizontal eye movement and voltage drift
 %
 
 % Remove external electrodes

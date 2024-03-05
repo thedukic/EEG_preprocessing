@@ -90,9 +90,9 @@ end
 for i = 1:NBLK
     EEG(i).ALSUTRECHT.badchaninfo.flatElectrodes = badElectrodes;
     if discrepflag
-        EEG(i).ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy = true;
+        EEG(i).ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy = 1;
     else
-        EEG(i).ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy = false;
+        EEG(i).ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy = 0;
     end
 end
 
