@@ -61,11 +61,15 @@ NEOG = length(locs);
 % plot(times(1:100*256),dataeog(1:100*256));
 % plot(locs(1:11),qrspeaks(1:11),'ro');
 
+EOGfocus = 250; % ms
+mspersamp = 1000/EEG.srate;
+EOGfocussamples = round(EOGfocus/mspersamp);
+fprintf('VEOG duration is +-%dms wrt the detected peaks.\n',EOGfocus);
+
 badEpoch2 = locs*EEG.srate;
-badEpoch2 = [badEpoch2-80; badEpoch2+80]';
+badEpoch2 = [badEpoch2-EOGfocussamples; badEpoch2+EOGfocussamples]';
 N = length(badEpoch2(1,1):badEpoch2(1,2));
-TEOG = (N-1)/2/EEG.srate*1000;
-fprintf('VEOG duration is +-%2.0fms wrt the detected peaks.\n',TEOG);
+% TEOG = (N-1)/2/EEG.srate*1000;
 
 badEpoch2(badEpoch2<1) = 1;
 badEpoch2(badEpoch2>EEG.pnts) = EEG.pnts;
@@ -135,7 +139,7 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'MWF (VEOG) eye blinks\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Eye blink amplitude threshold: %1.2f\n',treshold);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Number of eye blinks detected: %d\n',NEOG);
-fprintf(EEG.ALSUTRECHT.subject.fid,'Eye blink duration for MWF: %1.2f\n',TEOG);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Eye blink duration for MWF: %1.2f\n',2*EOGfocus);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.eyeBlinks.proportionMarkedForMWF);
 
 fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.eyeBlinks.proportionMarkedForMWF);

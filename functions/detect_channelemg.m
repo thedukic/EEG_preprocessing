@@ -2,8 +2,26 @@ function [EEG, badElectrodes, noiseMask] = detect_channelemg(EEG,cfgbch)
 %
 % Test whether frequency slope indicating high freq oscillations (EMG) is present
 % Based on: RELAX_excluding_channels_and_epoching / RELAX_excluding_extreme_values / RELAX_muscle
+%
+% MuscleSlopeThreshold: (-0.31 = data from paralysed participants showed no
+% independent components with a slope value more positive than this (so
+% excluding slopes above this threshold means only excluding data that we
+% know must be influenced by EMG). Using -0.31 as the threshold means
+% possibly leaving low level EMG data in, and only eliminating the data we
+% know is definitely EMG)
+% (-0.59 is where the histograms between paralysed ICs and EMG ICs cross,
+% so above this value contains a very small amount of the brain data, 
+% and over 50% of the EMG data. Above this point, data is more likely to be
+% EMG than brain)
+% (-0.72 is the maximum of the histogram of the paralysed IC data, so
+% excluding more positive values than this will exclude most of the EMG
+% data, but also some brain data).
+%
+% Fitzgibbon, S. P., DeLosAngeles, D., Lewis, T. W., Powers, D. M. W., Grummett, T. S., Whitham, E. M., ... & Pope, K. J. (2016). Automatic determination of EMG-contaminated components and validation of independent component analysis using EEG during pharmacologic paralysis. Clinical Neurophysiology, 127(3), 1781-1793.
+%
 % SDukic, March 2023
 %
+
 fprintf('\nMWF (EMG) muscle artifacts...\n');
 
 % Select only EEG

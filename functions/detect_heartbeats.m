@@ -27,8 +27,13 @@ if any(chanecg)
     times = EEG.times/1000; % EEGLAB time is in [ms]
     [qrspeaks,locs] = findpeaks(y,times,'MinPeakHeight',treshold,'MinPeakDistance',0.8);
 
+    ECGfocus = 150; % ms
+    mspersamp = 1000/EEG.srate;
+    ECGfocussamples = round(ECGfocus/mspersamp);
+    fprintf('ECG duration is +-%dms wrt the detected peaks.\n',ECGfocus);
+
     badEpoch2 = locs*EEG.srate;
-    badEpoch2 = [badEpoch2-50; badEpoch2+50]';
+    badEpoch2 = [badEpoch2-ECGfocussamples; badEpoch2+ECGfocussamples]';
     N = length(badEpoch2(1,1):badEpoch2(1,2));
 
     badEpoch2(badEpoch2<1) = 1;
@@ -64,13 +69,13 @@ if any(chanecg)
     print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ECG']),'-dtiff','-r400');
     close(fh);
 
-    badEpoch2 = locs*EEG.srate;
-    badEpoch2 = [badEpoch2-10; badEpoch2+15]';
-    N = length(badEpoch2(1,1):badEpoch2(1,2));
-    badEpoch2(badEpoch2<1) = 1;
-    badEpoch2(badEpoch2>EEG.pnts) = EEG.pnts;
-    TECG = (N-1)/2/EEG.srate*1000;
-    fprintf('ECG duration is +-%2.0fms wrt the detected peaks.\n',TECG);
+    % badEpoch2 = locs*EEG.srate;
+    % badEpoch2 = [badEpoch2-10; badEpoch2+15]';
+    % N = length(badEpoch2(1,1):badEpoch2(1,2));
+    % badEpoch2(badEpoch2<1) = 1;
+    % badEpoch2(badEpoch2>EEG.pnts) = EEG.pnts;
+    % TECG = (N-1)/2/EEG.srate*1000;
+    % fprintf('ECG duration is +-%2.0fms wrt the detected peaks.\n',TECG);
 
     % myCmap = brewermap(size(ECG,1),'Purples');
     % F = (0:size(ECG,2)-1)./EEG.srate;
@@ -114,7 +119,7 @@ if any(chanecg)
     fprintf(EEG.ALSUTRECHT.subject.fid,'Heart beat amplitude threshold:   %1.2f\n',treshold);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Heart beat correlation threshold: %1.2f\n',ctrsh);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Number of heart beats detected:   %d\n',NECG);
-    fprintf(EEG.ALSUTRECHT.subject.fid,'Heart beat duration for MWF: %1.2f\n',TECG);
+    fprintf(EEG.ALSUTRECHT.subject.fid,'Heart beat duration for MWF: %1.2f\n',2*ECGfocus);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.heartBeats.proportionMarkedForMWF);
 
     if EEG.ALSUTRECHT.MWF.heartBeats.proportionMarkedForMWF>0.05
@@ -149,7 +154,7 @@ else
     fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
     fprintf(EEG.ALSUTRECHT.subject.fid,'MWF is not done as this participant does not have ECG recorded (but likely L/R earlobes instead).\n');
     fprintf('MWF is not done as this participant does not have ECG recorded (but likely L/R earlobes instead).\n');
-        
+
     EEG.ALSUTRECHT.MWF.heartBeats.status                 = 0;
     EEG.ALSUTRECHT.MWF.heartBeats.badElectrodes          = NaN;
     EEG.ALSUTRECHT.MWF.heartBeats.noiseMask              = NaN;
