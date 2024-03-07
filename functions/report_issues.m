@@ -3,6 +3,12 @@ function EEG = report_issues(EEG,thisTask)
 if isfield(EEG,'data')
     % ALS number
     issues_to_check.aFileName = EEG.ALSUTRECHT.subject.id;
+    issues_to_check.NumberTrials1 = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);  % Total possible
+    if strcmpi(thisTask,'RS')
+        issues_to_check.NumberTrials2 = floor(length(EEG.times)/EEG.srate); % Left after preproc
+    else
+        issues_to_check.NumberTrials2 = size(EEG.data,3);
+    end
 
     % Bad electrodes
     issues_to_check.FlatElectrodesDiscrepancy = EEG.ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy;
@@ -75,11 +81,12 @@ if isfield(EEG,'data')
 
 else
     % The participant was not processed
-    issues_to_check.aFileName = EEG.ALSUTRECHT.subject.id;
-    issues_to_check.FlatElectrodesDiscrepancy = NaN;
-    issues_to_check.RejectedTooManyElectrodes = NaN;
+    issues_to_check.aFileName                              = EEG.ALSUTRECHT.subject.id;
+    issues_to_check.aFileName                              = NaN;
+    issues_to_check.FlatElectrodesDiscrepancy              = NaN;
+    issues_to_check.RejectedTooManyElectrodes              = NaN;
     issues_to_check.HighProportionExcludedAsExtremeOutlier = NaN;
-    issues_to_check.HighProportionOfEMG       = NaN;
+    issues_to_check.HighProportionOfEMG                    = NaN;
 
     % Note sure how to automate this part and not cheat
     % It will fail if any MWF steps are added/removed

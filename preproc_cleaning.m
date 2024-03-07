@@ -132,6 +132,11 @@ EEG = make_extbipolar(EEG,myfolders.task);
 % Cut block ends
 EEG = remove_datasetends(EEG,myfolders.task);
 
+% Mark where each RS block starts/ends
+if strcmpi(myfolders.task,'RS')
+    EEG = make_rsmasks(EEG,cellfun(@(x,y) size(x,2),{EEG(:).data}));
+end
+
 % Merge datasets
 EEG = pop_mergeset(EEG,1:NBLK);
 
@@ -145,11 +150,6 @@ end
 % % Merge datasets
 % EEG = pop_mergeset(EEG,1:NBLK);
 % if strcmpi(myfolders.task,'MT'), EMG = pop_mergeset(EMG,1:NBLK); end
-
-% Mark where each RS block starts/ends
-if strcmpi(myfolders.task,'RS')
-    EEG = make_rsmasks(EEG,cellfun(@(x,y) size(x,2),{EEG(:).data}));
-end
 
 % Make a copy
 EEGRAW = EEG;

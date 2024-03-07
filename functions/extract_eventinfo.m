@@ -117,13 +117,17 @@ elseif strcmp(thisTask,'MT')
             end
         end
 
-        eventinfo{i,3} = sum(eventinfo{i,1}==labels2(1) | eventinfo{i,1}==labels2(2) | eventinfo{i,1}==labels2(3));
+        eventinfo{i,3} = sum(eventinfo{i,1}==labels2(1) | eventinfo{i,1}==labels2(2) | eventinfo{i,1}==labels2(3))/3;
         eventinfo{i,4} = EEG(i).srate;
         fprintf('MT%d has %d trials.\n',i,floor(eventinfo{i,3}/3));
     end
-
 elseif strcmp(thisTask,'RS')
-    disp('Resting-state data does not have any events by default. Returning an empty variable...');
+    fprintf('Resting-state data does not have events by default. Returning only the number of possible 1s trials in each block.\n');
+    for i = 1:NBLK
+        eventinfo{i,3} = floor(length(EEG(i).times)/EEG(i).srate); % Should be an integer anyway!
+        eventinfo{i,4} = EEG(i).srate;
+        fprintf('RS%d has %d trials.\n',i,eventinfo{i,3});
+    end
 end
 
 % Log
