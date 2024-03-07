@@ -16,10 +16,11 @@ for j = 1:NBLK
     end
 end
 
-eo_mask = contains(EEG.ALSUTRECHT.subject.datablocks,'EO');
-
 % Log
-EEG.ALSUTRECHT.blockinfo.eo_mask = eo_mask;
-EEG.ALSUTRECHT.blockinfo.rs_mask = rs_mask;
+for i = 1:NBLK
+    eo_mask = contains(EEG(i).ALSUTRECHT.subject.datablocks,'EO');
+    EEG(i).ALSUTRECHT.blockinfo.eo_mask = eo_mask;
+    EEG(i).ALSUTRECHT.blockinfo.rs_mask = rs_mask;
+end
 
 end

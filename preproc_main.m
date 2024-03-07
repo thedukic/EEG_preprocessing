@@ -1,11 +1,8 @@
 %
 % EEG preprocessing main file
 %
-% 1. CUDICA must be set up, see instructions in external\eeglab2024.0\plugins\CudaICA
-% 2. Set double precision in EEGLAB (advanced) options
-% 3. Set/check paths (and settings):
-%    a. preproc_folders;
-%    b. preproc_parameters;
+% Read README.md for instructions
+%
 
 %% ========================================================================
 % Run the code below
@@ -27,6 +24,7 @@ for i = 1 % :length(myfiles.group)
         summaries(j,:) = struct2table(output,'AsArray',true);
     end
 
+    % Add that there is an overview of channels being rejected 
     % Save the summary report
     save(fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task]),'summaries');
     writetable(summaries,fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task '.xlsx']));

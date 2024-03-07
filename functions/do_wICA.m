@@ -98,6 +98,7 @@ if ~isempty(ICsArtifact)
             [rho0v, p0v] = corr(IC(ICsArtifact(i),:)',dataveog);
             [rho0h, p0h] = corr(IC(ICsArtifact(i),:)',dataheog);
 
+            % What if this fails?
             if abs(rho0v)>=abs(rho0h)
                 fprintf('This eye IC is similar to VEOG: r = %1.2f, p = %1.2f\n',rho0v,p0v);
                 dataeog = dataveog;
