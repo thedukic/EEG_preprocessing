@@ -77,13 +77,22 @@ close(fh);
 % (see also: eeglablist Digest, Vol 220, Issue 21)
 %
 
-fprintf(EEG.ALSUTRECHT.subject.fid,'Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:20)==1)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:20)==2)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:20)==3)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Heart   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:20)==4)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Line    components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:20)==5)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Channel components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:20)==6)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Other   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:20)==7)*100));
+K = 20; % Evaluate only the first 20 ICs s they carry the most power and thus relevance
+fprintf(EEG.ALSUTRECHT.subject.fid,'Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==1)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==2)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==3)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Heart   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==4)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Line    components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==5)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Channel components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==6)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Other   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==7)*100));
+
+fprintf('Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==1)*100));
+fprintf('Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==2)*100));
+fprintf('Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==3)*100));
+fprintf('Heart   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==4)*100));
+fprintf('Line    components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==5)*100));
+fprintf('Channel components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==6)*100));
+fprintf('Other   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==7)*100));
 
 % RELAX reporting:
 I = EEG.ALSUTRECHT.ica.ICLabel_cvec;
@@ -99,6 +108,9 @@ varianceWav = NaN(NICA,1);
 for i = 1:NICA
     [~, varianceWav(i)] = compvar(EEG.data,EEG.icaact,EEG.icawinv,i);
 end
+
+fprintf(EEG.ALSUTRECHT.subject.fid,'Total power of the first %d ICs: %2.0f\n', K,sum(varianceWav(1:K)));
+fprintf('Total power of the first %d ICs: %2.0f\n', K,sum(varianceWav(1:K)));
 
 BrainVariance    = sum(abs(varianceWav(ICsMostLikelyBrain)));
 ArtifactVariance = sum(abs(varianceWav(~ICsMostLikelyBrain)));

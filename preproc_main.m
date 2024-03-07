@@ -1,11 +1,9 @@
 %
 % EEG preprocessing main file
-%
-% Read README.md for instructions
-%
-
-%% ========================================================================
+% Check README.md for instructions
 % Run the code below
+
+% =========================================================================
 [myfolders, myfiles] = preproc_folders;
 
 for i = 1 % :length(myfiles.group)
@@ -31,4 +29,4 @@ for i = 1 % :length(myfiles.group)
     clearvars summaries
 end
 
-%% ========================================================================
+% =========================================================================

@@ -189,7 +189,7 @@ end
 EEG.data = EEG.data - (sum(EEG.data,1)/(EEG.nbchan+1));
 EEG.ref  = 'average';
 
-% Remove extreme periods, temporarily maybe?
+% Remove extreme periods
 if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
     EEG = eeg_eegrej(EEG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
     EXT = eeg_eegrej(EXT, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
@@ -236,14 +236,14 @@ if strcmpi(myfolders.task,'MMN')
     EXT  = pop_epoch(EXT,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0),cfg.trg.mmn{2},'epochinfo','yes');
     EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0] ,[]);
 end
-% Epoch SART: 1. wrt visual stimuli and 2. wrt response time
+% Epoch SART: 1. wrt visual stimuli and 2. wrt response times
 if strcmpi(myfolders.task,'SART')
     EEG0 = EEG; EXT0 = EXT;
     EEG = pop_epoch(EEG0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart1{1},'Uniformoutput',0),cfg.trg.sart1{2},'epochinfo','yes');
     EXT = pop_epoch(EXT0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart1{1},'Uniformoutput',0),cfg.trg.sart1{2},'epochinfo','yes');
     EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0] ,[]);
 
-    % This does not make sure that epochs are only from correct Go 
+    % This does not make sure that epochs are only from correct Go
     EEG2 = pop_epoch(EEG0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart2{1},'Uniformoutput',0),cfg.trg.sart2{2},'epochinfo','yes');
     EXT2 = pop_epoch(EXT0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart2{1},'Uniformoutput',0),cfg.trg.sart2{2},'epochinfo','yes');
     EEG2 = pop_rmbase(EEG2,[(EEG2.xmin)*1000 0] ,[]);
@@ -275,6 +275,9 @@ if strcmpi(myfolders.task,'SART'), EEG2 = do_wICA(EEG2); end
 
 % Visually check the cleaning
 compare_visually(EEG,EEGRAW,myfolders.task,cfg.trg);
+
+% Report muscle and blinks artifact leftovers
+EEG = report_leftovers(EEG);
 
 % Merge EMG
 if strcmpi(myfolders.task,'MT')

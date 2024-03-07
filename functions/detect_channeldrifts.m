@@ -9,23 +9,30 @@ fprintf('\nMWF (HEOG) horizontal eye movements...\n');
 
 % Select only EEG + HEOG
 chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
-chaneog  = strcmp({EEG.chanlocs.labels},'HEOG');
+chanheog  = strcmp({EEG.chanlocs.labels},'HEOG');
+chanveog  = strcmp({EEG.chanlocs.labels},'VEOG');
 dataEEG0 = EEG.data(chaneeg,:);
-dataeog  = EEG.data(chaneog,:);
+dataheog  = EEG.data(chanheog,:);
+dataveog  = EEG.data(chanveog,:);
 
 % =========================================================================
 % HEOG
 % Temporarily filter  HEOG, bandpass 1-25 Hz
-[bl, al] = butter(2,5/(EEG.srate/2),'low');
+[bl, al] = butter(4,25/(EEG.srate/2),'low');
 assert(isstable(bl,al));
-dataeog = filtfilt(bl,al,dataeog);
-dataeog = abs(dataeog);
+dataheog = filtfilt(bl,al,dataheog);
+dataheog = abs(dataheog);
 
-% See: RELAX_blinks_IQR_method
-EOGIQR = iqr(dataeog);
-EOG75P = prctile(dataeog,75);
-treshold = EOG75P + 1.5*EOGIQR;
-eyeBlinksEpochs = dataeog>=treshold;
+% HEOG treshold
+EOGIQR = iqr(dataheog);
+EOG75P = prctile(dataheog,75);
+tresholdh = EOG75P + 1.5*EOGIQR;
+eyeBlinksEpochs = dataheog>=tresholdh;
+
+% VEOG treshold
+EOGIQR = iqr(dataveog);
+EOG75P = prctile(dataveog,75);
+tresholdv = EOG75P + 3*EOGIQR;
 
 noiseMask1 = zeros(1,EEG.pnts);
 if any(eyeBlinksEpochs)
@@ -44,7 +51,7 @@ if any(eyeBlinksEpochs)
         jumpStart = jump(1:2:end);
         jumpStop  = jump(2:2:end);
 
-        EOGfocus = 200; % ms
+        EOGfocus = 250; % ms
         EOGfocussamples = round(EOGfocus/mspersamp);
 
         jumpStart = jumpStart-EOGfocussamples;
@@ -52,12 +59,31 @@ if any(eyeBlinksEpochs)
         jumpStop = jumpStop+EOGfocussamples;
         jumpStop(jumpStop>EEG.pnts) = EEG.pnts;
 
+        actuallyBlinks = false(NHEOG,1);
+        for i = 1:NHEOG
+            actuallyBlinks(i) = any(dataveog(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i)))>=tresholdv);
+        end
+
+        eyeBlinksEpochs(actuallyBlinks) = [];
+        % jumpStart(actuallyBlinks)       = [];
+        % jumpStop(actuallyBlinks)        = [];
+        NHEOG = length(eyeBlinksEpochs);
+
+        % % Check: A lot of times HEOG captures blinks too !!!
+        % EEGTMP = EEG;
+        % mask = false(size(EEGTMP.times));
+        % for i = 1:NHEOG
+        %     mask(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i))) = true;
+        % end
+        % EEGTMP.data(:,~mask) = 0;
+        % vis_artifacts(EEG,EEGTMP);
+
         fh = figure; hold on;
         durheog = NaN(NHEOG,1);
         for i = 1:NHEOG
-            y = dataeog(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i)));
+            y = dataheog(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i)));
             durheog(i) = length(y);
-            t = linspace(0,1,durheog(i));
+            t = linspace(-0.5,0.5,durheog(i));
             plot(t,y,'LineWidth',1.2);
         end
         set(gca,'ColorOrder',brewermap(NHEOG,'BuGn'));
@@ -159,22 +185,22 @@ assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask
 noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
 
 % Log info
-EEG.ALSUTRECHT.MWF.drift.badElectrodes          = badElectrodes;
-EEG.ALSUTRECHT.MWF.drift.noiseMask              = noiseMask;
-EEG.ALSUTRECHT.MWF.drift.proportionMarkedForMWF = mean(noiseMask,'omitnan');
+EEG.ALSUTRECHT.MWF.R3.badElectrodes          = badElectrodes;
+EEG.ALSUTRECHT.MWF.R3.noiseMask              = noiseMask;
+EEG.ALSUTRECHT.MWF.R3.proportionMarkedForMWF = mean(noiseMask,'omitnan');
 
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'MWF (HEOG) horizontal eye movements\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
-fprintf(EEG.ALSUTRECHT.subject.fid,'Horizontal eye movement amplitude threshold: %1.2f\n',treshold);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Horizontal eye movement amplitude threshold: %1.2f\n',tresholdh);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Number of horizontal eye movements detected: %d\n',NHEOG);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Average horizontal eye movement duration detected: %1.2f\n',TEOG);
 % fprintf(EEG.ALSUTRECHT.subject.fid,'Number of slow drifts detected: %d\n',length(driftEEGEpochs));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.drift.proportionMarkedForMWF);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R3.proportionMarkedForMWF);
 
-fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.drift.proportionMarkedForMWF);
+fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R3.proportionMarkedForMWF);
 
-if EEG.ALSUTRECHT.MWF.drift.proportionMarkedForMWF>0.05
+if EEG.ALSUTRECHT.MWF.R3.proportionMarkedForMWF>0.05
     [cleanEEG, d, W, SER, ARR] = mwf_process(dataEEG0,noiseMask,8);
 
     % EEG0 = EEG;
@@ -183,18 +209,18 @@ if EEG.ALSUTRECHT.MWF.drift.proportionMarkedForMWF>0.05
 
     EEG.data(chaneeg,:) = cleanEEG;
 
-    % EEG.ALSUTRECHT.MWF.drift.estimatedArtifactInEachChannel = d;
-    % EEG.ALSUTRECHT.MWF.drift.matrixUsedToEstimateArtifacts  = W;
-    EEG.ALSUTRECHT.MWF.drift.status                 = 1;
-    EEG.ALSUTRECHT.MWF.drift.signalToErrorRatio     = SER;
-    EEG.ALSUTRECHT.MWF.drift.artifactToResidueRatio = ARR;
+    % EEG.ALSUTRECHT.MWF.R3.estimatedArtifactInEachChannel = d;
+    % EEG.ALSUTRECHT.MWF.R3.matrixUsedToEstimateArtifacts  = W;
+    EEG.ALSUTRECHT.MWF.R3.status                 = 1;
+    EEG.ALSUTRECHT.MWF.R3.signalToErrorRatio     = SER;
+    EEG.ALSUTRECHT.MWF.R3.artifactToResidueRatio = ARR;
 
     fprintf(EEG.ALSUTRECHT.subject.fid,'Signal to error ratio:     %1.2f\n',SER);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Artifact to residue ratio: %1.2f\n',ARR);
 else
-    EEG.ALSUTRECHT.MWF.drift.status                 = 0;
-    EEG.ALSUTRECHT.MWF.drift.signalToErrorRatio     = NaN;
-    EEG.ALSUTRECHT.MWF.drift.artifactToResidueRatio = NaN;
+    EEG.ALSUTRECHT.MWF.R3.status                 = 0;
+    EEG.ALSUTRECHT.MWF.R3.signalToErrorRatio     = NaN;
+    EEG.ALSUTRECHT.MWF.R3.artifactToResidueRatio = NaN;
 
     fprintf(EEG.ALSUTRECHT.subject.fid,'MWF will not be done. Too little data.\n');
     fprintf('MWF will not be done. Too little data.\n');
