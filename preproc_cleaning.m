@@ -151,8 +151,8 @@ end
 % EEG = pop_mergeset(EEG,1:NBLK);
 % if strcmpi(myfolders.task,'MT'), EMG = pop_mergeset(EMG,1:NBLK); end
 
-% Make a copy
-EEGRAW = EEG;
+% % Make a copy
+% EEGRAW = EEG;
 
 % Remove electrode wobbles and pops
 EEG = remove_electrodewobbles(EEG);
@@ -204,8 +204,8 @@ end
 % Epoch MT data before ICA, as there is often a lot of noise in between trials
 if strcmpi(myfolders.task,'MT')
     EEG = pop_epoch(EEG,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
-    EXT  = pop_epoch(EXT,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
-    EMG  = pop_epoch(EMG,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
+    EXT = pop_epoch(EXT,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
+    EMG = pop_epoch(EMG,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
     EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0] ,[]);
 end
 
@@ -274,9 +274,9 @@ EEG = do_wICA(EEG);
 if strcmpi(myfolders.task,'SART'), EEG2 = do_wICA(EEG2); end
 
 % Visually check the cleaning
-compare_visually(EEG,EEGRAW,myfolders.task,cfg.trg);
+% compare_visually(EEG,EEGRAW,myfolders.task,cfg.trg);
 
-% Report muscle and blinks artifact leftovers
+% Report muscle and blink artifact leftovers
 EEG = report_leftovers(EEG);
 
 % Merge EMG
@@ -300,7 +300,8 @@ end
 % Close the report
 t1 = datetime("now");
 dd = round(minutes(diff([t0 t1])));
-fprintf(subject.fid,'\nFinish: %s\n',t1);
+% fprintf('\n\n%s | %s | %s dataset\n',myfolders.group,subject.id,myfolders.task);
+fprintf(subject.fid,'Finish: %s\n',t1);
 fprintf(subject.fid,'Running time: %d min.\n',dd);
 fclose(subject.fid);
 

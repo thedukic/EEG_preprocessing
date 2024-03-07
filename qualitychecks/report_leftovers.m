@@ -100,7 +100,8 @@ mspersamp = 1000/EEG.srate;
 EOGfocussamples = round(EOGfocus/mspersamp);
 fprintf('VEOG evaluation window is %ds around the detected peaks.\n',2*EOGfocus/1000);
 
-times = EEG.times/1000; % EEGLAB time is in [ms]
+% times = EEG.times/1000; % EEGLAB time is in [ms]
+times = (0:prod(size(EEG.data,[2 3]))-1)./EEG.srate;
 [qrspeaks,locs] = findpeaks(dataeog,times,'MinPeakHeight',treshold);
 
 % figure; hold on;
@@ -222,6 +223,6 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Leftovers: eye blink artifacts\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover eye blink artifact: %1.1f%%\n', (mean(BlinkAmplitudeRatio)-1)*100);
 
-EEG.ALSUTRECHT.leftovers.eye = BlinkAmplitudeRatio;
+EEG.ALSUTRECHT.leftovers.blinks = BlinkAmplitudeRatio;
 
 end

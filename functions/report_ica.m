@@ -77,7 +77,17 @@ close(fh);
 % (see also: eeglablist Digest, Vol 220, Issue 21)
 %
 
-K = 20; % Evaluate only the first 20 ICs s they carry the most power and thus relevance
+% Evaluate only the first 20 ICs s they carry the most power and thus relevance
+K = 20;
+
+% Power
+varianceWav = NaN(NICA,1);
+for i = 1:NICA
+    [~, varianceWav(i)] = compvar(EEG.data,EEG.icaact,EEG.icawinv,i);
+end
+powK = round(sum(varianceWav(1:K))./sum(varianceWav)*100);
+
+fprintf(EEG.ALSUTRECHT.subject.fid,'Within the first %d ICs (power = %d):\n', K,powK);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==1)*100));
 fprintf(EEG.ALSUTRECHT.subject.fid,'Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==2)*100));
 fprintf(EEG.ALSUTRECHT.subject.fid,'Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==3)*100));
@@ -86,6 +96,7 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Line    components: %2.0f%%\n', round(mean(E
 fprintf(EEG.ALSUTRECHT.subject.fid,'Channel components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==6)*100));
 fprintf(EEG.ALSUTRECHT.subject.fid,'Other   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==7)*100));
 
+fprintf('Within the first %d ICs (power = %d):\n', K,powK);
 fprintf('Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==1)*100));
 fprintf('Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==2)*100));
 fprintf('Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==3)*100));
@@ -103,14 +114,6 @@ ICsMostLikelyHeart        = (I==4)';
 ICsMostLikelyLineNoise    = (I==5)';
 ICsMostLikelyChannelNoise = (I==6)';
 ICsMostLikelyOther        = (I==7)';
-
-varianceWav = NaN(NICA,1);
-for i = 1:NICA
-    [~, varianceWav(i)] = compvar(EEG.data,EEG.icaact,EEG.icawinv,i);
-end
-
-fprintf(EEG.ALSUTRECHT.subject.fid,'Total power of the first %d ICs: %2.0f\n', K,sum(varianceWav(1:K)));
-fprintf('Total power of the first %d ICs: %2.0f\n', K,sum(varianceWav(1:K)));
 
 BrainVariance    = sum(abs(varianceWav(ICsMostLikelyBrain)));
 ArtifactVariance = sum(abs(varianceWav(~ICsMostLikelyBrain)));

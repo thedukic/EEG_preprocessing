@@ -158,6 +158,9 @@ end
 parse(p,varargin{:},'chans',nchans,'frames',nframes);
 Args = p.Results;
 
+% SDukic edit, March 2024
+Args.verbose = 'off';
+
 % Change snnealstep according to using extended ICA or not (see runica.m).
 if Args.extended == 1
     Args.annealstep = num2str(0.98);

@@ -3,7 +3,7 @@ function EEG = report_issues(EEG,thisTask)
 if isfield(EEG,'data')
     % ALS number
     issues_to_check.aFileName = EEG.ALSUTRECHT.subject.id;
-    issues_to_check.NumberTrials1 = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);  % Total possible
+    issues_to_check.NumberTrials1 = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);   % Total possible
     if strcmpi(thisTask,'RS')
         issues_to_check.NumberTrials2 = floor(length(EEG.times)/EEG.srate); % Left after preproc
     else
@@ -76,8 +76,17 @@ if isfield(EEG,'data')
         end
     end
 
-    % Log
-    EEG.ALSUTRECHT.issues_to_check = issues_to_check;
+    % Leftovers
+    if EEG.ALSUTRECHT.leftovers.muscle>0.25
+        issues_to_check.MuscleLeftovers = EEG.ALSUTRECHT.leftovers.muscle;
+    else
+        issues_to_check.MuscleLeftovers = 0;
+    end
+    if abs(mean(EEG.ALSUTRECHT.leftovers.blinks)-1)>0.05
+        issues_to_check.EyeLeftovers = mean(EEG.ALSUTRECHT.leftovers.blinks)-1;
+    else
+        issues_to_check.EyeLeftovers    = 0;
+    end
 
 else
     % The participant was not processed
@@ -98,14 +107,19 @@ else
             issues_to_check.(['MWF' MFWrounds{j} 'BadData']) =  NaN;
         end
     end
+
     issues_to_check.DataTooShortForValidICA     = NaN;
     issues_to_check.HighProportionOfArtifactICs = NaN;
+
     if strcmpi(thisTask,'RS')
         issues_to_check.ECEyeBinksDetected = NaN;
     end
 
-    % Log
-    EEG.ALSUTRECHT.issues_to_check = issues_to_check;
+    issues_to_check.MuscleLeftovers = NaN;
+    issues_to_check.EyeLeftovers    = NaN;
 end
+
+% Log
+EEG.ALSUTRECHT.issues_to_check = issues_to_check;
 
 end
