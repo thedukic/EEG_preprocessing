@@ -1,5 +1,8 @@
 function compare_visually(EEG,EEGRAW,thisTask,theseTriggers)
 
+% What to do with missing flat electrodes in EEGRAW?
+EEG = pop_select(EEG,'nochannel',EEG.ALSUTRECHT.badchaninfo.flatElectrodes);
+
 % Remove extreme periods
 if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
     EEGRAW = eeg_eegrej(EEGRAW, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);

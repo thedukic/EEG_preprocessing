@@ -15,13 +15,15 @@ function EEG = reduce_artifacts(EEG,cfgbch)
 % is best (as long as that leaves enough clean data for the clean data
 % mask). Somers et al. (2018) suggest that it doesn't hurt to
 % include clean data in the artifact mask, and so it's helpful to have wide
-% boundaries around artifacts. 
+% boundaries around artifacts.
 
-% Clean periods that last for a shorter duration than the following value to be marked as artifacts, 
-% and pad short artifact periods out into artifact periods of at least the following length when 
-% they are shorter than this value to reduce rank deficiency issues in MWF cleaning). 
+% Clean periods that last for a shorter duration than the following value to be marked as artifacts,
+% and pad short artifact periods out into artifact periods of at least the following length when
+% they are shorter than this value to reduce rank deficiency issues in MWF cleaning).
 % Note that it's better to include clean periods in the artifact mask rather than the including artifact in the clean mask.
 
+% Good performance of the artifact removal algorithm is indicated by 
+% both high SERand high ARR.
 
 % Remove external electrodes
 % EEG0 = pop_select(EEG,'nochannel',{EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels});
@@ -33,19 +35,19 @@ function EEG = reduce_artifacts(EEG,cfgbch)
 % EEG = detect_channelpops(EEG,cfgbch);
 
 % =========================================================================
-% 2. Detect and remove EMG
+% 2. MWF round 1: Detect and remove EMG
 EEG = detect_channelemg(EEG,cfgbch);
 
 % =========================================================================
-% 3. Detect and remove VEOG / eye blinks
+% 3. MWF round 2: Detect and remove VEOG / eye blinks
 EEG = detect_eyeblinks(EEG);
 
 % =========================================================================
-% 4. Detect and remove HEOG / slow drifts
+% 4. MWF round 3: Detect and remove HEOG / slow drifts
 EEG = detect_channeldrifts(EEG);
 
 % =========================================================================
-% 5. Detect and remove ECG
+% 5. MWF round 4: Detect and remove ECG - too much?
 EEG = detect_heartbeats(EEG);
 
 % =========================================================================

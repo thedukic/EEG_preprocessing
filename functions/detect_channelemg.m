@@ -26,19 +26,19 @@ fprintf('\nMWF (EMG) muscle artifacts...\n');
 
 % Select only EEG
 chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-dataEEG = EEG.data(chaneeg,:);
+dataeeg = EEG.data(chaneeg,:);
 
 % Epoch into 1s (or maybe better into 1s with 0.5 overlap, but OK)
 L = EEG.srate;
-N = floor(size(dataEEG,2)/L);
-dataEEG = reshape(dataEEG(:,1:N*L),sum(chaneeg),L,N);
+N = floor(size(dataeeg,2)/L);
+dataeeg = reshape(dataeeg(:,1:N*L),sum(chaneeg),L,N);
 
 % Compute (log) power spectra (7-75 Hz)
-[NCHN,NPTS,NTRL]= size(dataEEG);
+[NCHN,NPTS,NTRL]= size(dataeeg);
 NWIN = NPTS;
 psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
 for i = 1:NTRL
-    [psdspectra(:,:,i),freq] = pwelch(dataEEG(:,:,i)',NWIN,0,NWIN,EEG.srate);
+    [psdspectra(:,:,i),freq] = pwelch(dataeeg(:,:,i)',NWIN,0,NWIN,EEG.srate);
 end
 
 foi = [7 75];
@@ -171,16 +171,16 @@ assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask
 noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
 
 % Log info
-EEG.ALSUTRECHT.MWF.EMG.badElectrodes          = badElectrodes;
-EEG.ALSUTRECHT.MWF.EMG.noiseMask              = noiseMask;
-EEG.ALSUTRECHT.MWF.EMG.proportionMarkedForMWF = mean(noiseMask,'omitnan');
-EEG.ALSUTRECHT.MWF.EMG.ProportionOfDataShowingMuscleActivityTotal = ProportionOfDataShowingMuscleActivityTotal;
+EEG.ALSUTRECHT.MWF.R1.badElectrodes          = badElectrodes;
+EEG.ALSUTRECHT.MWF.R1.noiseMask              = noiseMask;
+EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF = mean(noiseMask,'omitnan');
+EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal = ProportionOfDataShowingMuscleActivityTotal;
 
-fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.EMG.proportionMarkedForMWF);
-fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.EMG.proportionMarkedForMWF);
+fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF);
 
-if EEG.ALSUTRECHT.MWF.EMG.proportionMarkedForMWF>0.05
-    [cleanEEG, d, W, SER, ARR] = mwf_process(dataEEG(:,:),noiseMask,8);
+if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF>0.05
+    [cleanEEG, d, W, SER, ARR] = mwf_process(dataeeg(:,:),noiseMask,8);
 
     % % Check
     % EEG0 = EEG;
@@ -189,18 +189,18 @@ if EEG.ALSUTRECHT.MWF.EMG.proportionMarkedForMWF>0.05
 
     EEG.data(chaneeg,:) = cleanEEG;
 
-    % EEG.ALSUTRECHT.MWF.EMG.estimatedArtifactInEachChannel = d;
-    % EEG.ALSUTRECHT.MWF.EMG.matrixUsedToEstimateArtifacts  = W;
-    EEG.ALSUTRECHT.MWF.EMG.status                 = 1;
-    EEG.ALSUTRECHT.MWF.EMG.signalToErrorRatio     = SER;
-    EEG.ALSUTRECHT.MWF.EMG.artifactToResidueRatio = ARR;
+    % EEG.ALSUTRECHT.MWF.R1.estimatedArtifactInEachChannel = d;
+    % EEG.ALSUTRECHT.MWF.R1.matrixUsedToEstimateArtifacts  = W;
+    EEG.ALSUTRECHT.MWF.R1.status                 = 1;
+    EEG.ALSUTRECHT.MWF.R1.signalToErrorRatio     = SER;
+    EEG.ALSUTRECHT.MWF.R1.artifactToResidueRatio = ARR;
 
     fprintf(EEG.ALSUTRECHT.subject.fid,'Signal to error ratio:     %1.2f\n',SER);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Artifact to residue ratio: %1.2f\n',ARR);
 else
-    EEG.ALSUTRECHT.MWF.EMG.status                 = 0;
-    EEG.ALSUTRECHT.MWF.EMG.signalToErrorRatio     = NaN;
-    EEG.ALSUTRECHT.MWF.EMG.artifactToResidueRatio = NaN;
+    EEG.ALSUTRECHT.MWF.R1.status                 = 0;
+    EEG.ALSUTRECHT.MWF.R1.signalToErrorRatio     = NaN;
+    EEG.ALSUTRECHT.MWF.R1.artifactToResidueRatio = NaN;
 
     fprintf(EEG.ALSUTRECHT.subject.fid,'MWF will not be done. Too little data.\n');
     fprintf('MWF will not be done. Too little data.\n');

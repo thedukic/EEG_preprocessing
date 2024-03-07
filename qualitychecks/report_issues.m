@@ -24,8 +24,8 @@ if isfield(EEG,'data')
     else
         issues_to_check.HighProportionExcludedAsExtremeOutlier = 0;
     end
-    if EEG.ALSUTRECHT.MWF.EMG.ProportionOfDataShowingMuscleActivityTotal > 0.5
-        issues_to_check.HighProportionOfEMG = EEG.ALSUTRECHT.MWF.EMG.ProportionOfDataShowingMuscleActivityTotal;
+    if EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal > 0.5
+        issues_to_check.HighProportionOfEMG = EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal;
     else
         issues_to_check.HighProportionOfEMG = 0;
     end
@@ -82,20 +82,21 @@ if isfield(EEG,'data')
 else
     % The participant was not processed
     issues_to_check.aFileName                              = EEG.ALSUTRECHT.subject.id;
-    issues_to_check.aFileName                              = NaN;
+    issues_to_check.NumberTrials1                          = NaN;
+    issues_to_check.NumberTrials2                          = NaN;
     issues_to_check.FlatElectrodesDiscrepancy              = NaN;
     issues_to_check.RejectedTooManyElectrodes              = NaN;
     issues_to_check.HighProportionExcludedAsExtremeOutlier = NaN;
     issues_to_check.HighProportionOfEMG                    = NaN;
 
     % Note sure how to automate this part and not cheat
-    % It will fail if any MWF steps are added/removed
-    % MFWrounds = fields(EEG.ALSUTRECHT.MWF);
-    MFWrounds = {'EMG','eyeBlinks','drift','heartBeats'};
+    MFWrounds = {'R1','R2','R3','R4'}; % Max 4 MWF rounds of cleaning
     for j = 1:length(MFWrounds)
-        issues_to_check.(['MWF' MFWrounds{j} 'Status1']) =  NaN;
-        issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  NaN;
-        issues_to_check.(['MWF' MFWrounds{j} 'BadData']) =  NaN;
+        if isfield(issues_to_check,['MWF' MFWrounds{j} 'Status1'])
+            issues_to_check.(['MWF' MFWrounds{j} 'Status1']) =  NaN;
+            issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  NaN;
+            issues_to_check.(['MWF' MFWrounds{j} 'BadData']) =  NaN;
+        end
     end
     issues_to_check.DataTooShortForValidICA     = NaN;
     issues_to_check.HighProportionOfArtifactICs = NaN;
