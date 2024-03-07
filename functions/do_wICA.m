@@ -172,6 +172,7 @@ if ~isempty(ICsArtifact)
     % % [pow, freq] = checkpowerspectrum(NOISE,1:5,[]);
 else
     fprintf('Skipping wavelet thresholding since there ar no obvious bad ICs detected...\n');
+    NBIC = 0;
 end
 
 %% Log
