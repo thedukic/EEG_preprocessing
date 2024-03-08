@@ -101,11 +101,9 @@ else
     % Note sure how to automate this part and not cheat
     MFWrounds = {'R1','R2','R3','R4'}; % Max 4 MWF rounds of cleaning
     for j = 1:length(MFWrounds)
-        if isfield(issues_to_check,['MWF' MFWrounds{j} 'Status1'])
             issues_to_check.(['MWF' MFWrounds{j} 'Status1']) =  NaN;
             issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  NaN;
             issues_to_check.(['MWF' MFWrounds{j} 'BadData']) =  NaN;
-        end
     end
 
     issues_to_check.DataTooShortForValidICA     = NaN;

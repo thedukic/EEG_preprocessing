@@ -15,7 +15,7 @@ for i = 1 % :length(myfiles.group)
     myfolders.preproc = fullfile(myfolders.rootpreproc,myfolders.task,myfolders.group,myfolders.visit);
 
     subjects = list_subjects(myfolders.rawdata,[]);
-    for j = 1:length(subjects)
+    for j = 7:length(subjects)
         output = preproc_cleaning(myfolders,subjects{j});
 
         % Record warnings for all participants in single table
