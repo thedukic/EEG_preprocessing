@@ -1,4 +1,4 @@
-function [EEG, badElectrodes, noiseMask] = detect_channelemg(EEG,cfgbch)
+function [EEG, badElectrodes, noiseMask] = mwf_channelemg(EEG,cfgbch)
 %
 % Test whether frequency slope indicating high freq oscillations (EMG) is present
 % Based on: RELAX_excluding_channels_and_epoching / RELAX_excluding_extreme_values / RELAX_muscle

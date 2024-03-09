@@ -18,7 +18,7 @@ subject.id      = id;
 subject.rawdata = fullfile(myfolders.rawdata, subject.id);
 subject.preproc = fullfile(myfolders.preproc, subject.id);
 % subject.icapath = fullfile(subject.preproc, cfg.ica.type);
-subject.icafile = [subject.id '_' myfolders.visit '_' myfolders.task '_icadata_' cfg.rnum];
+% subject.icafile = [subject.id '_' myfolders.visit '_' myfolders.task '_icadata_' cfg.rnum];
 subject.clnfile = [subject.id '_' myfolders.visit '_' myfolders.task '_cleandata_' cfg.rnum '.mat'];
 
 % Find datasets to load
@@ -160,14 +160,15 @@ EEG = remove_electrodewobbles(EEG);
 % Detect and remove noisy electrodes
 EEG = remove_noisyelec(EEG,cfg.bch);
 
-% Bad channel log/report
-EEG = report_badelectrodes(EEG);
+% Log/report bad channel 
+EEG = report_badelectrodes(EEG,'individual');
 
 % Detecte extremely bad epochs
 % EEGM = detect_extremelybadepochs(EEGM); % Too sensitive?
 EEG = detect_extremelybadepochs2(EEG);
 
 % Check if EC has eye blinks
+% Estiamte blinks in EO and compair to detections in EC
 if strcmpi(myfolders.task,'RS')
     EEG = check_eyesclosedeyeblinks(EEG); % Too sensitive?
 end

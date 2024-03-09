@@ -141,7 +141,7 @@ eyeBlinksEpochs = eyeBlinksEpochs(goodEyeBlinks,:);
 NEOG = size(eyeBlinksEpochs,1);
 fprintf('Number of detected peaks is %d.\n',NEOG);
 
-if NEOG>15
+if NEOG>4
     % % Check
     % EEGTMP = EEG;
     % mask = false(size(EEGTMP.times));

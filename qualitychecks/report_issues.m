@@ -11,6 +11,7 @@ if isfield(EEG,'data')
     end
 
     % Bad electrodes
+    % issues_to_check.badElectrodes             = EEG.ALSUTRECHT.badchaninfo.badElectrodes;
     issues_to_check.FlatElectrodesDiscrepancy = EEG.ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy;
     if length(EEG.ALSUTRECHT.badchaninfo.badElectrodes)/128>0.2
         issues_to_check.RejectedTooManyElectrodes = length(EEG.ALSUTRECHT.badchaninfo.badElectrodes);
@@ -93,13 +94,14 @@ else
     issues_to_check.aFileName                              = EEG.ALSUTRECHT.subject.id;
     issues_to_check.NumberTrials1                          = NaN;
     issues_to_check.NumberTrials2                          = NaN;
+    % issues_to_check.badElectrodes                          = NaN;
     issues_to_check.FlatElectrodesDiscrepancy              = NaN;
     issues_to_check.RejectedTooManyElectrodes              = NaN;
     issues_to_check.HighProportionExcludedAsExtremeOutlier = NaN;
     issues_to_check.HighProportionOfEMG                    = NaN;
 
     % Note sure how to automate this part and not cheat
-    MFWrounds = {'R1','R2','R3','R4'}; % Max 4 MWF rounds of cleaning
+    MFWrounds = {'R1','R2','R3'}; % Max 4 MWF rounds of cleaning
     for j = 1:length(MFWrounds)
             issues_to_check.(['MWF' MFWrounds{j} 'Status1']) =  NaN;
             issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  NaN;

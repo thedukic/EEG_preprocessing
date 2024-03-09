@@ -1,60 +1,16 @@
-function [EEG, noiseMask] = detect_eyeblinks(EEG)
+function [EEG, noiseMask] = mwf_eyeblinks(EEG)
 %
 % Test whether only eye blinks are present using bipolar VEOG
 % SDukic, March 2023
 %
 fprintf('\nMWF (VEOG) eye blinks...\n');
 
-% Select only EEG + VEOG
+% Select EEG
 chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
-chaneog  = strcmp({EEG.chanlocs.labels},'VEOG');
 dataeeg  = EEG.data(chaneeg,:);
-dataeog  = EEG.data(chaneog,:);
 
-% Temporarily filter VEOG, bandpass 1-25 Hz
-% FNYQ = EEG.srate/2;
-% [bl, al] = butter(2,25/FNYQ,'low');
-% [bh, ah] = butter(2,1/FNYQ,'high');
-% assert(isstable(bl,al));
-% assert(isstable(bh,ah));
-% dataeog = filtfilt(bh,ah,filtfilt(bl,al,dataeog'))';
-% assert(isstable(bh,ah));
-
-% % Temporarily filter VEOG, lowpass 6 Hz
-% [bl, al] = butter(2,6/(EEG.srate/2),'low');
-% assert(isstable(bl,al));
-% dataeog = filtfilt(bl,al,dataeog);
-% % dataeog = abs(dataeog);
-
-% See: RELAX_blinks_IQR_method
-EOGIQR = iqr(dataeog);
-EOG75P = prctile(dataeog,75);
-treshold = EOG75P + 3*EOGIQR;
-
-% Approach 1: Detect eye blinks
-% eyeBlinksEpochs = dataeog>=treshold;
-%
-% % Epoch into 1s
-% L = EEG.srate;
-% N = floor(length(eyeBlinksEpochs)/L);
-% dataeog = reshape(dataeog(1:N*L),L,N);
-% % eyeBlinksEpochs = any(reshape(eyeBlinksEpochs(1:N*L),L,N));
-% eyeBlinksEpochs = reshape(eyeBlinksEpochs(1:N*L),L,N);
-%
-% % Binks should last at least this long [ms]
-% mspersamp = 1000/EEG.srate;
-% minpopdur = round(50/mspersamp);
-% eyeBlinksEpochs = (find_maxduration(eyeBlinksEpochs')>minpopdur)';
-%
-% badtrl_all = find(eyeBlinksEpochs);
-%
-% fh = figure; hold on;
-% F = (0:size(dataeog,1)-1)./EEG.srate;
-% plot(F,dataeog(:,badtrl_all));
-
-% Approach 2: Detect eye blinks
-times = EEG.times/1000; % EEGLAB time is in [ms]
-[qrspeaks,locs] = findpeaks(dataeog,times,'MinPeakHeight',treshold);
+% Detect eye blinks
+[dataeog, locs, treshold] = detect_veog(EEG);
 NEOG = length(locs);
 
 % figure; hold on;
@@ -74,21 +30,32 @@ N = length(badEpoch2(1,1):badEpoch2(1,2));
 badEpoch2(badEpoch2<1) = 1;
 badEpoch2(badEpoch2>EEG.pnts) = EEG.pnts;
 
+% Calculate the absolute difference between the EEG.times and the timepoints we need:
+T = (0:N-1)./EEG.srate;
+T = T-mean(T);
+
+absDiff_150ms = abs(T - (-0.1));
+minDiff_150ms = min(absDiff_150ms(:));
+[~, col_m150ms] = find(absDiff_150ms == minDiff_150ms);
+absDiff_150ms = abs(T - 0.1);
+minDiff_150ms = min(absDiff_150ms(:));
+[~, col_p150ms] = find(absDiff_150ms == minDiff_150ms);
+
 EOG = NaN(NEOG,N);
 for i = 1:NEOG
     if length(badEpoch2(i,1):badEpoch2(i,2))==N
         EOG(i,:) = dataeog(badEpoch2(i,1):badEpoch2(i,2));
+        EOG(i,:) = EOG(i,:) - mean(EOG(i,[1:col_m150ms, col_p150ms:end]));
+        % EOG(i,:) = EOG(i,:) - mean(EOG(i,1:col_m150ms));
     end
 end
 EOG(isnan(EOG(:,1)),:) = [];
-mEOG = median(EOG,1);
+mEOG = mean(EOG,1);
 
 fh = figure; hold on;
-F = (0:size(EOG,2)-1)./EEG.srate;
-F = F-mean(F);
-plot(F,EOG','LineWidth',1.2);
+plot(T,EOG','LineWidth',1.2);
 set(gca, 'ColorOrder',brewermap(size(EOG,1),'BuGn'));
-plot(F,mEOG,'Color',[0.8 0.1 0.1],'LineWidth',3);
+plot(T,mEOG,'Color',[0.8 0.1 0.1],'LineWidth',3);
 title(['N = ' num2str(NEOG)]);
 xlabel('Time (s)'); ylabel('VEOG amplitude');
 
