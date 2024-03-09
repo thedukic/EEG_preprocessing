@@ -1,4 +1,4 @@
-function [EEG, badElectrodes, noiseMask] = detect_channeldrifts(EEG)
+function [EEG, badElectrodes, noiseMask] = mwf_channeldrifts(EEG)
 %
 % Test whether only drift is present for each channel in each epoch based on frequency slope:
 % SDukic, March 2023
@@ -9,30 +9,29 @@ fprintf('\nMWF (HEOG) horizontal eye movements...\n');
 
 % Select only EEG + HEOG
 chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
-chanheog  = strcmp({EEG.chanlocs.labels},'HEOG');
-chanveog  = strcmp({EEG.chanlocs.labels},'VEOG');
+chanheog = strcmp({EEG.chanlocs.labels},'HEOG');
 dataEEG0 = EEG.data(chaneeg,:);
-dataheog  = EEG.data(chanheog,:);
-dataveog  = EEG.data(chanveog,:);
+dataheog = EEG.data(chanheog,:);
 
 % =========================================================================
 % HEOG
 % Temporarily filter  HEOG, bandpass 1-25 Hz
-[bl, al] = butter(4,25/(EEG.srate/2),'low');
+[bl, al] = butter(4,20/(EEG.srate/2),'low');
 assert(isstable(bl,al));
 dataheog = filtfilt(bl,al,dataheog);
-dataheog = abs(dataheog);
+
+% Demean and take absolute value so that L/R HEOG can be both detected (?)
+dataheog = dataheog - trimmean(dataheog,10);
+dataheogabs = abs(dataheog);
 
 % HEOG treshold
-EOGIQR = iqr(dataheog);
-EOG75P = prctile(dataheog,75);
+EOGIQR = iqr(dataheogabs);
+EOG75P = prctile(dataheogabs,75);
 tresholdh = EOG75P + 1.5*EOGIQR;
-eyeBlinksEpochs = dataheog>=tresholdh;
+eyeBlinksEpochs = dataheogabs>=tresholdh;
 
 % VEOG treshold
-EOGIQR = iqr(dataveog);
-EOG75P = prctile(dataveog,75);
-tresholdv = EOG75P + 3*EOGIQR;
+[dataveog, ~, tresholdv] = detect_veog(EEG);
 
 noiseMask1 = zeros(1,EEG.pnts);
 if any(eyeBlinksEpochs)
@@ -41,7 +40,7 @@ if any(eyeBlinksEpochs)
 
     % Minimum of 25 ms of HEOG
     mspersamp = 1000/EEG.srate;
-    mindrftdur = round(25/mspersamp);
+    mindrftdur = round(50/mspersamp);
 
     % Horizontal eye movements should last at least this long [ms]
     eyeBlinksEpochs = find(durall>mindrftdur);
@@ -51,7 +50,7 @@ if any(eyeBlinksEpochs)
         jumpStart = jump(1:2:end);
         jumpStop  = jump(2:2:end);
 
-        EOGfocus = 250; % ms
+        EOGfocus = 300; % ms
         EOGfocussamples = round(EOGfocus/mspersamp);
 
         jumpStart = jumpStart-EOGfocussamples;
@@ -83,8 +82,18 @@ if any(eyeBlinksEpochs)
         for i = 1:NHEOG
             y = dataheog(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i)));
             durheog(i) = length(y);
-            t = linspace(-0.5,0.5,durheog(i));
-            plot(t,y,'LineWidth',1.2);
+            T = linspace(-0.5,0.5,durheog(i));
+
+            absDiff_150ms = abs(T - (-0.4));
+            minDiff_150ms = min(absDiff_150ms(:));
+            [~, col_m150ms] = find(absDiff_150ms == minDiff_150ms);
+            absDiff_150ms = abs(T - 0.4);
+            minDiff_150ms = min(absDiff_150ms(:));
+            [~, col_p150ms] = find(absDiff_150ms == minDiff_150ms);
+            y = y - mean(y([1:col_m150ms, col_p150ms:end]));
+            % y = y - mean(y(1:col_m150ms));
+
+            plot(T,y,'LineWidth',1.2);
         end
         set(gca,'ColorOrder',brewermap(NHEOG,'BuGn'));
         title(['N = ' num2str(NHEOG)]);

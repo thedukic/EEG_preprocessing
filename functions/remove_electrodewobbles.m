@@ -39,8 +39,8 @@ EEGICA = iclabel(EEGICA);
 [ICLabel_pvec, ICLabel_cvec] = max(EEGICA.etc.ic_classification.ICLabel.classifications,[],2);
 
 % (6) channel noise
-badChanICs = find(ICLabel_cvec==6);
-% badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.5);
+% badChanICs = find(ICLabel_cvec==6);
+badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.5);
 % badChanICs = unique([badChanICs; find(EEGICA.etc.ic_classification.ICLabel.classifications(:,6)>=0.2)]);
 % badChanICs = setdiff(badChanICs,find(EEGICA.etc.ic_classification.ICLabel.classifications(:,1)>=0.2));
 

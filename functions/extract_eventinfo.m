@@ -29,6 +29,10 @@ if strcmp(thisTask,'SART')
         EEG(i) = eeg_checkset(EEG(i));
         labels1 = unique({EEG(i).event(:).type});
         assert(all(contains(labels1,'condition')));
+        
+        labels1 = labels1(~contains(labels1,'255'));
+        labels1 = strjoin(labels1,', ');
+        fprintf('SART%d unique events:\n',i); disp(labels1);
 
         % Extract events and latencies
         for j = 1:numel(EEG(i).event)
@@ -67,20 +71,24 @@ elseif strcmp(thisTask,'MMN')
 
         % 255 - start of MMN
         %   4 - not sure ????
-        labels1 = labels1(~(contains(labels1,'255') | contains(labels1,'condition 4')));
-        labels2 = cell2mat(cellfun(@(x) str2double(x(end-1:end)),labels1,'UniformOutput',false));
-        assert(length(labels1)==2); % 12/17
+        % labels1 = labels1(~(contains(labels1,'255') | contains(labels1,'condition 4')));
+        labels1 = labels1(~contains(labels1,'255'));
+        labels1 = strjoin(labels1,', ');
+        fprintf('MMN%d unique events:\n',i); disp(labels1);
+        % Has to be hard coded, at least one dataset has two tasks (MMN3+SART1)
+        % labels2 = cell2mat(cellfun(@(x) str2double(x(end-1:end)),labels1,'UniformOutput',false));
+        % assert(length(labels1)==2); % 12/17
 
         % Extract events and latencies
         for j = 1:numel(EEG(i).event)
-            if strcmp(EEG(i).event(j).type,labels1{1}) || strcmp(EEG(i).event(j).type,labels1{2})
+            if strcmp(EEG(i).event(j).type,'condition 12') || strcmp(EEG(i).event(j).type,'condition 17')
                 eventinfo{i,1} = [eventinfo{i,1}, EEG(i).event(j).edftype];
                 eventinfo{i,2} = [eventinfo{i,2}, EEG(i).event(j).latency];
             end
         end
         assert(length(eventinfo{i,1})==length(eventinfo{i,2}));
 
-        eventinfo{i,3} = sum(eventinfo{i,1}==labels2(1) | eventinfo{i,1}==labels2(2));
+        eventinfo{i,3} = sum(eventinfo{i,1}==12 | eventinfo{i,1}==17);
         eventinfo{i,4} = EEG(i).srate;
         fprintf('MMN%d has %d trials (standard+deviant).\n',i,eventinfo{i,3});
     end

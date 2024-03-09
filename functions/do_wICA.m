@@ -51,7 +51,7 @@ if ~isempty(ICsArtifact)
     dataheog = EEG.data(chanheog,:);
     % figure; multisignalplot([dataveog; dataheog],EEG.srate,'r');
 
-    [bl, al] = butter(4,25/(EEG.srate/2),'low');
+    [bl, al] = butter(4,20/(EEG.srate/2),'low');
     assert(isstable(bl,al));
     dataveog = filtfilt(bl,al,dataveog);
     dataheog = filtfilt(bl,al,dataheog);

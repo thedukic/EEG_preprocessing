@@ -36,19 +36,19 @@ function EEG = reduce_artifacts(EEG,cfgbch)
 
 % =========================================================================
 % 2. MWF round 1: Detect and remove EMG
-EEG = detect_channelemg(EEG,cfgbch);
+EEG = mwf_channelemg(EEG,cfgbch);
 
 % =========================================================================
 % 3. MWF round 2: Detect and remove VEOG / eye blinks
-EEG = detect_eyeblinks(EEG);
+EEG = mwf_eyeblinks(EEG);
 
 % =========================================================================
 % 4. MWF round 3: Detect and remove HEOG / slow drifts
-EEG = detect_channeldrifts(EEG);
+EEG = mwf_channeldrifts(EEG);
 
 % =========================================================================
 % 5. MWF round 4: Detect and remove ECG - too much?
-EEG = detect_heartbeats(EEG);
+% EEG = mwf_heartbeats(EEG);
 
 % =========================================================================
 % 6. Detect channel pops

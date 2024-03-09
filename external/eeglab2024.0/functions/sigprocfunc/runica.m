@@ -1,25 +1,25 @@
 % RUNICA - Perform Independent Component Analysis (ICA) decomposition
-%            of input data using the logistic infomax ICA algorithm of 
-%            Bell & Sejnowski (1995) with the natural gradient feature 
-%            of Amari, Cichocki & Yang, or optionally the extended-ICA 
-%            algorithm of Lee, Girolami & Sejnowski, with optional PCA 
-%            dimension reduction. Annealing based on weight changes is 
-%            used to automate the separation process. 
+%            of input data using the logistic infomax ICA algorithm of
+%            Bell & Sejnowski (1995) with the natural gradient feature
+%            of Amari, Cichocki & Yang, or optionally the extended-ICA
+%            algorithm of Lee, Girolami & Sejnowski, with optional PCA
+%            dimension reduction. Annealing based on weight changes is
+%            used to automate the separation process.
 % Usage:
-%         >> [weights,sphere] = runica(data); % train using defaults 
+%         >> [weights,sphere] = runica(data); % train using defaults
 %    else
 %         >> [weights,sphere,compvars,bias,signs,lrates,activations] ...
 %                             = runica(data,'Key1',Value1',...);
 % Input:
-%    data     = input data (chans,frames*epochs). 
-%               Note that if data consists of multiple discontinuous epochs, 
+%    data     = input data (chans,frames*epochs).
+%               Note that if data consists of multiple discontinuous epochs,
 %               each epoch should be separately baseline-zero'd using
 %                  >> data = rmbase(data,frames,basevector);
 %
 % Optional keywords [argument]:
-% 'extended'  = [N] perform TANH "extended-ICA" with sign estimation 
-%               N training blocks. If N > 0, automatically estimate the 
-%               number of sub-Gaussian sources. If N < 0, fix number of 
+% 'extended'  = [N] perform TANH "extended-ICA" with sign estimation
+%               N training blocks. If N > 0, automatically estimate the
+%               number of sub-Gaussian sources. If N < 0, fix number of
 %               sub-Gaussian comps to -N [faster than N>0] (default|0 -> off)
 % 'pca'       = [N] decompose a principal component     (default -> 0=off)
 %               subspace of the data. Value is the number of PCs to retain.
@@ -37,7 +37,7 @@
 % 'bias'      = ['on'/'off'] perform bias adjustment    (default -> 'on')
 % 'momentum'  = [0<f<1] training momentum               (default -> 0)
 % 'specgram'  = [srate loHz hiHz frames winframes] decompose a complex time/frequency
-%               transform of the data - though not optimally. (Note: winframes must 
+%               transform of the data - though not optimally. (Note: winframes must
 %               divide frames) (defaults [srate 0 srate/2 size(data,2) size(data,2)])
 % 'posact'    = make all component activations net-positive(default 'off'}
 %               Requires time and memory; POSACT may be applied separately.
@@ -61,30 +61,30 @@
 % lrates      = vector of learning rates used at each training step [RO]
 % activations = activation time courses of the output components (ncomps,frames*epochs)
 %
-% Authors: Scott Makeig with contributions from Tony Bell, Te-Won Lee, 
+% Authors: Scott Makeig with contributions from Tony Bell, Te-Won Lee,
 % Tzyy-Ping Jung, Sigurd Enghoff, Michael Zibulevsky, Delorme Arnaud,
 % CNL/The Salk Institute, La Jolla, 1996-
 
 % Uses: POSACT
 
-% 'ncomps'    = [N] number of ICA components to compute (default -> chans or 'pca' arg) 
-%               using rectangular ICA decomposition. This parameter may return 
-%               strange results. This is because the weight matrix is rectangular 
-%               instead of being square. Do not use except to try to fix the problem. 
+% 'ncomps'    = [N] number of ICA components to compute (default -> chans or 'pca' arg)
+%               using rectangular ICA decomposition. This parameter may return
+%               strange results. This is because the weight matrix is rectangular
+%               instead of being square. Do not use except to try to fix the problem.
 
 % Reference (please cite):
 %
 % Makeig, S., Bell, A.J., Jung, T-P and Sejnowski, T.J.,
-% "Independent component analysis of electroencephalographic data," 
-% In: D. Touretzky, M. Mozer and M. Hasselmo (Eds). Advances in Neural 
+% "Independent component analysis of electroencephalographic data,"
+% In: D. Touretzky, M. Mozer and M. Hasselmo (Eds). Advances in Neural
 % Information Processing Systems 8:145-151, MIT Press, Cambridge, MA (1996).
 %
 % Toolbox Citation:
 %
-% Makeig, Scott et al. "EEGLAB: ICA Toolbox for Psychophysiological Research". 
+% Makeig, Scott et al. "EEGLAB: ICA Toolbox for Psychophysiological Research".
 % WWW Site, Swartz Center for Computational Neuroscience, Institute of Neural
 % Computation, University of San Diego California
-% <www.sccn.ucsd.edu/eeglab/>, 2000. [World Wide Web Publication]. 
+% <www.sccn.ucsd.edu/eeglab/>, 2000. [World Wide Web Publication].
 %
 % For more information:
 % http://www.sccn.ucsd.edu/eeglab/icafaq.html - FAQ on ICA/EEG
@@ -120,12 +120,12 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% Edit history %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  RUNICA  - by Scott Makeig with contributions from Tony Bell, Te-Won Lee 
+%  RUNICA  - by Scott Makeig with contributions from Tony Bell, Te-Won Lee
 %              Tzyy-Ping Jung, Sigurd Enghoff, Michael Zibulevsky et al.
 %                            CNL / Salk Institute 1996-00
 %  04-30-96 built from icatest.m and ~jung/.../wtwpwica.m -sm
-%  07-28-97 new RUNICA, adds bias (default on), momentum (default off), 
-%           extended-ICA (Lee & Sejnowski, 1997), cumulative angledelta 
+%  07-28-97 new RUNICA, adds bias (default on), momentum (default off),
+%           extended-ICA (Lee & Sejnowski, 1997), cumulative angledelta
 %           (until lrate drops), keywords, signcount for speeding extended-ICA
 %  10-07-97 put ACOS outside verbose loop; verbose 'off' wasn't stopping -sm
 %  11-11-97 adjusted help msg -sm
@@ -139,24 +139,24 @@
 %  01-11-00 fixed RAND sizing bug on suggestion of Jack Foucher, Strasbourg -sm
 %  12-18-00 test for existence of Sig Proc Tlbx function 'specgram'; improve
 %           'specgram' option arguments -sm
-%  01-25-02 reformated help & license -ad 
-%  01-25-02 lowered default lrate and block -ad 
+%  01-25-02 reformated help & license -ad
+%  01-25-02 lowered default lrate and block -ad
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function [weights,sphere,meanvar,bias,signs,lrates,data,y] = runica(data,varargin) % NB: Now optionally returns activations as variable 'data' -sm 7/05
 
 if nargin < 1
-  help runica  
-  return
+    help runica
+    return
 end
 
 [chans frames] = size(data); % determine the data size
-urchans = chans;  % remember original data channels 
+urchans = chans;  % remember original data channels
 datalength = frames;
-if chans<2 
-   fprintf('\nrunica() - data size (%d,%d) too small.\n\n', chans,frames);
-   return
+if chans<2
+    fprintf('\nrunica() - data size (%d,%d) too small.\n\n', chans,frames);
+    return
 end
 %
 %%%%%%%%%%%%%%%%%%%%%% Declare defaults used below %%%%%%%%%%%%%%%%%%%%%%%%
@@ -166,35 +166,35 @@ DEFAULT_STOP         = 0.000001;  % stop training if weight changes below this
 DEFAULT_ANNEALDEG    = 60;        % when angle change reaches this value,
 DEFAULT_ANNEALSTEP   = 0.90;      %     anneal by multiplying lrate by this
 DEFAULT_EXTANNEAL    = 0.98;      %     or this if extended-ICA
-DEFAULT_MAXSTEPS     = 512;       % ]top training after this many steps 
+DEFAULT_MAXSTEPS     = 512;       % ]top training after this many steps
 DEFAULT_MOMENTUM     = 0.0;       % default momentum weight
 
 DEFAULT_BLOWUP       = 1000000000.0;   % = learning rate has 'blown up'
 DEFAULT_BLOWUP_FAC   = 0.8;       % when lrate 'blows up,' anneal by this fac
 DEFAULT_RESTART_FAC  = 0.9;       % if weights blowup, restart with lrate
-                                  % lower by this factor
+% lower by this factor
 MIN_LRATE            = 0.000001;  % if weight blowups make lrate < this, quit
 MAX_LRATE            = 0.1;       % guard against uselessly high learning rate
-DEFAULT_LRATE        = 0.00065/log(chans); 
-                                  % heuristic default - may need adjustment
-                                  %   for large or tiny data sets!
-% DEFAULT_BLOCK        = floor(sqrt(frames/4));  % heuristic default 
-DEFAULT_BLOCK          = ceil(min(5*log(frames),0.3*frames)); % heuristic 
-                                  % - may need adjustment!
+DEFAULT_LRATE        = 0.00065/log(chans);
+% heuristic default - may need adjustment
+%   for large or tiny data sets!
+% DEFAULT_BLOCK        = floor(sqrt(frames/4));  % heuristic default
+DEFAULT_BLOCK          = ceil(min(5*log(frames),0.3*frames)); % heuristic
+% - may need adjustment!
 % Extended-ICA option:
 DEFAULT_EXTENDED     = 0;         % default off
 DEFAULT_EXTBLOCKS    = 1;         % number of blocks per kurtosis calculation
 DEFAULT_NSUB         = 1;         % initial default number of assumed sub-Gaussians
-                                  % for extended-ICA
+% for extended-ICA
 DEFAULT_EXTMOMENTUM  = 0.5;       % momentum term for computing extended-ICA kurtosis
 MAX_KURTSIZE         = 6000;      % max points to use in kurtosis calculation
 MIN_KURTSIZE         = 2000;      % minimum good kurtosis size (flag warning)
 SIGNCOUNT_THRESHOLD  = 25;        % raise extblocks when sign vector unchanged
-                                  % after this many steps
-SIGNCOUNT_STEP       = 2;         % extblocks increment factor 
+% after this many steps
+SIGNCOUNT_STEP       = 2;         % extblocks increment factor
 
 DEFAULT_SPHEREFLAG   = 'on';      % use the sphere matrix as the default
-                                  %   starting weight matrix
+%   starting weight matrix
 DEFAULT_INTERRUPT    = 'off';     % figure interruption
 DEFAULT_PCAFLAG      = 'off';     % don't use PCA reduction
 DEFAULT_POSACTFLAG   = 'off';     % don't use posact(), to save space -sm 7/05
@@ -202,10 +202,10 @@ DEFAULT_VERBOSE      = 1;         % write ascii info to calling screen
 DEFAULT_BIASFLAG     = 1;         % default to using bias in the ICA update rule
 DEFAULT_RESETRANDOMSEED = true;   % default to reset the random number generator to a 'random state'
 
-%                                 
+%
 %%%%%%%%%%%%%%%%%%%%%%% Set up keyword default values %%%%%%%%%%%%%%%%%%%%%%%%%
 %
-if nargout < 2, 
+if nargout < 2,
     fprintf('runica() - needs at least two output arguments.\n');
     return
 end
@@ -498,11 +498,11 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%% Initialize weights, etc. %%%%%%%%%%%%%%%%%%%%%%%%
 %
 if ~annealstep
-  if ~extended
-    annealstep = DEFAULT_ANNEALSTEP;     % defaults defined above
-  else
-    annealstep = DEFAULT_EXTANNEAL;       % defaults defined above
-  end
+    if ~extended
+        annealstep = DEFAULT_ANNEALSTEP;     % defaults defined above
+    else
+        annealstep = DEFAULT_EXTANNEAL;       % defaults defined above
+    end
 end % else use annealstep from commandline
 
 if ~annealdeg
@@ -544,22 +544,22 @@ end
 verb = verbose;
 
 if weights ~= 0                    % initialize weights
-  % starting weights are being passed to runica() from the commandline
+    % starting weights are being passed to runica() from the commandline
     if  chans>ncomps && weights ~=0
         [r,c]=size(weights);
         if r~=ncomps || c~=chans
             fprintf('runica(): weight matrix must have %d rows, %d columns.\n', ...
-                    chans,ncomps);
+                chans,ncomps);
             return;
         end
     end
     icaprintf(verb,fid,'Using starting weight matrix named in argument list ...\n');
-end;   
+end;
 
-% 
+%
 % adjust nochange if necessary
 %
-if isnan(nochange) 
+if isnan(nochange)
     if ncomps > 32
         nochange = 1E-7;
         nochangeupdated = 1; % for fprinting purposes
@@ -567,7 +567,7 @@ if isnan(nochange)
         nochangeupdated = 1; % for fprinting purposes
         nochange = DEFAULT_STOP;
     end
-else 
+else
     nochangeupdated = 0;
 end
 
@@ -575,7 +575,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Process the data %%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 icaprintf(verb,fid,'\nInput data size [%d,%d] = %d channels, %d frames/n', ...
-          chans,frames,chans,frames);
+    chans,frames,chans,frames);
 
 if strcmp(pcaflag,'on')
     icaprintf(verb,fid,'After PCA dimension reduction,\n  finding ');
@@ -585,25 +585,25 @@ end
 if ~extended
     icaprintf(verb,fid,'%d ICA components using logistic ICA.\n',ncomps);
 else % if extended
-icaprintf(verb,fid,'%d ICA components using extended ICA.\n',ncomps);
-if extblocks > 0
-    icaprintf(verb,fid,'Kurtosis will be calculated initially every %d blocks using %d data points.\n',...
-              extblocks, kurtsize);
-else
-    icaprintf(verb,fid,'Kurtosis will not be calculated. Exactly %d sub-Gaussian components assumed.\n',nsub);
-end
+    icaprintf(verb,fid,'%d ICA components using extended ICA.\n',ncomps);
+    if extblocks > 0
+        icaprintf(verb,fid,'Kurtosis will be calculated initially every %d blocks using %d data points.\n',...
+            extblocks, kurtsize);
+    else
+        icaprintf(verb,fid,'Kurtosis will not be calculated. Exactly %d sub-Gaussian components assumed.\n',nsub);
+    end
 end
 icaprintf(verb,fid,'Decomposing %d frames per ICA weight ((%d)^2 = %d weights, %d frames)\n',...
-          floor(frames/ncomps.^2),ncomps.^2,frames);
+    floor(frames/ncomps.^2),ncomps.^2,frames);
 icaprintf(verb,fid,'Initial learning rate will be %g, block size %d.\n',...
-          lrate,block);
+    lrate,block);
 if momentum>0,
     icaprintf(verb,fid,'Momentum will be %g.\n',momentum);
 end
 icaprintf(verb,fid,'Learning rate will be multiplied by %g whenever angledelta >= %g deg.\n', ...
-          annealstep,annealdeg);
+    annealstep,annealdeg);
 
-if nochangeupdated 
+if nochangeupdated
     icaprintf(verb,fid,'More than 32 channels: default stopping weight change 1E-7\n');
 end
 icaprintf(verb,fid,'Training will end when wchange < %g or after %d steps.\n', nochange,maxsteps);
@@ -636,7 +636,7 @@ icaprintf(verb,fid,'Final training data range: %g to %g\n', min(min(data)),max(m
 %
 if strcmp(pcaflag,'on')
     icaprintf(verb,fid,'Reducing the data to %d principal dimensions...\n',ncomps);
-    
+
     %BLGBLGBLG replaced
     %[eigenvectors,eigenvalues,data] = pcsquash(data,ncomps);
     % make data its projection onto the ncomps-dim principal subspace
@@ -648,7 +648,7 @@ if strcmp(pcaflag,'on')
     PCdat2=PCdat2/PCn;
     PCout=data*PCdat2;
     clear PCdat2;
-    
+
     [PCV,PCD] = eig(PCout);                  % get eigenvectors/eigenvalues
     [PCeigenval,PCindex] = sort(diag(PCD));
     PCindex=rot90(rot90(PCindex));
@@ -656,99 +656,99 @@ if strcmp(pcaflag,'on')
     PCEigenVectors=PCV(:,PCindex);
     %PCCompressed = PCEigenVectors(:,1:ncomps)'*data;
     data = PCEigenVectors(:,1:ncomps)'*data;
-    
+
     eigenvectors=PCEigenVectors;
     eigenvalues=PCEigenValues; %#ok<NASGU>
-    
+
     clear PCn PCp PCout PCV PCD PCeigenval PCindex PCEigenValues PCEigenVectors
     %BLGBLGBLG replacement ends
-    
+
 end
 
 %
 %%%%%%%%%%%%%%%%%%% Perform specgram transformation %%%%%%%%%%%%%%%%%%%%%%%
 %
 if exist('Specgramflag') == 1
-  % [P F T] = SPECGRAM(A,NFFT,Fs,WINDOW,NOVERLAP) % MATLAB Sig Proc Toolbox
-  % Hzwinlen =  fix(srate/Hzinc); % CHANGED FROM THIS 12/18/00 -sm
+    % [P F T] = SPECGRAM(A,NFFT,Fs,WINDOW,NOVERLAP) % MATLAB Sig Proc Toolbox
+    % Hzwinlen =  fix(srate/Hzinc); % CHANGED FROM THIS 12/18/00 -sm
 
-  Hzfftlen = 2^(ceil(log(Hzwinlen)/log(2)));   % make FFT length next higher 2^k
-  Hzoverlap = 0; % use sequential windows
-  %
-  % Get freqs and times from 1st channel analysis
-  %
-  [tmp,freqs,tms] = specgram(data(1,:),Hzfftlen,srate,Hzwinlen,Hzoverlap);
+    Hzfftlen = 2^(ceil(log(Hzwinlen)/log(2)));   % make FFT length next higher 2^k
+    Hzoverlap = 0; % use sequential windows
+    %
+    % Get freqs and times from 1st channel analysis
+    %
+    [tmp,freqs,tms] = specgram(data(1,:),Hzfftlen,srate,Hzwinlen,Hzoverlap);
 
-  fs = find(freqs>=loHz & freqs <= hiHz);
-  icaprintf(verb,fid,'runica(): specified frequency range too narrow, exiting!\n');
-    
-  specdata = reshape(tmp(fs,:),1,length(fs)*size(tmp,2));
-  specdata = [real(specdata) imag(specdata)];
-     % fprintf('   size(fs) = %d,%d\n',size(fs,1),size(fs,2));
-     % fprintf('   size(tmp) = %d,%d\n',size(tmp,1),size(tmp,2));
-  %
-  % Loop through remaining channels
-  %
-  for ch=2:chans
-      [tmp] = specgram(data(ch,:),Hzwinlen,srate,Hzwinlen,Hzoverlap);
-      tmp = reshape((tmp(fs,:)),1,length(fs)*size(tmp,2));
-      specdata = [specdata;[real(tmp) imag(tmp)]]; % channels are rows
-  end
-  %
-  % Print specgram confirmation and details
-  %
-  icaprintf(verb,fid,'Converted data to %d channels by %d=2*%dx%d points spectrogram data.\n',...
-            chans,2*length(fs)*length(tms),length(fs),length(tms));
-  if length(fs) > 1
-      icaprintf(verb,fid,'   Low Hz %g, high Hz %g, Hz incr %g, window length %d\n',freqs(fs(1)),freqs(fs(end)),freqs(fs(2))-freqs(fs(1)),Hzwinlen);
-  else
-      icaprintf(verb,fid,'   Low Hz %g, high Hz %g, window length %d\n',freqs(fs(1)),freqs(fs(end)),Hzwinlen);
-  end
-  %
-  % Replace data with specdata
-  %
-  data = specdata;
-  datalength=size(data,2);
+    fs = find(freqs>=loHz & freqs <= hiHz);
+    icaprintf(verb,fid,'runica(): specified frequency range too narrow, exiting!\n');
+
+    specdata = reshape(tmp(fs,:),1,length(fs)*size(tmp,2));
+    specdata = [real(specdata) imag(specdata)];
+    % fprintf('   size(fs) = %d,%d\n',size(fs,1),size(fs,2));
+    % fprintf('   size(tmp) = %d,%d\n',size(tmp,1),size(tmp,2));
+    %
+    % Loop through remaining channels
+    %
+    for ch=2:chans
+        [tmp] = specgram(data(ch,:),Hzwinlen,srate,Hzwinlen,Hzoverlap);
+        tmp = reshape((tmp(fs,:)),1,length(fs)*size(tmp,2));
+        specdata = [specdata;[real(tmp) imag(tmp)]]; % channels are rows
+    end
+    %
+    % Print specgram confirmation and details
+    %
+    icaprintf(verb,fid,'Converted data to %d channels by %d=2*%dx%d points spectrogram data.\n',...
+        chans,2*length(fs)*length(tms),length(fs),length(tms));
+    if length(fs) > 1
+        icaprintf(verb,fid,'   Low Hz %g, high Hz %g, Hz incr %g, window length %d\n',freqs(fs(1)),freqs(fs(end)),freqs(fs(2))-freqs(fs(1)),Hzwinlen);
+    else
+        icaprintf(verb,fid,'   Low Hz %g, high Hz %g, window length %d\n',freqs(fs(1)),freqs(fs(end)),Hzwinlen);
+    end
+    %
+    % Replace data with specdata
+    %
+    data = specdata;
+    datalength=size(data,2);
 end
 %
 %%%%%%%%%%%%%%%%%%% Perform sphering %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 
 if strcmp(sphering,'on'), %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  icaprintf(verb,fid,'Computing the sphering matrix...\n');
-  sphere = 2.0*inv(sqrtm(double(cov(data')))); % find the "sphering" matrix = spher()
-  if ~weights,
-      icaprintf(verb,fid,'Starting weights are the identity matrix ...\n');
-      weights = eye(ncomps,chans); % begin with the identity matrix
-  else % weights given on commandline
-      icaprintf(verb,fid,'Using starting weights named on commandline ...\n');
-  end
-  icaprintf(verb,fid,'Sphering the data ...\n');
-  data = sphere*data; % decorrelate the electrode signals by 'sphereing' them
+    icaprintf(verb,fid,'Computing the sphering matrix...\n');
+    sphere = 2.0*inv(sqrtm(double(cov(data')))); % find the "sphering" matrix = spher()
+    if ~weights,
+        icaprintf(verb,fid,'Starting weights are the identity matrix ...\n');
+        weights = eye(ncomps,chans); % begin with the identity matrix
+    else % weights given on commandline
+        icaprintf(verb,fid,'Using starting weights named on commandline ...\n');
+    end
+    icaprintf(verb,fid,'Sphering the data ...\n');
+    data = sphere*data; % decorrelate the electrode signals by 'sphereing' them
 
 elseif strcmp(sphering,'off') %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  if ~weights % is starting weights not given
-      icaprintf(verb,fid,'Using the sphering matrix as the starting weight matrix ...\n');
-      icaprintf(verb,fid,'Returning the identity matrix in variable "sphere" ...\n');
-      sphere = 2.0*inv(sqrtm(cov(data'))); % find the "sphering" matrix = spher()
-      weights = eye(ncomps,chans)*sphere;  % begin with the identity matrix
-      sphere = eye(chans);                 % return the identity matrix
-  else % weights ~= 0
-      icaprintf(verb,fid,'Using starting weights from commandline ...\n');
-      icaprintf(verb,fid,'Returning the identity matrix in variable "sphere" ...\n');
-      sphere = eye(chans);                 % return the identity matrix
-  end
+    if ~weights % is starting weights not given
+        icaprintf(verb,fid,'Using the sphering matrix as the starting weight matrix ...\n');
+        icaprintf(verb,fid,'Returning the identity matrix in variable "sphere" ...\n');
+        sphere = 2.0*inv(sqrtm(cov(data'))); % find the "sphering" matrix = spher()
+        weights = eye(ncomps,chans)*sphere;  % begin with the identity matrix
+        sphere = eye(chans);                 % return the identity matrix
+    else % weights ~= 0
+        icaprintf(verb,fid,'Using starting weights from commandline ...\n');
+        icaprintf(verb,fid,'Returning the identity matrix in variable "sphere" ...\n');
+        sphere = eye(chans);                 % return the identity matrix
+    end
 elseif strcmp(sphering,'none')
-  sphere = eye(chans,chans);% return the identity matrix
-  if ~weights
-      icaprintf(verb,fid,'Starting weights are the identity matrix ...\n');
-      icaprintf(verb,fid,'Returning the identity matrix in variable "sphere" ...\n');
-      weights = eye(ncomps,chans); % begin with the identity matrix
-  else % weights ~= 0
-      icaprintf(verb,fid,'Using starting weights named on commandline ...\n');
-      icaprintf(verb,fid,'Returning the identity matrix in variable "sphere" ...\n');
-  end
-  icaprintf(verb,fid,'Returned variable "sphere" will be the identity matrix.\n');
+    sphere = eye(chans,chans);% return the identity matrix
+    if ~weights
+        icaprintf(verb,fid,'Starting weights are the identity matrix ...\n');
+        icaprintf(verb,fid,'Returning the identity matrix in variable "sphere" ...\n');
+        weights = eye(ncomps,chans); % begin with the identity matrix
+    else % weights ~= 0
+        icaprintf(verb,fid,'Using starting weights named on commandline ...\n');
+        icaprintf(verb,fid,'Returning the identity matrix in variable "sphere" ...\n');
+    end
+    icaprintf(verb,fid,'Returned variable "sphere" will be the identity matrix.\n');
 end
 %
 %%%%%%%%%%%%%%%%%%%%%%%% Initialize ICA training %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -805,21 +805,21 @@ end                                % a position dependent on the system clock
 warning('on', 'MATLAB:RandStream:ActivatingLegacyGenerators')
 
 % interrupt figure
-% --------------- 
+% ---------------
 if strcmpi(interrupt, 'on')
     fig = figure('visible', 'off');
     supergui( fig, {1 1}, [], {'style' 'text' 'string' 'Press button to interrupt runica()' }, ...
-              {'style' 'pushbutton' 'string' 'Interrupt' 'callback' 'setappdata(gcf, ''run'', 0);' } );
+        {'style' 'pushbutton' 'string' 'Interrupt' 'callback' 'setappdata(gcf, ''run'', 0);' } );
     set(fig, 'visible', 'on');
     setappdata(gcf, 'run', 1);
-    
-    if strcmpi(interrupt, 'on')
-        try
-            drawnow limitrate;
-        catch
-            drawnow;
-        end
-    end
+
+    % if strcmpi(interrupt, 'on')
+    %     try
+    %         drawnow limitrate;
+    %     catch
+    %         drawnow;
+    %     end
+    % end
 end
 
 
@@ -829,26 +829,26 @@ if biasflag && extended
         timeperm=randperm(datalength); % shuffle data order at each step
 
         for t=1:block:lastt, %%%%%%%%% ICA Training Block %%%%%%%%%%%%%%%%%%%
-            if strcmpi(interrupt, 'on')
-                try
-                    drawnow limitrate;
-                catch
-                    drawnow;
-                end
-                flag = getappdata(fig, 'run');
-                if ~flag,
-                    if ~isempty(fid), fclose(fid); end
-                    close; error('USER ABORT');
-                end
-            end
-            
+            % if strcmpi(interrupt, 'on')
+            %     try
+            %         drawnow limitrate;
+            %     catch
+            %         drawnow;
+            %     end
+            %     flag = getappdata(fig, 'run');
+            %     if ~flag,
+            %         if ~isempty(fid), fclose(fid); end
+            %         close; error('USER ABORT');
+            %     end
+            % end
+
             %% promote data block (only) to double to keep u and weights double
             u=weights*double(data(:,timeperm(t:t+block-1))) + bias*onesrow;
 
-            y=tanh(u);                                                       
+            y=tanh(u);
             weights = weights + lrate*(BI-signs*y*u'-u*u')*weights;
             bias = bias + lrate*sum((-2*y)')';  % for tanh() nonlin.
-            
+
             if momentum > 0 %%%%%%%%% Add momentum %%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 weights = weights + momentum*prevwtchange;
                 prevwtchange = weights-prevweights;
@@ -945,7 +945,7 @@ if biasflag && extended
             oldsigns = zeros(size(signs));;
 
             if lrate> MIN_LRATE
-                r = rank(data); % determine if data rank is too low 
+                r = rank(data); % determine if data rank is too low
                 if r<ncomps
                     icaprintf(verb,fid,'Data has rank %d. Cannot compute %d components.\n',...
                         r,ncomps);
@@ -968,7 +968,7 @@ if biasflag && extended
             end
             places = -floor(log10(nochange));
             icaprintf(verb,fid,'step %d - lrate %5f, wchange %8.8f, angledelta %4.1f deg\n', ...
-                                step,      lrate,     change, degconst*angledelta);
+                step,      lrate,     change, degconst*angledelta);
             %
             %%%%%%%%%%%%%%%%%%%% Save current values %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %
@@ -1005,24 +1005,24 @@ if biasflag && ~extended
         timeperm=randperm(datalength); % shuffle data order at each step
 
         for t=1:block:lastt, %%%%%%%%% ICA Training Block %%%%%%%%%%%%%%%%%%%
-            if strcmpi(interrupt, 'on')
-                try
-                    drawnow limitrate;
-                catch
-                    drawnow;
-                end
-                flag = getappdata(fig, 'run');
-                if ~flag,
-                    if ~isempty(fid), fclose(fid); end
-                    close; error('USER ABORT');
-                end
-            end
-            
+            % if strcmpi(interrupt, 'on')
+            %     try
+            %         drawnow limitrate;
+            %     catch
+            %         drawnow;
+            %     end
+            %     flag = getappdata(fig, 'run');
+            %     if ~flag,
+            %         if ~isempty(fid), fclose(fid); end
+            %         close; error('USER ABORT');
+            %     end
+            % end
+
             u=weights*double(data(:,timeperm(t:t+block-1))) + bias*onesrow;
-            y=1./(1+exp(-u));                                                
-            weights = weights + lrate*(BI+(1-2*y)*u')*weights;               
+            y=1./(1+exp(-u));
+            weights = weights + lrate*(BI+(1-2*y)*u')*weights;
             bias = bias + lrate*sum((1-2*y)')'; % for logistic nonlin. %
-               
+
             if momentum > 0 %%%%%%%%% Add momentum %%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 weights = weights + momentum*prevwtchange;
                 prevwtchange = weights-prevweights;
@@ -1092,7 +1092,7 @@ if biasflag && ~extended
             end
             places = -floor(log10(nochange));
             icaprintf(verb,fid,'step %d - lrate %5f, wchange %8.8f, angledelta %4.1f deg\n', ...
-                                step,      lrate,     change, degconst*angledelta);
+                step,      lrate,     change, degconst*angledelta);
             %
             %%%%%%%%%%%%%%%%%%%% Save current values %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %
@@ -1129,19 +1129,19 @@ if ~biasflag && extended
         timeperm=randperm(datalength); % shuffle data order at each step through data
 
         for t=1:block:lastt, %%%%%%%%% ICA Training Block %%%%%%%%%%%%%%%%%%%
-            if strcmpi(interrupt, 'on')
-                try
-                    drawnow limitrate;
-                catch
-                    drawnow;
-                end
-                flag = getappdata(fig, 'run');
-                if ~flag,
-                    if ~isempty(fid), fclose(fid); end
-                    close; error('USER ABORT');
-                end
-            end
-            
+            % if strcmpi(interrupt, 'on')
+            %     try
+            %         drawnow limitrate;
+            %     catch
+            %         drawnow;
+            %     end
+            %     flag = getappdata(fig, 'run');
+            %     if ~flag,
+            %         if ~isempty(fid), fclose(fid); end
+            %         close; error('USER ABORT');
+            %     end
+            % end
+
             u=weights*double(data(:,timeperm(t:t+block-1))); % promote block to dbl
             y=tanh(u);                                                       %
             weights = weights + lrate*(BI-signs*y*u'-u*u')*weights;
@@ -1263,7 +1263,7 @@ if ~biasflag && extended
             end
             places = -floor(log10(nochange));
             icaprintf(verb,fid,'step %d - lrate %5f, wchange %8.8f, angledelta %4.1f deg\n', ...
-                                step,      lrate,     change, degconst*angledelta);
+                step,      lrate,     change, degconst*angledelta);
             %
             %%%%%%%%%%%%%%%%%%%% Save current values %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %
@@ -1300,18 +1300,18 @@ if ~biasflag && ~extended
         timeperm=randperm(datalength); % shuffle data order at each step
 
         for t=1:block:lastt, %%%%%%%%% ICA Training Block %%%%%%%%%%%%%%%%%%%
-            if strcmpi(interrupt, 'on')
-                try
-                    drawnow limitrate;
-                catch
-                    drawnow;
-                end
-                flag = getappdata(fig, 'run');
-                if ~flag,
-                    if ~isempty(fid), fclose(fid); end
-                    close; error('USER ABORT');
-                end
-            end
+            % if strcmpi(interrupt, 'on')
+            %     try
+            %         drawnow limitrate;
+            %     catch
+            %         drawnow;
+            %     end
+            %     flag = getappdata(fig, 'run');
+            %     if ~flag,
+            %         if ~isempty(fid), fclose(fid); end
+            %         close; error('USER ABORT');
+            %     end
+            % end
             u=weights*double(data(:,timeperm(t:t+block-1)));
             y=1./(1+exp(-u));                                                %
             weights = weights + lrate*(BI+(1-2*y)*u')*weights;
@@ -1326,7 +1326,7 @@ if ~biasflag && ~extended
                 wts_blowup = 1;
                 change = nochange;
             end
-            
+
             blockno = blockno + 1;
             if wts_blowup
                 break
@@ -1365,7 +1365,7 @@ if ~biasflag && ~extended
             prevwtchange = zeros(chans,ncomps);
             lrates = zeros(1,maxsteps);
             bias = zeros(ncomps,1);
-            
+
             if lrate> MIN_LRATE
                 r = rank(data); % find whether data rank is too low
                 if r<ncomps
@@ -1390,7 +1390,7 @@ if ~biasflag && ~extended
             end
             places = -floor(log10(nochange));
             icaprintf(verb,fid,'step %d - lrate %5f, wchange %8.8f, angledelta %4.1f deg\n', ...
-                                step,      lrate,     change, degconst*angledelta);
+                step,      lrate,     change, degconst*angledelta);
             %
             %%%%%%%%%%%%%%%%%%%% Save current values %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %
@@ -1422,127 +1422,127 @@ if ~biasflag && ~extended
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
 %% Finalize Computed Data for Output
-  
+
 if strcmpi(interrupt, 'on')
     close(fig);
 end
 
 
-  if ~laststep
+if ~laststep
     laststep = step;
-  end
-  lrates = lrates(1,1:laststep);           % truncate lrate history vector
+end
+lrates = lrates(1,1:laststep);           % truncate lrate history vector
 
-  %
-  %%%%%%%%%%%%%% Orient components towards max positive activation %%%%%%
-  %
-  if nargout > 6 || strcmp(posactflag,'on')
-      % make activations from sphered and pca'd data; -sm 7/05
-      % add back the row means removed from data before sphering
-      if strcmp(pcaflag,'off')
-          sr = sphere * rowmeans';
-          for r = 1:ncomps
-              data(r,:) = data(r,:)+sr(r); % add back row means 
-          end
-          data = weights*data; % OK in single
-      else
-          ser = sphere*eigenvectors(:,1:ncomps)'*rowmeans';
-          for r = 1:ncomps
-              data(r,:) = data(r,:)+ser(r); % add back row means 
-          end
-          data = weights*data; % OK in single
-      end
-  end
-  %
-  % NOTE: Now 'data' are the component activations = weights*sphere*raw_data
-  %
-  %
-  %%%%%%%%%%%%%% If pcaflag, compose PCA and ICA matrices %%%%%%%%%%%%%%%
-  %
-  if strcmp(pcaflag,'on')
+%
+%%%%%%%%%%%%%% Orient components towards max positive activation %%%%%%
+%
+if nargout > 6 || strcmp(posactflag,'on')
+    % make activations from sphered and pca'd data; -sm 7/05
+    % add back the row means removed from data before sphering
+    if strcmp(pcaflag,'off')
+        sr = sphere * rowmeans';
+        for r = 1:ncomps
+            data(r,:) = data(r,:)+sr(r); % add back row means
+        end
+        data = weights*data; % OK in single
+    else
+        ser = sphere*eigenvectors(:,1:ncomps)'*rowmeans';
+        for r = 1:ncomps
+            data(r,:) = data(r,:)+ser(r); % add back row means
+        end
+        data = weights*data; % OK in single
+    end
+end
+%
+% NOTE: Now 'data' are the component activations = weights*sphere*raw_data
+%
+%
+%%%%%%%%%%%%%% If pcaflag, compose PCA and ICA matrices %%%%%%%%%%%%%%%
+%
+if strcmp(pcaflag,'on')
     icaprintf(verb,fid,'Composing the eigenvector, weights, and sphere matrices\n');
     icaprintf(verb,fid,'  into a single rectangular weights matrix; sphere=eye(%d)\n'...
-                                                                  ,chans);
-    weights= weights*sphere*eigenvectors(:,1:ncomps)'; 
+        ,chans);
+    weights= weights*sphere*eigenvectors(:,1:ncomps)';
     sphere = eye(urchans);
-  end
-  %
-  %%%%%% Sort components in descending order of max projected variance %%%%
-  %
-  icaprintf(verb,fid,'Sorting components in descending order of mean projected variance ...\n');
-  %
-  %%%%%%%%%%%%%%%%%%%% Find mean variances %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  %
-  % meanvar  = zeros(ncomps,1);      % size of the projections
-  if ncomps == urchans % if weights are square . . .
-      winv = inv(weights*sphere);
-  else
-      icaprintf(verb,fid,'Using pseudo-inverse of weight matrix to rank order component projections.\n');
-      winv = pinv(weights*sphere);
-  end
-  %
-  % compute variances without backprojecting to save time and memory -sm 7/05
-  %
-  meanvar = sum(winv.^2).*sum((data').^2)/((chans*frames)-1); % from Rey Ramirez 8/07
-  %
-  %%%%%%%%%%%%%% Sort components by mean variance %%%%%%%%%%%%%%%%%%%%%%%%
-  %
-  [sortvar, windex] = sort(meanvar);
-  windex = windex(ncomps:-1:1); % order large to small 
-  meanvar = meanvar(windex);
-  %
-  %%%%%%%%%%%% re-orient max(abs(activations)) to >=0 ('posact') %%%%%%%%
-  %
-  if strcmp(posactflag,'on') % default is now off to save processing and memory
-      icaprintf(verb,fid,'Making the max(abs(activations)) positive ...\n');
-      [tmp ix] = max(abs(data')); % = max abs activations
-      signsflipped = 0;
-      for r=1:ncomps
-         if sign(data(r,ix(r))) < 0
+end
+%
+%%%%%% Sort components in descending order of max projected variance %%%%
+%
+icaprintf(verb,fid,'Sorting components in descending order of mean projected variance ...\n');
+%
+%%%%%%%%%%%%%%%%%%%% Find mean variances %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% meanvar  = zeros(ncomps,1);      % size of the projections
+if ncomps == urchans % if weights are square . . .
+    winv = inv(weights*sphere);
+else
+    icaprintf(verb,fid,'Using pseudo-inverse of weight matrix to rank order component projections.\n');
+    winv = pinv(weights*sphere);
+end
+%
+% compute variances without backprojecting to save time and memory -sm 7/05
+%
+meanvar = sum(winv.^2).*sum((data').^2)/((chans*frames)-1); % from Rey Ramirez 8/07
+%
+%%%%%%%%%%%%%% Sort components by mean variance %%%%%%%%%%%%%%%%%%%%%%%%
+%
+[sortvar, windex] = sort(meanvar);
+windex = windex(ncomps:-1:1); % order large to small
+meanvar = meanvar(windex);
+%
+%%%%%%%%%%%% re-orient max(abs(activations)) to >=0 ('posact') %%%%%%%%
+%
+if strcmp(posactflag,'on') % default is now off to save processing and memory
+    icaprintf(verb,fid,'Making the max(abs(activations)) positive ...\n');
+    [tmp ix] = max(abs(data')); % = max abs activations
+    signsflipped = 0;
+    for r=1:ncomps
+        if sign(data(r,ix(r))) < 0
             if nargout>6  % if activations are to be returned (only)
-               data(r,:) = -1*data(r,:);  % flip activations so max(abs()) is >= 0
+                data(r,:) = -1*data(r,:);  % flip activations so max(abs()) is >= 0
             end
             winv(:,r) = -1*winv(:,r);  % flip component maps
             signsflipped = 1;
-         end
-      end
-      if signsflipped == 1
-          weights = pinv(winv)*inv(sphere); % re-invert the component maps
-      end
-       
-      % [data,winvout,weights] = posact(data,weights); % overwrite data with activations
-      % changes signs of activations (now = data) and weights 
-      % to make activations (data) net rms-positive
-      % can call this outside of runica() - though it is inefficient!
-  end
-  % 
-  %%%%%%%%%%%%%%%%%%%%% Filter data using final weights %%%%%%%%%%%%%%%%%%
-  %
-  if nargout>6, % if activations are to be returned
-      icaprintf(verb,fid,'Permuting the activation wave forms ...\n');
-      data = data(windex,:); % data is now activations -sm 7/05
-  else
-      clear data
-  end
-  weights = weights(windex,:);% reorder the weight matrix
-  bias  = bias(windex);       % reorder them
-  signs = diag(signs);        % vectorize the signs matrix
-  signs = signs(windex);      % reorder them
-  
-  if ~isempty(fid), fclose(fid); end; % close logfile
+        end
+    end
+    if signsflipped == 1
+        weights = pinv(winv)*inv(sphere); % re-invert the component maps
+    end
+
+    % [data,winvout,weights] = posact(data,weights); % overwrite data with activations
+    % changes signs of activations (now = data) and weights
+    % to make activations (data) net rms-positive
+    % can call this outside of runica() - though it is inefficient!
+end
+%
+%%%%%%%%%%%%%%%%%%%%% Filter data using final weights %%%%%%%%%%%%%%%%%%
+%
+if nargout>6, % if activations are to be returned
+    icaprintf(verb,fid,'Permuting the activation wave forms ...\n');
+    data = data(windex,:); % data is now activations -sm 7/05
+else
+    clear data
+end
+weights = weights(windex,:);% reorder the weight matrix
+bias  = bias(windex);       % reorder them
+signs = diag(signs);        % vectorize the signs matrix
+signs = signs(windex);      % reorder them
+
+if ~isempty(fid), fclose(fid); end; % close logfile
 
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-    
+
 return
 
 % printing functions
 % ------------------
 function icaprintf(verb,fid, varargin);
-    if verb
-        if ~isempty(fid)
-            fprintf(fid, varargin{:});
-        end;        
-        fprintf(varargin{:});
-    end
+if verb
+    if ~isempty(fid)
+        fprintf(fid, varargin{:});
+    end;
+    fprintf(varargin{:});
+end

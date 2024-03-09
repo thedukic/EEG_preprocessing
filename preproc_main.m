@@ -15,14 +15,14 @@ for i = 1 % :length(myfiles.group)
     myfolders.preproc = fullfile(myfolders.rootpreproc,myfolders.task,myfolders.group,myfolders.visit);
 
     subjects = list_subjects(myfolders.rawdata,[]);
-    for j = 7:length(subjects)
+    for j = 39:length(subjects)
         output = preproc_cleaning(myfolders,subjects{j});
 
         % Record warnings for all participants in single table
         summaries(j,:) = struct2table(output,'AsArray',true);
     end
 
-    % Add that there is an overview of channels being rejected 
+    % Add that there is a group-level overview of channels being rejected 
     % Save the summary report
     save(fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task]),'summaries');
     writetable(summaries,fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task '.xlsx']));

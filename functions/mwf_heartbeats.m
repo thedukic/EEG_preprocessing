@@ -1,4 +1,4 @@
-function [EEG, noiseMask] = detect_heartbeats(EEG)
+function [EEG, noiseMask] = mwf_heartbeats(EEG)
 %
 % Test whether only eye blinks are present using bipolar VEOG
 % SDukic, March 2023
