@@ -39,7 +39,7 @@ cfg.bch.badTimeThreshold            = 0.01; % default: 0.01
 
 % RELAX: Muscle activity
 % Less stringent = -0.31, Middle Stringency = -0.59, More stringent = -0.72
-cfg.bch.muscleSlopeThreshold        = -0.65;
+cfg.bch.muscleSlopeThreshold        = -0.59;
 cfg.bch.slopeTime                   = 0.01;
 
 % RELAX: Slow drifts

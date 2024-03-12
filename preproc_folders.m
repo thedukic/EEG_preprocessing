@@ -6,7 +6,7 @@ myfolders.rootrawdata = 'E:\1_EEG_DATA';                                % Input
 myfolders.rootpreproc = 'E:\3_PREPROCESSED_DATA';                       % Output
 
 % Set group/task/visit
-myfiles.task  = 'MMN';     % MMN/SART/RS/MT
+myfiles.task  = 'RS';     % MMN/SART/RS/MT
 myfiles.group = {'ALS','CONTROL','AFM','PLS','PMA'};
 myfiles.visit = {'T1'};   % T1/T2/...
 

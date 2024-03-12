@@ -114,9 +114,12 @@ L = EEG.srate;
 N = floor(length(extremeMask)/L);
 extremeNoiseEpochs2 = any(reshape(extremeMask(1:N*L),L,N));
 
-% Get epoch start-stop samples
+% Get epoch start/stop samples
 jump = find(diff([false, extremeMask, false])~=0);
-extremeNoiseEpochs3 = [jump(1:2:end); jump(2:2:end)]';
+extremeNoiseEpochs3 = [jump(1:2:end); jump(2:2:end)-1]';
+
+% Makes sure that the two masks are equivalent 
+assert(sum(diff(extremeNoiseEpochs3'))+size(extremeNoiseEpochs3,1) == sum(extremeMask));
 
 % % Make sure bad epochs have minimal length
 % if ~isempty(jump)
