@@ -1,4 +1,4 @@
-function EEG = remove_electrodewobbles(EEG)
+function EEG = remove_electrodewobbles(EEG,ICAtype)
 
 % Use only EEG
 chaneeg = strcmp({EEG.chanlocs.type},'EEG');
@@ -11,7 +11,8 @@ EEGICA.data = EEGICA.data - trimmean(EEGICA.data,10,'round',1);
 assert(getrank(EEGICA.data)==EEGICA.nbchan);
 
 % ICA
-EEGICA = pop_runica(EEGICA,'icatype','cudaica');
+% EEGICA = pop_runica(EEGICA,'icatype','cudaica','pca',70);
+EEGICA = pop_runica(EEGICA,'icatype',ICAtype);
 EEGICA = eeg_checkset(EEGICA,'ica');
 
 % Make sure ICA activations are estimated
@@ -35,13 +36,16 @@ end
 % ICLabel
 EEGICA = iclabel(EEGICA);
 
+% Interim data saving
+% EEGICA = pop_saveset(EEGICA,'filename','TMP.set','filepath',EEGICA.ALSUTRECHT.subject.preproc);
+
 % Get the cassification labels
 [ICLabel_pvec, ICLabel_cvec] = max(EEGICA.etc.ic_classification.ICLabel.classifications,[],2);
 
 % (6) channel noise
-% badChanICs = find(ICLabel_cvec==6);
-badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.5);
-% badChanICs = unique([badChanICs; find(EEGICA.etc.ic_classification.ICLabel.classifications(:,6)>=0.2)]);
+badChanICs = find(ICLabel_cvec==6);
+% badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.5);
+badChanICs = unique([badChanICs; find(EEGICA.etc.ic_classification.ICLabel.classifications(:,6)>=0.2)]);
 % badChanICs = setdiff(badChanICs,find(EEGICA.etc.ic_classification.ICLabel.classifications(:,1)>=0.2));
 
 % The idea is that a true "bad channel" IC should have only one
@@ -71,7 +75,7 @@ if ~isempty(badChanICs)
     wIC = zeros(size(IC));
     for i = 1:length(badChanICs)
         [thresh,sorh,~] = ddencmp('den','wv',IC(badChanICs(i),:));
-        % thresh = thresh*1;
+        thresh = thresh*1.2;
         swc = swt(IC(badChanICs(i),:),LVL,WLT);
         Y   = wthresh(swc,sorh,thresh);
         wIC(badChanICs(i),:) = iswt(Y,WLT);

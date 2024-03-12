@@ -134,7 +134,7 @@ EEG = remove_datasetends(EEG,myfolders.task);
 
 % Mark where each RS block starts/ends
 if strcmpi(myfolders.task,'RS')
-    EEG = make_rsmasks(EEG,cellfun(@(x,y) size(x,2),{EEG(:).data}));
+    EEG = make_rsmasks(EEG);
 end
 
 % Merge datasets
@@ -147,15 +147,11 @@ if strcmpi(myfolders.task,'MT')
     EEG = pop_select(EEG,'rmchannel',chanemg);
 end
 
-% % Merge datasets
-% EEG = pop_mergeset(EEG,1:NBLK);
-% if strcmpi(myfolders.task,'MT'), EMG = pop_mergeset(EMG,1:NBLK); end
-
 % % Make a copy
 % EEGRAW = EEG;
 
 % Remove electrode wobbles and pops
-EEG = remove_electrodewobbles(EEG);
+EEG = remove_electrodewobbles(EEG,lower(cfg.ica.type));
 
 % Detect and remove noisy electrodes
 EEG = remove_noisyelec(EEG,cfg.bch);
@@ -164,7 +160,6 @@ EEG = remove_noisyelec(EEG,cfg.bch);
 EEG = report_badelectrodes(EEG,'individual');
 
 % Detecte extremely bad epochs
-% EEGM = detect_extremelybadepochs(EEGM); % Too sensitive?
 EEG = detect_extremelybadepochs2(EEG);
 
 % Check if EC has eye blinks
@@ -194,11 +189,13 @@ EEG.ref  = 'average';
 if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
     EEG = eeg_eegrej(EEG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
     EXT = eeg_eegrej(EXT, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
+
     if strcmpi(myfolders.task,'MT')
         EMG = eeg_eegrej(EMG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
     end
     if strcmpi(myfolders.task,'RS')
         EEG.ALSUTRECHT.blockinfo.rs_mask(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
+        assert(size(EEG.data,2)==size(EEG.ALSUTRECHT.blockinfo.rs_mask,2));
     end
 end
 

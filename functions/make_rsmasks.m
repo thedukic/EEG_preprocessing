@@ -6,7 +6,10 @@ function EEG = make_rsmasks(EEG,N)
 % 000 000 111
 % N = cellfun(@(x,y) size(x,2),{EEG(:).data});
 
+% Mark where each block starts/stops
+N = cellfun(@(x,y) size(x,2),{EEG(:).data});
 NBLK = length(N);
+
 rs_mask = false(NBLK,sum(N));
 for j = 1:NBLK
     if j == 1
@@ -16,9 +19,11 @@ for j = 1:NBLK
     end
 end
 
+% Which are eyes-open blocks
+eo_mask = contains(EEG(1).ALSUTRECHT.subject.datablocks,'EO');
+
 % Log
 for i = 1:NBLK
-    eo_mask = contains(EEG(i).ALSUTRECHT.subject.datablocks,'EO');
     EEG(i).ALSUTRECHT.blockinfo.eo_mask = eo_mask;
     EEG(i).ALSUTRECHT.blockinfo.rs_mask = rs_mask;
 end
