@@ -22,41 +22,47 @@ function EEG = reduce_artifacts(EEG,cfgbch)
 % they are shorter than this value to reduce rank deficiency issues in MWF cleaning).
 % Note that it's better to include clean periods in the artifact mask rather than the including artifact in the clean mask.
 
-% Good performance of the artifact removal algorithm is indicated by 
-% both high SERand high ARR.
+% Good performance of the artifact removal algorithm is indicated by
+% both high SER and high ARR.
 
-% Remove external electrodes
-% EEG0 = pop_select(EEG,'nochannel',{EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels});
+% % Remove external electrodes
+% % EEG0 = pop_select(EEG,'nochannel',{EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels});
 % EEG0 = EEG;
 
 % =========================================================================
-% 1. Detect and correct electrode pops
-% cfgbch.popType = 'large';
-% EEG = detect_channelpops(EEG,cfgbch);
-
-% =========================================================================
-% 2. MWF round 1: Detect and remove EMG
+% 1. MWF round 1: Detect and remove EMG
 EEG = mwf_channelemg(EEG,cfgbch);
 
 % =========================================================================
-% 3. MWF round 2: Detect and remove VEOG / eye blinks
-EEG = mwf_eyeblinks(EEG);
+% 2. MWF round 2: Detect and remove VEOG / eye blinks
+% EEG = mwf_eyeblinks(EEG);
 
 % =========================================================================
-% 4. MWF round 3: Detect and remove HEOG / slow drifts
-EEG = mwf_channeldrifts(EEG);
+% % 4. MWF round 3: Detect and remove HEOG / slow drifts
+% if ~strcmpi(EEG.ALSUTRECHT.subject.task,'RS') % also SART?
+%     EEG = mwf_channeldrifts(EEG);
+% end
 
 % =========================================================================
-% 5. MWF round 4: Detect and remove ECG - too much?
-% EEG = mwf_heartbeats(EEG);
+% 3. MWF round 4: Detect and remove ECG - too much?
+% EEG = mwf_heartbeats(EEG,EEG);
 
 % =========================================================================
-% 6. Detect channel pops
-% cfgbch.popType = 'small';
-% EEG = detect_channelpops(EEG,cfgbch);
+% 4. ASR
+fprintf('\nUsing ASR to fix bad segments of EEG data...\n');
+
+extchan = {EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels};
+EXT = pop_select(EEG,'channel',extchan);
+
+EEG = pop_clean_rawdata(pop_select(EEG,'nochannel',extchan),'FlatlineCriterion','off','ChannelCriterion','off','LineNoiseCriterion','off','Highpass','off', ...
+    'BurstCriterion',cfgbch.asr,'WindowCriterion','off','BurstRejection','off','Distance','Euclidian');
+
+EEG = merge_eeglabsets(EEG,EXT);
+fprintf('Done using ASR.\n');
 
 % =========================================================================
-% Visual check
+% % Visual check
+% EEG0.data(end,:) = 1000*EEG0.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1;
 % vis_artifacts(EEG,EEG0);
 
 end

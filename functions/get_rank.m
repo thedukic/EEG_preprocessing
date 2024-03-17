@@ -1,4 +1,4 @@
-function rank2 = getrank(data)
+function rank2 = get_rank(data)
 
 % EEGLAB sometimes forces data to be single
 data = double(data);

@@ -1,13 +1,17 @@
+% =========================================================================
 %
 % EEG preprocessing main file
 % Check README.md for instructions
-% Run the code below
-
+% SDukic, March 2023
+%
 % =========================================================================
-close all; fclose all; clc
+
+close all; fclose all; clc;
 [myfolders, myfiles] = preproc_folders;
 
-for i = 2 % :length(myfiles.group)
+proctime = strrep(strrep(char(datetime("now")),':','-'),' ','-');
+
+for i = 3 % :length(myfiles.group)
     % Add specific info: group/task/visit
     myfolders.group   = myfiles.group{i};
     myfolders.task    = myfiles.task;
@@ -15,19 +19,20 @@ for i = 2 % :length(myfiles.group)
     myfolders.rawdata = fullfile(myfolders.rootrawdata,myfolders.group,myfolders.visit);
     myfolders.preproc = fullfile(myfolders.rootpreproc,myfolders.task,myfolders.group,myfolders.visit);
 
-    subjects = list_subjects(myfolders.rawdata,[]);
+    % To-do list makes sense if you set one cohort only
+    subjects = list_subjects(myfolders.rawdata,myfiles.todo);
+    
     for j = 1:length(subjects)
         output = preproc_cleaning(myfolders,subjects{j});
-        output = preproc_cleaning(myfolders,'ALS37807');
 
         % Record warnings for all participants in single table
         summaries(j,:) = struct2table(output,'AsArray',true);
     end
 
-    % Add that there is a group-level overview of channels being rejected 
+    % Add that there is a group-level overview of channels being rejected
     % Save the summary report
-    save(fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task]),'summaries');
-    writetable(summaries,fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task '.xlsx']));
+    save(fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task '_' proctime]),'summaries');
+    writetable(summaries,fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' proctime '.xlsx']));
     clearvars summaries
 end
 

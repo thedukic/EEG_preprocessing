@@ -1,4 +1,15 @@
 function EEG = detect_extremelybadepochs2(EEG)
+%
+% Find extreme periods based on:
+% 1. Very high amplitudes (e.g. >400-500 uV)
+% 2. A lot of EMG across many electrodes (e.g. 1/4 of the dataset)
+%
+% Very brief periods of "good" data (e.g. <1s) that are sandwitched
+% between "bad" data are also marked as "bad"
+%
+
+fprintf('\nDetecting extremely bad segments of the data...\n');
+fprintf('These data will be excluded from MWF, ASR and ICA and from the final dataset.\n');
 
 % Select these
 chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
@@ -108,35 +119,54 @@ EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections = ...
     EEG.ALSUTRECHT.extremeNoise.muscleExceededThreshold;
 
 % Epoch into 1s, needed only for EMG MWF
-extremeMask = EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections;
+extremeMask0  = EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections;
+
+if any(extremeMask0)
+    % Make sure good epochs have minimal length
+    % too short good data is likely a miss in between two bad epochs
+    jump = find(diff([false, ~extremeMask0, false])~=0);
+    goodEpochs = [jump(1:2:end); jump(2:2:end)-1]';
+    goodEpochsDur = diff(goodEpochs')+1;
+    mindur = EEG.srate; % 1s
+    goodEpochs(goodEpochsDur<mindur,:) = [];
+
+    % New noise mask
+    extremeMask  = true(size(extremeMask0));
+    for i = 1:size(goodEpochs,1)
+        extremeMask(goodEpochs(i,1):goodEpochs(i,2)) = false;
+    end
+
+    % % Check
+    % EEG0 = EEG;
+    % EEG0.data = EEG0.data*0;
+    % EEG0.data(chaneeg,:) = 10*data1;
+    % EEG0.data(chaneog,:) = 10*data2;
+    % EEG0.data(end,:)     = 500*extremeMask;
+    % vis_artifacts(EEG,EEG0);
+
+    % Get epoch start/stop samples
+    jump = find(diff([false, extremeMask, false])~=0);
+    extremeNoiseEpochs3 = [jump(1:2:end); jump(2:2:end)-1]';
+
+    % Makes sure that the two masks are equivalent
+    assert(sum(diff(extremeNoiseEpochs3'))+size(extremeNoiseEpochs3,1) == sum(extremeMask));
+else
+    extremeMask = extremeMask0;
+    extremeNoiseEpochs3 = [];
+end
 
 L = EEG.srate;
 N = floor(length(extremeMask)/L);
 extremeNoiseEpochs2 = any(reshape(extremeMask(1:N*L),L,N));
 
-% Get epoch start/stop samples
-jump = find(diff([false, extremeMask, false])~=0);
-extremeNoiseEpochs3 = [jump(1:2:end); jump(2:2:end)-1]';
-
-% Makes sure that the two masks are equivalent 
-assert(sum(diff(extremeNoiseEpochs3'))+size(extremeNoiseEpochs3,1) == sum(extremeMask));
-
-% % Make sure bad epochs have minimal length
-% if ~isempty(jump)
-%     durall = jump(2:2:end)-jump(1:2:end);
-% end
-% mspersamp = 1000/EEG.srate;
-% mindur    = round(100/mspersamp);
-% extremeNoiseEpochs3(durall<mindur,:) = [];
-
 % Log
 EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier = mean(extremeMask);
+EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs0                 = extremeMask0;
 EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1                 = extremeMask;
 EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2                 = extremeNoiseEpochs2;
 EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3                 = extremeNoiseEpochs3;
 
 fprintf('Percentage of extremly bad EEG: %1.2f\n', EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier);
-fprintf('These data will be excluded from MWF and ICA.\n');
 
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Extremly bad epochs\n');

@@ -1,13 +1,13 @@
 function cfg = preproc_parameters
 %
 % If you want to change something, discuss with the rest of the team first
-% 
+%
 
 % Preprocessing ver/run 1
-cfg.rnum = '1'; 
+cfg.rnum = '1';
 
 %% IIR Butterworth filters
-% The filters are twopass, so the filtering will be done twice 
+% The filters are twopass, so the filtering will be done twice
 % using only the half of the defined order
 %
 % Input: [cutoff, final order]
@@ -22,8 +22,16 @@ cfg.flt.erp.lp = [80, 4];
 cfg.flt.rsmt.hp = [1, 4];
 cfg.flt.rsmt.lp = [80, 4];
 
-%% Bad channel detection
-% EEGLAB: Flat electrode duration
+% EXT filter
+cfg.flt.ext.hp = [0.1, 2];
+cfg.flt.ext.lp = [80, 2];
+
+% EMG filter
+cfg.flt.emg.hp = [5, 4];
+cfg.flt.emg.lp = [];
+
+%% Bad channel/period detection
+% Flat electrode duration
 cfg.bch.flatDuration                = 4;    % [s]
 
 % PREP: settings
@@ -32,10 +40,15 @@ cfg.bch.highFrequencyNoiseThreshold = 5;    % default: 5
 cfg.bch.correlationThreshold        = 0.4;  % default: 0.4
 cfg.bch.badTimeThreshold            = 0.01; % default: 0.01
 
-% % Channel pops
-% cfg.bch.popThresholdLarge           = 75;   % [uV]
-% cfg.bch.popTime                     = 0.01; % [%]
-% cfg.bch.popThresholdSmall           = 10;   % [Z-score]
+% PREP: RANSAC (computationally heavy and nondeterministic)
+cfg.bch.ransacOff                   = true;
+% cfg.bch.ransacCorrelationThreshold  = 0.75; % default: 0.8
+% cfg.bch.ransacUnbrokenTime          = 0.5;  % default: 0.4
+
+% % Only iff RANSAC is used
+% cfg.bch.iter.num    = 10;
+% cfg.bch.iter.frc    = 0.8;
+% cfg.bch.iter.rejmax = 0.1;
 
 % RELAX: Muscle activity
 % Less stringent = -0.31, Middle Stringency = -0.59, More stringent = -0.72
@@ -43,24 +56,18 @@ cfg.bch.muscleSlopeThreshold        = -0.59;
 cfg.bch.slopeTime                   = 0.01;
 
 % RELAX: Slow drifts
-% cfg.bch.DriftSeverityThreshold       = 12;  % default: 10 (MAD from the median of all electrodes)
+% cfg.bch.DriftSeverityThreshold      = 12;  % default: 10 (MAD from the median of all electrodes)
 % cfg.bch.driftSlopeThreshold         = -4;
 
-% PREP: RANSAC (computationally heavy and nondeterministic)
-cfg.bch.ransacOff                   = true;
-% cfg.bch.ransacCorrelationThreshold  = 0.75; % default: 0.8
-% cfg.bch.ransacUnbrokenTime          = 0.5;  % default: 0.4
-%
-% % Only iff RANSAC is used
-% cfg.bch.iter.num    = 10;
-% cfg.bch.iter.frc    = 0.8;
-% cfg.bch.iter.rejmax = 0.1;
+% EEGLAB: ASR
+cfg.bch.asr                         = 20; % recommandation: 20-30
 
 %% ICA and ICLabels
 cfg.ica.type    = 'CUDAICA';
 cfg.ica.icMax   = 50; % PCA reduction prior ICA
-% {'Brain' 'Muscle' 'Eye' 'Heart' 'Line Noise' 'Channel Noise' 'Other'}
-cfg.ica.iclabel = [NaN NaN; 0.8 1; 0.5 1; NaN NaN; NaN NaN; 0.5 1; NaN NaN];
+%  {'Brain' 'Muscle' 'Eye' 'Heart' 'Line Noise' 'Channel Noise' 'Other'}
+cfg.ica.iclabel = ....
+    [NaN NaN; 0.8 1; 0.5 1; 0.8 1; NaN NaN; 0.5 1; NaN NaN];
 
 %% Event triggers
 cfg.trg.mmn   = {[12 17],[-0.2 0.5]};

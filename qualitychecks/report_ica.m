@@ -10,6 +10,20 @@ if isempty(EEG.icaact)
     EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
 end
 
+% Evaluate only the first K = 20 ICs, they carry the most power and thus relevance
+K = 20;
+NICA = length(EEG.reject.gcompreject);
+
+varAICs = NaN(NICA,1);
+for i = 1:NICA
+    [~, varAICs(i)] = compvar(EEG.data,EEG.icaact,EEG.icawinv,i);
+end
+
+% Normalised var of all ICs
+varAICsNorm = varAICs./sum(varAICs);
+% Total var of the first K ICs
+varKICs = sum(varAICsNorm(1:K));
+
 % =========================================================================
 % EEG available:
 % MMN  3*7     ~ 21 min
@@ -22,7 +36,6 @@ end
 % 50 PCs    ^2*30 /256/60 ~ 5.0 min
 % 70 PCs    ^2*30 /256/60 ~ 9.5 min
 % See: https://sccn.ucsd.edu/wiki/Makoto's_preprocessing_pipeline#What_is_the_minimum_length_of_data_to_perform_ICA.3F_.2807.2F04.2F2022_added.29
-NICA = length(EEG.reject.gcompreject);
 
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'ICA\n');
@@ -36,14 +49,35 @@ else
     fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data seems to be long enough for the ICA.\n');
 end
 
-% =========================================================================
-% Plot IClabel artifact ICs
 % Log IClabel info
 EEG.ALSUTRECHT.ica.ICLabel_bics = find(EEG.reject.gcompreject);
 EEG.ALSUTRECHT.ica.ICLabel_clss = EEG.etc.ic_classification.ICLabel.classes;
 [EEG.ALSUTRECHT.ica.ICLabel_pvec, EEG.ALSUTRECHT.ica.ICLabel_cvec] = max(EEG.etc.ic_classification.ICLabel.classifications,[],2);
 
+% =========================================================================
+% Plot the first 20 ICs
 myCmap = brewermap(128,'*RdBu');
+
+fh = figure;
+th = tiledlayout(4,5);
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+
+for i = 1:20
+    nexttile;
+    topoplot(EEG.icawinv(:,i),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,i)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map');
+    % title({['ICA' num2str(i) ', Var = ' num2str(round(varAICsNorm(i),2))], [EEG.ALSUTRECHT.ica.ICLabel_clss{EEG.ALSUTRECHT.ica.ICLabel_cvec(i)} ', P = ' num2str(round(EEG.ALSUTRECHT.ica.ICLabel_pvec(i),2))]});
+    title({['ICA' num2str(i) ', Var = ' num2str(round(varAICsNorm(i)*100)) '%'], [EEG.ALSUTRECHT.ica.ICLabel_clss{EEG.ALSUTRECHT.ica.ICLabel_cvec(i)} ', P = ' num2str(round(EEG.ALSUTRECHT.ica.ICLabel_pvec(i),2))]});
+end
+
+% Save
+plotX=35; plotY=20;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ICs']),'-dtiff','-r400');
+close(fh);
+
+% =========================================================================
+% Plot IClabel artifact ICs
 
 fh = figure;
 th = tiledlayout('flow');
@@ -51,7 +85,7 @@ th.TileSpacing = 'compact'; th.Padding = 'compact';
 
 for i = 1:length(EEG.ALSUTRECHT.ica.ICLabel_bics)
     nexttile;
-    topoplot(EEG.icawinv(:,EEG.ALSUTRECHT.ica.ICLabel_bics(i)),EEG.chanlocs,'maplimits',0.95*max(abs(EEG.icawinv(:,EEG.ALSUTRECHT.ica.ICLabel_bics(i))))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map');
+    topoplot(EEG.icawinv(:,EEG.ALSUTRECHT.ica.ICLabel_bics(i)),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,EEG.ALSUTRECHT.ica.ICLabel_bics(i))))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map');
     title({['ICA' num2str(EEG.ALSUTRECHT.ica.ICLabel_bics(i))], [EEG.ALSUTRECHT.ica.ICLabel_clss{EEG.ALSUTRECHT.ica.ICLabel_cvec(EEG.ALSUTRECHT.ica.ICLabel_bics(i))} ', P = ' num2str(round(EEG.ALSUTRECHT.ica.ICLabel_pvec(EEG.ALSUTRECHT.ica.ICLabel_bics(i)),2))]});
 end
 
@@ -77,17 +111,7 @@ close(fh);
 % (see also: eeglablist Digest, Vol 220, Issue 21)
 %
 
-% Evaluate only the first 20 ICs s they carry the most power and thus relevance
-K = 20;
-
-% Power
-varianceWav = NaN(NICA,1);
-for i = 1:NICA
-    [~, varianceWav(i)] = compvar(EEG.data,EEG.icaact,EEG.icawinv,i);
-end
-powK = round(sum(varianceWav(1:K))./sum(varianceWav)*100);
-
-fprintf(EEG.ALSUTRECHT.subject.fid,'Within the first %d ICs (power = %d):\n', K,powK);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Within the first %d ICs (power = %1.2f):\n', K,varKICs);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==1)*100));
 fprintf(EEG.ALSUTRECHT.subject.fid,'Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==2)*100));
 fprintf(EEG.ALSUTRECHT.subject.fid,'Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==3)*100));
@@ -96,7 +120,7 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Line    components: %2.0f%%\n', round(mean(E
 fprintf(EEG.ALSUTRECHT.subject.fid,'Channel components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==6)*100));
 fprintf(EEG.ALSUTRECHT.subject.fid,'Other   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==7)*100));
 
-fprintf('Within the first %d ICs (power = %d):\n', K,powK);
+fprintf('Within the first %d ICs (power = %1.2f):\n', K,varKICs);
 fprintf('Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==1)*100));
 fprintf('Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==2)*100));
 fprintf('Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.ICLabel_cvec(1:K)==3)*100));
@@ -115,16 +139,16 @@ ICsMostLikelyLineNoise    = (I==5)';
 ICsMostLikelyChannelNoise = (I==6)';
 ICsMostLikelyOther        = (I==7)';
 
-BrainVariance    = sum(abs(varianceWav(ICsMostLikelyBrain)));
-ArtifactVariance = sum(abs(varianceWav(~ICsMostLikelyBrain)));
+BrainVariance    = sum(abs(varAICs(ICsMostLikelyBrain)));
+ArtifactVariance = sum(abs(varAICs(~ICsMostLikelyBrain)));
 TotalVariance    = BrainVariance+ArtifactVariance;
 
-MuscleVariance       = sum(abs(varianceWav(ICsMostLikelyMuscle)));
-EyeVariance          = sum(abs(varianceWav(ICsMostLikelyEye)));
-HeartVariance        = sum(abs(varianceWav(ICsMostLikelyHeart)));
-LineNoiseVariance    = sum(abs(varianceWav(ICsMostLikelyLineNoise)));
-ChannelNoiseVariance = sum(abs(varianceWav(ICsMostLikelyChannelNoise)));
-OtherVariance        = sum(abs(varianceWav(ICsMostLikelyOther)));
+MuscleVariance       = sum(abs(varAICs(ICsMostLikelyMuscle)));
+EyeVariance          = sum(abs(varAICs(ICsMostLikelyEye)));
+HeartVariance        = sum(abs(varAICs(ICsMostLikelyHeart)));
+LineNoiseVariance    = sum(abs(varAICs(ICsMostLikelyLineNoise)));
+ChannelNoiseVariance = sum(abs(varAICs(ICsMostLikelyChannelNoise)));
+OtherVariance        = sum(abs(varAICs(ICsMostLikelyOther)));
 
 EEG.ALSUTRECHT.ica.ProportionVariance_was_BrainICs        = BrainVariance/TotalVariance;
 EEG.ALSUTRECHT.ica.ProportionVariance_was_MuscleICs       = MuscleVariance/TotalVariance;
