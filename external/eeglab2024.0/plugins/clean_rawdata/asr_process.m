@@ -92,17 +92,12 @@ function [outdata,outstate] = asr_process(data,srate,state,windowlen,lookahead,s
 % CALIFORNIA HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
 % MODIFICATIONS.
 
-if nargin < 4 || isempty(windowlen) 
-    windowlen = 0.5; end
+if nargin < 4 || isempty(windowlen), windowlen = 0.5; end
 windowlen = max(windowlen,1.5*size(data,1)/srate);
-if nargin < 5 || isempty(lookahead)
-    lookahead = windowlen/2; end
-if nargin < 6 || isempty(stepsize)
-    stepsize = 32; end
-if nargin < 7 || isempty(maxdims)
-    maxdims = 0.66; end
-if nargin < 9 || isempty(usegpu)
-    usegpu = false; end
+if nargin < 5 || isempty(lookahead), lookahead = windowlen/2; end
+if nargin < 6 || isempty(stepsize), stepsize = 32; end
+if nargin < 7 || isempty(maxdims), maxdims = 0.66; end
+if nargin < 9 || isempty(usegpu), usegpu = true; end % SDUKIC EDIT
 if nargin < 8 || isempty(maxmem)
     if usegpu
         dev = gpuDevice(); maxmem = dev.FreeMemory/2^20; 
@@ -148,7 +143,7 @@ for i=1:splits
         % get spectrally shaped data X for statistics computation (range shifted by lookahead)
         [X,state.iir] = filter(B,A,double(data(:,range+P)),state.iir,2);
         % move it to the GPU if applicable
-        if usegpu && length(range) > 1000
+        if usegpu % && length(range) > 1000 % SDUKIC EDIT
             try X = gpuArray(X); catch,end; end
         % compute running mean covariance (assuming a zero-mean signal)
         [Xcov,state.cov] = moving_average(N,reshape(bsxfun(@times,reshape(X,1,C,[]),reshape(X,C,1,[])),C*C,[]),state.cov); % ch c ch x range.
@@ -187,11 +182,9 @@ for i=1:splits
             [last_n,state.last_R,state.last_trivial] = deal(n,R,trivial);
         end
     end
-    if splits > 1
-        fprintf('.'); end
+    % if splits > 1, fprintf('.'); end % SDUKIC EDIT
 end
-if splits > 1
-    fprintf('\n'); end
+if splits > 1, fprintf('\n'); end
 
 % carry the look-ahead portion of the data over to the state (for successive calls)
 state.carry = [state.carry data(:,(end-P+1):end)];

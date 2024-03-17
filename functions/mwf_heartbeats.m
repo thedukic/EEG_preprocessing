@@ -1,15 +1,25 @@
-function [EEG, noiseMask] = mwf_heartbeats(EEG)
+function [EEG, noiseMask] = mwf_heartbeats(EEG,theseData)
 %
 % Test whether only eye blinks are present using bipolar VEOG
-% SDukic, March 2023
+% SDukic, March 2024
 %
+
 fprintf('\nMWF (ECG) heart beats...\n');
 
-% Select only EEG + VEOG
-chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
-chanecg  = strcmp({EEG.chanlocs.labels},'ECG');
+% Select ECG
+chanecg = strcmp({EEG.chanlocs.labels},'ECG');
 
+% Was ECG recorded?
 if any(chanecg)
+    % Select only EEG/EMG
+    if strcmpi(theseData,'EEG')
+        chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
+        loglabel = 'R2';
+    elseif strcmpi(theseData,'EMG')
+        chaneeg  = strcmp({EEG.chanlocs.type},'EMG');
+        loglabel = 'EMG';
+    end
+
     % ECG recorded
     dataeeg  = EEG.data(chaneeg,:);
     dataecg  = EEG.data(chanecg,:);
@@ -27,9 +37,8 @@ if any(chanecg)
     times = EEG.times/1000; % EEGLAB time is in [ms]
     [qrspeaks,locs] = findpeaks(y,times,'MinPeakHeight',treshold,'MinPeakDistance',0.8);
 
-    ECGfocus  = 125; % ms
-    mspersamp = 1000/EEG.srate;
-    ECGfocussamples = round(ECGfocus/mspersamp);
+    ECGfocus = 80; % ms
+    ECGfocussamples = round(ECGfocus/(1000/EEG.srate));
     fprintf('ECG duration is +-%dms wrt the detected peaks.\n',ECGfocus);
 
     badEpoch2 = locs*EEG.srate;
@@ -67,7 +76,7 @@ if any(chanecg)
     plotX=35; plotY=20;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
     set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ECG']),'-dtiff','-r400');
+    print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ECG_' theseData]),'-dtiff','-r400');
     close(fh);
 
     % badEpoch2 = locs*EEG.srate;
@@ -104,47 +113,49 @@ if any(chanecg)
         end
     end
 
-    assert(length(noiseMask)==size(EEG.data,2));
-    assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask));
-    noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
+    if strcmpi(theseData,'EEG')
+        assert(length(noiseMask)==size(EEG.data,2));
+        assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask));
+        noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
+    end
 
     % Log
-    EEG.ALSUTRECHT.MWF.R4.badElectrodes          = NaN;
-    EEG.ALSUTRECHT.MWF.R4.noiseMask              = noiseMask;
-    EEG.ALSUTRECHT.MWF.R4.proportionMarkedForMWF = mean(noiseMask,'omitnan');
+    EEG.ALSUTRECHT.MWF.(loglabel).badElectrodes          = NaN;
+    EEG.ALSUTRECHT.MWF.(loglabel).noiseMask              = noiseMask;
+    EEG.ALSUTRECHT.MWF.(loglabel).proportionMarkedForMWF = mean(noiseMask,'omitnan');
 
-    fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R4.proportionMarkedForMWF);
+    fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.(loglabel).proportionMarkedForMWF);
     fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
-    fprintf(EEG.ALSUTRECHT.subject.fid,'MWF (ECG) heart beats\n');
+    fprintf(EEG.ALSUTRECHT.subject.fid,'MWF %s (ECG) heart beats\n',theseData);
     fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
     fprintf(EEG.ALSUTRECHT.subject.fid,'Heart beat amplitude threshold:   %1.2f\n',treshold);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Heart beat correlation threshold: %1.2f\n',ctrsh);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Number of heart beats detected:   %d\n',NECG);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Heart beat duration for MWF: %1.2f\n',2*ECGfocus);
-    fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R4.proportionMarkedForMWF);
+    fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.(loglabel).proportionMarkedForMWF);
 
-    if EEG.ALSUTRECHT.MWF.R4.proportionMarkedForMWF>0.05
+    if EEG.ALSUTRECHT.MWF.(loglabel).proportionMarkedForMWF>0.05
         [cleanEEG, d, W, SER, ARR] = mwf_process(dataeeg,noiseMask,8);
 
-        % % Check
-        % EEG0 = EEG;
-        % EEG0.data(chaneeg,:) = cleanEEG;
-        % vis_artifacts(EEG0,EEG);
+        % Check
+        EEG0 = EEG;
+        EEG0.data(chaneeg,:) = cleanEEG;
+        vis_artifacts(EEG0,EEG);
 
         EEG.data(chaneeg,:) = cleanEEG;
 
-        % EEG.ALSUTRECHT.MWF.R4.estimatedArtifactInEachChannel = d;
-        % EEG.ALSUTRECHT.MWF.R4.matrixUsedToEstimateArtifacts  = W;
-        EEG.ALSUTRECHT.MWF.R4.status                 = 1;
-        EEG.ALSUTRECHT.MWF.R4.signalToErrorRatio     = SER;
-        EEG.ALSUTRECHT.MWF.R4.artifactToResidueRatio = ARR;
+        % EEG.ALSUTRECHT.MWF.(loglabel).estimatedArtifactInEachChannel = d;
+        % EEG.ALSUTRECHT.MWF.(loglabel).matrixUsedToEstimateArtifacts  = W;
+        EEG.ALSUTRECHT.MWF.(loglabel).status                 = 1;
+        EEG.ALSUTRECHT.MWF.(loglabel).signalToErrorRatio     = SER;
+        EEG.ALSUTRECHT.MWF.(loglabel).artifactToResidueRatio = ARR;
 
         fprintf(EEG.ALSUTRECHT.subject.fid,'Signal to error ratio:     %1.2f\n',SER);
         fprintf(EEG.ALSUTRECHT.subject.fid,'Artifact to residue ratio: %1.2f\n',ARR);
     else
-        EEG.ALSUTRECHT.MWF.R4.status                 = 0;
-        EEG.ALSUTRECHT.MWF.R4.signalToErrorRatio     = NaN;
-        EEG.ALSUTRECHT.MWF.R4.artifactToResidueRatio = NaN;
+        EEG.ALSUTRECHT.MWF.(loglabel).status                 = 0;
+        EEG.ALSUTRECHT.MWF.(loglabel).signalToErrorRatio     = NaN;
+        EEG.ALSUTRECHT.MWF.(loglabel).artifactToResidueRatio = NaN;
 
         fprintf(EEG.ALSUTRECHT.subject.fid,'MWF will not be done. Too little data.\n');
         fprintf('MWF will not be done. Too little data.\n');
@@ -156,12 +167,12 @@ else
     fprintf(EEG.ALSUTRECHT.subject.fid,'MWF is not done as this participant does not have ECG recorded (but likely L/R earlobes instead).\n');
     fprintf('MWF is not done as this participant does not have ECG recorded (but likely L/R earlobes instead).\n');
 
-    EEG.ALSUTRECHT.MWF.R4.status                 = 0;
-    EEG.ALSUTRECHT.MWF.R4.badElectrodes          = NaN;
-    EEG.ALSUTRECHT.MWF.R4.noiseMask              = NaN;
-    EEG.ALSUTRECHT.MWF.R4.proportionMarkedForMWF = NaN;
-    EEG.ALSUTRECHT.MWF.R4.signalToErrorRatio     = NaN;
-    EEG.ALSUTRECHT.MWF.R4.artifactToResidueRatio = NaN;
+    EEG.ALSUTRECHT.MWF.(loglabel).status                 = 0;
+    EEG.ALSUTRECHT.MWF.(loglabel).badElectrodes          = NaN;
+    EEG.ALSUTRECHT.MWF.(loglabel).noiseMask              = NaN;
+    EEG.ALSUTRECHT.MWF.(loglabel).proportionMarkedForMWF = NaN;
+    EEG.ALSUTRECHT.MWF.(loglabel).signalToErrorRatio     = NaN;
+    EEG.ALSUTRECHT.MWF.(loglabel).artifactToResidueRatio = NaN;
 end
 
 end

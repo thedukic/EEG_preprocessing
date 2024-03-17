@@ -1,4 +1,4 @@
-function EEG = remove_datasetends(EEG,thisTask)
+function EEG = remove_datasetends(EEG)
 %
 % % EEGLAB data struct input
 % SART events (1/11, 3/6, 40/30, 10/20)
@@ -9,7 +9,7 @@ fprintf('Cutting the ends of each block...\n');
 fprintf('Making sure that the data is divisible into 1s epochs.\n');
 NTRL = length(EEG);
 
-switch thisTask
+switch EEG(1).ALSUTRECHT.subject.task
     case 'SART'
         for i = 1:NTRL
             lat = NaN(1,2);

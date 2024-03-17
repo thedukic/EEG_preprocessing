@@ -227,7 +227,7 @@ EEG = cleanEEG;
 com = sprintf('EEG = pop_clean_rawdata(EEG, %s);', vararg2str(options));
 
 % Display the ending message.
-disp('Done.')
+disp('Done.');
 
 function outtext = wordwrap(intext,nChars)
 outtext = '';    

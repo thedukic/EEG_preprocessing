@@ -1,4 +1,4 @@
-function EEG = filter_signal(EEG,lp,hp,type)
+function EEG = filter_signal(EEG,lp,hp,chansfilt,type)
 % % Remove DC offsets and apply a high-pass filter (non-causal Butterworth impulse response function, 0.1 Hz half-amplitude cut-off, 12 dB/oct roll-off)
 % EEG  = pop_basicfilter( EEG,  1:33 , 'Boundary', 'boundary', 'Cutoff',  0.1, 'Design', 'butter', 'Filter', 'highpass', 'Order',  2, 'RemoveDC', 'on' );
 % % Apply a low-pass filter (non-causal Butterworth impulse response function, 20 Hz half-amplitude cut-off, 48 dB/oct roll-off) to the ERP waveforms
@@ -27,16 +27,22 @@ if strcmpi(type,'fieldtrip') % length(EEG)==1 % iscell(EEG)
     NTRL = length(EEG.trial);
     FNYQ = EEG.fsample/2;
     NCHN = size(EEG.trial{1},1);
-    fprintf('Filtering %d trials...\n',NTRL);
+    fprintf('Filtering ALL given signals across %d blocks...\n',NTRL);
 elseif  strcmpi(type,'eeglab')
     % EEGLAB
     NTRL = length(EEG);
     FNYQ = EEG(1).srate/2;
-    NCHN = size(EEG(1).data,1);
-    fprintf('Filtering %d blocks...\n',NTRL);
+
+    % NCHN = size(EEG(1).data,1);
+    % chaneeg = 1:NCHN;
+    % This will break if FT data strct if given; will fix later
+    % chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
+    NCHN = length(chansfilt);
+
+    fprintf('Filtering signals across %d blocks...\n',NTRL);
 end
 
-% Calculate filter coefficients 
+% Calculate filter coefficients
 filterflag = false(2,1);
 if ~isempty(lp)
     [bl, al] = butter(lp(2)./2,lp(1)/FNYQ,'low'); % Input: [ORDER, CUTOFF]
@@ -85,28 +91,28 @@ if  strcmpi(type,'fieldtrip')
 else
     % EEGLAB
     for i = 1:NTRL
-        assert(size(EEG(i).data,1)==NCHN);
+        assert(size(EEG(i).data(chansfilt,:),1)==NCHN);
 
         % Remove DC (big offsets can cause artifacts)
-        EEG(i).data = remove_dcsignal(double(EEG(i).data), FNYQ);
+        EEG(i).data(chansfilt,:) = remove_dcsignal(double(EEG(i).data(chansfilt,:)), FNYQ);
 
         % Bandpass
         % First lowpass and then highpass
         if all(filterflag)
-            EEG(i).data = filtfilt(bl,al, EEG(i).data');
-            EEG(i).data = filtfilt(bh,ah, EEG(i).data)';
+            EEG(i).data(chansfilt,:) = filtfilt(bl,al, EEG(i).data(chansfilt,:)')';
+            EEG(i).data(chansfilt,:) = filtfilt(bh,ah, EEG(i).data(chansfilt,:)')';
         end
         % Lowpass
         if filterflag(1) && ~filterflag(2)
-            EEG(i).data = filtfilt(bl,al, EEG(i).data')';
+            EEG(i).data(chansfilt,:) = filtfilt(bl,al, EEG(i).data(chansfilt,:)')';
         end
         % Highpass
         if ~filterflag(1) && filterflag(2)
-            EEG(i).data = filtfilt(bh,ah, EEG(i).data')';
+            EEG(i).data(chansfilt,:) = filtfilt(bh,ah, EEG(i).data(chansfilt,:)')';
         end
         % eeg(i).data = filtfilt(bs,as, eeg(i).data)';
 
-        assert(size(EEG(i).data,1)==NCHN);
+        assert(size(EEG(i).data(chansfilt,:),1)==NCHN);
     end
 end
 
@@ -121,7 +127,7 @@ fprintf('Done!\n');
 function data = remove_dcsignal(data,windowsam,chanArray)
 % ERPLAB toolbox function
 % Removes mean of data (DC offset)
-% Input data dimensions have to be channels x samples 
+% Input data dimensions have to be channels x samples
 
 if nargin<3
     chanArray = 1:size(data,1);

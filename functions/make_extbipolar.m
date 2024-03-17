@@ -1,11 +1,11 @@
-function EEG = make_extbipolar(EEG,thisTask)
+function EEG = make_extbipolar(EEG)
 %
 % Put all external electrodes as type EXT?
 %
-bipolarEMG = true;
+bipolarEMG = false;
 
 fprintf('Making EOG and ECG channels bipolar...\n');
-if strcmpi(thisTask,'MT')
+if strcmpi(EEG(1).ALSUTRECHT.subject.task,'MT')
     if bipolarEMG
         fprintf('Making EMG channels bipolar...\n');
     else
@@ -79,33 +79,27 @@ for i = 1:NBLK
     % end
 
     % EMG
-    if strcmpi(thisTask,'MT')
+    if strcmpi(EEG(1).ALSUTRECHT.subject.task,'MT')
+        emglabels = {'APB','FDI','FPB','EPB','EDC','FDS'};
+        emgindx   = find(ismember({EEG(i).chanlocs.type},'EMG'));
         if bipolarEMG
-            emglabels = {'APB','FDI','FPB','EPB','EDC','FDS'};
-            emgindx   = find(ismember({EEG(i).chanlocs.type},'EMG'));
             cnt = 0;
             for j = emgindx(1):2:emgindx(end-1)
                 cnt = cnt+1;
-                EEG(i).data(j,:,:) = EEG(i).data(j,:,:)-EEG(i).data(j+1,:,:);
-                EEG(i).chanlocs(j).labels = emglabels{cnt};
+                EEG(i).data(j,:,:)           = EEG(i).data(j,:,:)-EEG(i).data(j+1,:,:);
+                EEG(i).chanlocs(j).labels    = emglabels{cnt};
             end
 
             emgrmv = emgindx(2):2:emgindx(end);
             EEG(i).data(emgrmv,:)   = [];
             EEG(i).chanlocs(emgrmv) = [];
         else
-            emglabels = {'APB','FDI','FPB','EPB','EDC','FDS'};
-            emgindx   = find(ismember({EEG(i).chanlocs.type},'EMG'));
             cnt = 0;
             for j = emgindx(1):2:emgindx(end-1)
                 cnt = cnt+1;
-                EEG(i).chanlocs(j).labels = emglabels{cnt};
+                EEG(i).chanlocs(j).labels   = emglabels{cnt};
                 EEG(i).chanlocs(j+1).labels = emglabels{cnt};
             end
-
-            emgrmv = emgindx(2):2:emgindx(end);
-            EEG(i).data(emgrmv,:)   = [];
-            EEG(i).chanlocs(emgrmv) = [];
         end
     end
 

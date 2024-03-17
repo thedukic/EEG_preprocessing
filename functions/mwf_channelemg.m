@@ -170,6 +170,11 @@ assert(length(noiseMask)==size(EEG.data,2));
 assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask));
 noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
 
+% % Visual check
+% EEG1 = EEG;
+% EEG1.data(:,noiseMask==0 | isnan(noiseMask)) = 0;
+% vis_artifacts(EEG,EEG1);
+
 % Log info
 EEG.ALSUTRECHT.MWF.R1.badElectrodes          = badElectrodes;
 EEG.ALSUTRECHT.MWF.R1.noiseMask              = noiseMask;

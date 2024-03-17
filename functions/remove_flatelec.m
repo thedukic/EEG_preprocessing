@@ -29,7 +29,7 @@ EEGTMP    = pop_select(EEG,'nochannel',otherchan);
 % These are likley to mask if the channel is truly flat
 % Especially the 50 Hz noise present in hospitals
 fprintf('Temporary filtering for better detection of flat channels:\n');
-EEGTMP = filter_signal(EEGTMP,[20 8],[1 8],'eeglab');
+EEGTMP = filter_signal(EEGTMP,[20 8],[1 8],1:length(eegchan),'eeglab');
 
 NBLK = length(EEG);
 NCHN = EEGTMP(1).nbchan;

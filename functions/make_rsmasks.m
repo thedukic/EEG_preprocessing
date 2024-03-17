@@ -1,4 +1,4 @@
-function EEG = make_rsmasks(EEG,N)
+function EEG = make_rsmasks(EEG)
 % Make a mask for each trial
 % eg
 % 111 000 000

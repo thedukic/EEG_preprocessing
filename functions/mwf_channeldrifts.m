@@ -7,113 +7,157 @@ function [EEG, badElectrodes, noiseMask] = mwf_channeldrifts(EEG)
 %
 fprintf('\nMWF (HEOG) horizontal eye movements...\n');
 
-% Select only EEG + HEOG
-chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
-chanheog = strcmp({EEG.chanlocs.labels},'HEOG');
-dataEEG0 = EEG.data(chaneeg,:);
-dataheog = EEG.data(chanheog,:);
+% Detect saccades
+[data, events] = detect_eog(EEG);
 
 % =========================================================================
-% HEOG
-% Temporarily filter  HEOG, bandpass 1-25 Hz
-[bl, al] = butter(4,20/(EEG.srate/2),'low');
-assert(isstable(bl,al));
-dataheog = filtfilt(bl,al,dataheog);
+% NEW
+NEOG = length(events.heog);
 
-% Demean and take absolute value so that L/R HEOG can be both detected (?)
-dataheog = dataheog - trimmean(dataheog,10);
-dataheogabs = abs(dataheog);
+fh = figure; hold on;
+dureog = NaN(NEOG,1);
+for i = 1:NEOG
+    y = data.heog(events.heog{i}(1):events.heog{i}(2));
+    dureog(i) = length(y);
+    T = linspace(-0.5,0.5,dureog(i));
 
-% HEOG treshold
-EOGIQR = iqr(dataheogabs);
-EOG75P = prctile(dataheogabs,75);
-tresholdh = EOG75P + 1.5*EOGIQR;
-eyeBlinksEpochs = dataheogabs>=tresholdh;
+    absDiff_100ms   = abs(T - (-0.4));
+    minDiff_100ms   = min(absDiff_100ms(:));
+    [~, col_n100ms] = find(absDiff_100ms == minDiff_100ms);
+    absDiff_100ms   = abs(T - 0.4);
+    minDiff_100ms   = min(absDiff_100ms(:));
+    [~, col_p100ms] = find(absDiff_100ms == minDiff_100ms);
+    y = y - mean(y([1:col_n100ms, col_p100ms:end]));
+    % y = y - mean(y(1:col_m150ms));
 
-% VEOG treshold
-[dataveog, ~, tresholdv] = detect_veog(EEG);
-
-noiseMask1 = zeros(1,EEG.pnts);
-if any(eyeBlinksEpochs)
-    jump = find(diff([false, eyeBlinksEpochs, false])~=0);
-    durall = jump(2:2:end)-jump(1:2:end);
-
-    % Minimum of 25 ms of HEOG
-    mspersamp = 1000/EEG.srate;
-    mindrftdur = round(50/mspersamp);
-
-    % Horizontal eye movements should last at least this long [ms]
-    eyeBlinksEpochs = find(durall>mindrftdur);
-    NHEOG = length(eyeBlinksEpochs);
-
-    if NHEOG>0
-        jumpStart = jump(1:2:end);
-        jumpStop  = jump(2:2:end);
-
-        EOGfocus = 300; % ms
-        EOGfocussamples = round(EOGfocus/mspersamp);
-
-        jumpStart = jumpStart-EOGfocussamples;
-        jumpStart(jumpStart<1) = 1;
-        jumpStop = jumpStop+EOGfocussamples;
-        jumpStop(jumpStop>EEG.pnts) = EEG.pnts;
-
-        actuallyBlinks = false(NHEOG,1);
-        for i = 1:NHEOG
-            actuallyBlinks(i) = any(dataveog(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i)))>=tresholdv);
-        end
-
-        eyeBlinksEpochs(actuallyBlinks) = [];
-        % jumpStart(actuallyBlinks)       = [];
-        % jumpStop(actuallyBlinks)        = [];
-        NHEOG = length(eyeBlinksEpochs);
-
-        % % Check: A lot of times HEOG captures blinks too !!!
-        % EEGTMP = EEG;
-        % mask = false(size(EEGTMP.times));
-        % for i = 1:NHEOG
-        %     mask(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i))) = true;
-        % end
-        % EEGTMP.data(:,~mask) = 0;
-        % vis_artifacts(EEG,EEGTMP);
-
-        fh = figure; hold on;
-        durheog = NaN(NHEOG,1);
-        for i = 1:NHEOG
-            y = dataheog(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i)));
-            durheog(i) = length(y);
-            T = linspace(-0.5,0.5,durheog(i));
-
-            absDiff_150ms = abs(T - (-0.4));
-            minDiff_150ms = min(absDiff_150ms(:));
-            [~, col_m150ms] = find(absDiff_150ms == minDiff_150ms);
-            absDiff_150ms = abs(T - 0.4);
-            minDiff_150ms = min(absDiff_150ms(:));
-            [~, col_p150ms] = find(absDiff_150ms == minDiff_150ms);
-            y = y - mean(y([1:col_m150ms, col_p150ms:end]));
-            % y = y - mean(y(1:col_m150ms));
-
-            plot(T,y,'LineWidth',1.2);
-        end
-        set(gca,'ColorOrder',brewermap(NHEOG,'BuGn'));
-        title(['N = ' num2str(NHEOG)]);
-        xlabel('Time a.u.'); ylabel('HEOG amplitude');
-
-        % Save
-        plotX=35; plotY=20;
-        set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-        set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-        print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_HEOG']),'-dtiff','-r400');
-        close(fh);
-
-        TEOG = mean(durheog)/EEG.srate*1000;
-        fprintf('HEOG average duration is %2.0fms.\n',TEOG);
-
-        for i = 1:NHEOG
-            noiseMask1(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i))) = 1;
-        end
-    end
+    plot(T,y,'LineWidth',1.2);
 end
+set(gca,'ColorOrder',brewermap(NEOG,'BuGn'));
+title(['N = ' num2str(NEOG)]);
+xlabel('Time a.u.'); ylabel('HEOG amplitude');
+
+% Save
+plotX=35; plotY=20;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_HEOG']),'-dtiff','-r400');
+close(fh);
+
+% Make the mask
+noiseMask1 = zeros(1,EEG.pnts);
+noiseMaskV = zeros(1,EEG.pnts);
+for i = 1:NEOG
+    noiseMask1(events.heog{i}(1):events.heog{i}(2)) = 1;
+    noiseMaskV(events.heog{i}(1):events.heog{i}(2)) = 1;
+end
+
+TEOG = mean(dureog)/EEG.srate*1000;
+
+% =========================================================================
+% % OLD
+% % Demean and take absolute value so that L/R HEOG can be both detected (?)
+% chanheog = strcmp({EEG.chanlocs.labels},'HEOG');
+% dataheog = EEG.data(chanheog,:);
+% % dataheog = dataheog - trimmean(dataheog,10);
+% % dataheog = abs(dataheog);
+%
+% % Temporarily filter HEOG, bandpass 1-25 Hz
+% [bl, al] = butter(2,25/(EEG.srate/2),'low');
+% [bh, ah] = butter(2,0.5/(EEG.srate/2),'high');
+% assert(isstable(bl,al)); assert(isstable(bh,ah));
+% dataheog = filtfilt(bh,ah,filtfilt(bl,al,dataheog'))';
+% dataheog = dataheog - trimmean(dataheog,10);
+%
+% % HEOG treshold
+% EOGIQR = iqr(dataheog);
+% EOG75P = prctile(dataheog,75);
+% tresholdh = EOG75P + 1.5*EOGIQR;
+% eyeDriftsEpochs = dataheog>=tresholdh;
+%
+% % % VEOG treshold
+% % [data, events] = detect_eog(EEG);
+%
+% noiseMask1 = zeros(1,EEG.pnts);
+% if any(eyeDriftsEpochs)
+%     jump = find(diff([false, eyeDriftsEpochs, false])~=0);
+%     durall = jump(2:2:end)-jump(1:2:end);
+%
+%     % Minimum of 25 ms of HEOG
+%     mspersamp = 1000/EEG.srate;
+%     mindrftdur = round(25/mspersamp);
+%
+%     % Horizontal eye movements should last at least this long [ms]
+%     eyeDriftsEpochs = find(durall>mindrftdur);
+%     NHEOG = length(eyeDriftsEpochs);
+%
+%     if NHEOG>0
+%         jumpStart = jump(1:2:end);
+%         jumpStop  = jump(2:2:end);
+%
+%         EOGfocus = 300; % ms
+%         EOGfocussamples = round(EOGfocus/mspersamp);
+%
+%         jumpStart = jumpStart-EOGfocussamples;
+%         jumpStart(jumpStart<1) = 1;
+%         jumpStop = jumpStop+EOGfocussamples;
+%         jumpStop(jumpStop>EEG.pnts) = EEG.pnts;
+%
+%         actuallyBlinks = false(NHEOG,1);
+%         for i = 1:NHEOG
+%             actuallyBlinks(i) = any(noiseMaskV(jumpStart(eyeDriftsEpochs(i)):jumpStop(eyeDriftsEpochs(i))));
+%         end
+%
+%         eyeDriftsEpochs(actuallyBlinks) = [];
+%         % jumpStart(actuallyBlinks)       = [];
+%         % jumpStop(actuallyBlinks)        = [];
+%         NHEOG = length(eyeDriftsEpochs);
+%
+%         % % Check: A lot of times HEOG captures blinks too !!!
+%         % EEGTMP = EEG;
+%         % mask = false(size(EEGTMP.times));
+%         % for i = 1:NHEOG
+%         %     mask(jumpStart(eyeBlinksEpochs(i)):jumpStop(eyeBlinksEpochs(i))) = true;
+%         % end
+%         % EEGTMP.data(:,~mask) = 0;
+%         % vis_artifacts(EEG,EEGTMP);
+%
+%         fh = figure; hold on;
+%         durheog = NaN(NHEOG,1);
+%         for i = 1:NHEOG
+%             y = dataheog(jumpStart(eyeDriftsEpochs(i)):jumpStop(eyeDriftsEpochs(i)));
+%             durheog(i) = length(y);
+%             T = linspace(-0.5,0.5,durheog(i));
+%
+%             absDiff_100ms = abs(T - (-0.4));
+%             minDiff_100ms = min(absDiff_100ms(:));
+%             [~, col_m150ms] = find(absDiff_100ms == minDiff_100ms);
+%             absDiff_100ms = abs(T - 0.4);
+%             minDiff_100ms = min(absDiff_100ms(:));
+%             [~, col_p100ms] = find(absDiff_100ms == minDiff_100ms);
+%             y = y - mean(y([1:col_m150ms, col_p100ms:end]));
+%             % y = y - mean(y(1:col_m150ms));
+%
+%             plot(T,y,'LineWidth',1.2);
+%         end
+%         set(gca,'ColorOrder',brewermap(NHEOG,'BuGn'));
+%         title(['N = ' num2str(NHEOG)]);
+%         xlabel('Time a.u.'); ylabel('HEOG amplitude');
+%
+%         % Save
+%         plotX=35; plotY=20;
+%         set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+%         set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+%         print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_HEOG']),'-dtiff','-r400');
+%         close(fh);
+%
+%         TEOG = mean(durheog)/EEG.srate*1000;
+%         fprintf('HEOG average duration is %2.0fms.\n',TEOG);
+%
+%         for i = 1:NHEOG
+%             noiseMask1(jumpStart(eyeDriftsEpochs(i)):jumpStop(eyeDriftsEpochs(i))) = 1;
+%         end
+%     end
+% end
 
 % =========================================================================
 % % EEG
@@ -187,7 +231,7 @@ badElectrodes = {};
 % Noise mask:
 % NaN - ignored samples (== very bad data)
 % 0   - good samples
-% 1   - bad samples (== bad data that will be corrected)
+% 1   - bad samples      (== bad data that will be corrected)
 
 assert(length(noiseMask)==size(EEG.data,2));
 assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask));
@@ -201,8 +245,8 @@ EEG.ALSUTRECHT.MWF.R3.proportionMarkedForMWF = mean(noiseMask,'omitnan');
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'MWF (HEOG) horizontal eye movements\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
-fprintf(EEG.ALSUTRECHT.subject.fid,'Horizontal eye movement amplitude threshold: %1.2f\n',tresholdh);
-fprintf(EEG.ALSUTRECHT.subject.fid,'Number of horizontal eye movements detected: %d\n',NHEOG);
+% fprintf(EEG.ALSUTRECHT.subject.fid,'Horizontal eye movement amplitude threshold: %1.2f\n',tresholdh);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Number of horizontal eye movements detected: %d\n',NEOG);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Average horizontal eye movement duration detected: %1.2f\n',TEOG);
 % fprintf(EEG.ALSUTRECHT.subject.fid,'Number of slow drifts detected: %d\n',length(driftEEGEpochs));
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R3.proportionMarkedForMWF);
@@ -210,7 +254,8 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MW
 fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R3.proportionMarkedForMWF);
 
 if EEG.ALSUTRECHT.MWF.R3.proportionMarkedForMWF>0.05
-    [cleanEEG, d, W, SER, ARR] = mwf_process(dataEEG0,noiseMask,8);
+    chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
+    [cleanEEG, d, W, SER, ARR] = mwf_process(EEG.data(chaneeg,:),noiseMask,8);
 
     % EEG0 = EEG;
     % EEG0.data(chaneeg,:) = cleanEEG;
