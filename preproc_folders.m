@@ -9,7 +9,10 @@ myfolders.rootpreproc = 'E:\3_PREPROCESSED_DATA';                       % Output
 myfiles.task  = 'RS';          % MMN/SART/RS/MT
 myfiles.group = {'ALS','CONTROL','AFM','PLS','PMA'};
 myfiles.visit = {'T1'};        % T1/T2/...
-myfiles.todo  = {'ALS34543'};  % If empty, all are done
+myfiles.todo  = {};          % If empty, all are (re)done
+
+% Who is not processed?
+% myfiles.todo = list_missing('E:\1_EEG_DATA\AFM\T1','E:\3_PREPROCESSED_DATA\RS\AFM\T1');
 
 % Navigate the main folder
 cd(myfolders.mycodes);

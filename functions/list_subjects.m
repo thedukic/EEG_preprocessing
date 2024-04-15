@@ -2,6 +2,7 @@ function subjects = list_subjects(folderpath,todolist)
 %
 % List subjects from the given folder
 % SDukic, March 2024
+%
 
 FilesList0  = dir(folderpath);
 FilesList0  = FilesList0([FilesList0(:).isdir]==1);

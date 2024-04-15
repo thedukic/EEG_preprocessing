@@ -1,8 +1,9 @@
+
 % =========================================================================
 %
 % EEG preprocessing main file
 % Check README.md for instructions
-% SDukic, March 2023
+% SDukic, April 2024
 %
 % =========================================================================
 
@@ -19,10 +20,16 @@ for i = 3 % :length(myfiles.group)
     myfolders.rawdata = fullfile(myfolders.rootrawdata,myfolders.group,myfolders.visit);
     myfolders.preproc = fullfile(myfolders.rootpreproc,myfolders.task,myfolders.group,myfolders.visit);
 
-    % To-do list makes sense if you set one cohort only
+    % To-do list makes sense if you set one cohort only!
     subjects = list_subjects(myfolders.rawdata,myfiles.todo);
-    
-    for j = 1:length(subjects)
+    NSUB = length(subjects);
+
+    for j = 1:NSUB
+        fprintf('\n'); 
+        disp('==================================================================');
+        disp([myfolders.task ' | ' myfolders.group ' | [' num2str(j) '/' num2str(NSUB) '] ' subjects{j} ' has started.']);
+        disp('=================================================================='); 
+        fprintf('\n'); 
         output = preproc_cleaning(myfolders,subjects{j});
 
         % Record warnings for all participants in single table
