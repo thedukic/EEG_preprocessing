@@ -1,4 +1,39 @@
 function EEG = remove_electrodewobbles(EEG,ICAtype)
+%
+% Removes jumps and wobbles using ICA, ICLabel and wavelet tresholding
+%
+% Input:
+%   K = Threshold multiplier for wavelet thresholding.
+%       Higher thresh -> Less strict
+%   L = Level set for stationary wavelet transform.
+%       Higher levels give better freq resolution, but less temp resolution
+%   W = Wavelet family to use.
+%       Type "wavenames" to see a list of possible wavelets
+%
+% More info:
+% https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2018.00097/full
+% Given that the magnitude of artifacts can be far greater than
+% that of neurophysiological signals, the component time series
+% whose amplitudes are large enough to survive the wavelet-thresholding
+% are taken as the artifact timeseries.
+%
+% Treshold of 0   -> whole IC rejected
+% Higher treshold ->
+% 1. Less of the IC is considered as noise
+% 2. Focuses on low amplitudes of the IC,
+%    so it is good for eye and channel artifacts
+%
+% SDukic, March 2024
+% =========================================================================
+
+% We use 2 values:
+% 1st - when ICLabel is confident (P>0.5) that the it is a bad electrode IC
+% 2nd - when ICLabel is unsure (P<0.5) that the it is a bad electrode IC
+% Maybe good to be even more strict, to preserve more brain signals
+% But this might mean that we put back some noise
+K = [1.2 1.5];
+W ='coif5';
+L = 5;
 
 % Use only EEG
 chaneeg = strcmp({EEG.chanlocs.type},'EEG');
@@ -10,7 +45,7 @@ EEGICA.data = EEGICA.data - trimmean(EEGICA.data,10,'round',1);
 % Data rank
 assert(get_rank(EEGICA.data)==EEGICA.nbchan);
 
-% No need to estimate all ICs
+% No need to estimate all 128 ICs (?)
 [~,~,~,~,explained] = pca(EEGICA.data');
 explained = cumsum(explained./sum(explained)); % figure; bar(explained);
 NICA = find(explained>0.99,1);
@@ -30,11 +65,9 @@ end
 IC = reshape(EEGICA.icaact, size(EEGICA.icaact,1), []);
 
 % Wavelet padding, 2^level
-WLT ='coif5';
-LVL = 5;
-modulus = mod(size(IC,2),2^LVL);
+modulus = mod(size(IC,2),2^L);
 if modulus~=0
-    extra = zeros(1,(2^LVL)-modulus);
+    extra = zeros(1,(2^L)-modulus);
     IC = [IC, repmat(extra,size(IC,1),1)];
 else
     extra = [];
@@ -43,20 +76,17 @@ end
 % ICLabel
 EEGICA = iclabel(EEGICA);
 
-% Interim data saving
-% EEGICA = pop_saveset(EEGICA,'filename','TMP.set','filepath',EEGICA.ALSUTRECHT.subject.preproc);
-
 % Get the cassification labels
 [ICLabel_pvec, ICLabel_cvec] = max(EEGICA.etc.ic_classification.ICLabel.classifications,[],2);
 
-% (6) channel noise
-badChanICs = find(ICLabel_cvec==6);
-% badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.5);
+% Find bad electrode ICs: ICLabel 6 is channel noise
+% badChanICs = find(ICLabel_cvec==6);
+badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.7);
 % badChanICs = unique([badChanICs; find(EEGICA.etc.ic_classification.ICLabel.classifications(:,6)>=0.2)]); % BETTER DO NOT DO THIS
 % badChanICs = setdiff(badChanICs,find(EEGICA.etc.ic_classification.ICLabel.classifications(:,1)>=0.2));
 
-% The idea is that a true "bad channel" IC should usually have only one
-% electrode with a higher weight, eg >3STD
+% Estimate bad electrodes in these ICs
+% The idea is that a true "bad channel" IC should usually has only one electrode with a higher weight, eg >3STD
 % Tho this might not be the case as 2-3 electrodes can jump at the same time
 icawinv = abs(zscore(EEGICA.icawinv(:,badChanICs),0,1));
 mask    = icawinv>5;
@@ -95,27 +125,26 @@ if ~isempty(badChanICs)
         [thresh,sorh,~] = ddencmp('den','wv',IC(badChanICs(i),:));
 
         % Adjusting the treshold
-        % Luckily channel ICs are mostly with low power/variance in general
-        % (e.g. > 20th IC)
+        % Bad electrode ICs are mostly with low power/variance, e.g. > 20th IC
         % So even if the trheshold is too low
         % (i.e. higher trheshold excludes less data, by keeping higher freq)
         % then we wont lose too much brain/good data
         if ICLabel_pvec(badChanICs(i))>0.5
             % Playing safe and trying to avoid losing too much good/brain data
-            thresh = thresh*1.2;
+            thresh = thresh.*K(1);
         else
             % If ICLabel is less certain, probably there is more
             % brain/good data here, so further increase the treshold
-            thresh = thresh*1.5;
+            thresh = thresh.*K(2);
         end
-        swc = swt(IC(badChanICs(i),:),LVL,WLT);
+        swc = swt(IC(badChanICs(i),:),L,W);
         Y   = wthresh(swc,sorh,thresh);
-        wIC(badChanICs(i),:) = iswt(Y,WLT);
+        wIC(badChanICs(i),:) = iswt(Y,W);
 
         % tmp = [];
-        % tmp.data  = [sig; wIC(badChanICs(i),:)];
+        % tmp.data  = wIC(badChanICs(i),:);
         % tmp.srate = EEG.srate;
-        % [pow, freq] = checkpowerspectrum(tmp,1:2,[]);
+        % [pow, freq] = checkpowerspectrum(tmp,1,[]);
     end
 
     % Remove extra padding

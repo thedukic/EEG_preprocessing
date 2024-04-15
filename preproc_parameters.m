@@ -52,7 +52,7 @@ cfg.bch.ransacOff                   = true;
 
 % RELAX: Muscle activity
 % Less stringent = -0.31, Middle Stringency = -0.59, More stringent = -0.72
-cfg.bch.muscleSlopeThreshold        = -0.59;
+cfg.bch.muscleSlopeThreshold        = -0.5;
 cfg.bch.slopeTime                   = 0.01;
 
 % RELAX: Slow drifts
@@ -60,19 +60,20 @@ cfg.bch.slopeTime                   = 0.01;
 % cfg.bch.driftSlopeThreshold         = -4;
 
 % EEGLAB: ASR
-cfg.bch.asr                         = 20; % recommandation: 20-30
+cfg.bch.asr                         = 25; % recommandation: 20-30
 
 %% ICA and ICLabels
 cfg.ica.type    = 'CUDAICA';
 cfg.ica.icMax   = 50; % PCA reduction prior ICA
 %  {'Brain' 'Muscle' 'Eye' 'Heart' 'Line Noise' 'Channel Noise' 'Other'}
 cfg.ica.iclabel = ....
-    [NaN NaN; 0.8 1; 0.5 1; 0.8 1; NaN NaN; 0.5 1; NaN NaN];
+    [NaN NaN; 0.8 1; 0.7 1; 0.8 1; NaN NaN; 0.7 1; NaN NaN];
 
 %% Event triggers
 cfg.trg.mmn   = {[12 17],[-0.2 0.5]};
 cfg.trg.sart1 = {[3 6],[-0.2 0.9]};
 cfg.trg.sart2 = {1,[-0.45 0.45]};
 cfg.trg.mt    = {[21 31 51],[-5 10]};
+cfg.trg.rs    = {2, 0.75}; % 2s, 0.75 overlap
 
 end

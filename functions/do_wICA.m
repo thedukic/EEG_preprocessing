@@ -1,29 +1,36 @@
 function EEG = do_wICA(EEG)
 %
-% See: RELAX_wICA_on_ICLabel_artifacts
-%   K = threshold multiplier...multiplies the computed threshold from
-%       "ddencmp" by this number. Higher thresh multipliers = less
-%       "background" (or low amp. signal) is kept in the wICs.
-%   L = level set for stationary wavelet transform. Higher levels give
-%       better frequency resolution, but less temporal resolution.
-%       Default = 5
-%   wavename = wavelet family to use. type "wavenames" to see a list of
-%       possible wavelets. (default = "coif5");
+% Function is still in the development
+% Based on: RELAX_wICA_on_ICLabel_artifacts
 %
+% Input:
+%   K = Threshold multiplier for wavelet thresholding.
+%       Higher thresh -> Less strict
+%   L = Level set for stationary wavelet transform.
+%       Higher levels give better freq resolution, but less temp resolution
+%   W = Wavelet family to use. 
+%       Type "wavenames" to see a list of possible wavelets
+%
+% More info:
 % https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2018.00097/full
 % Given that the magnitude of artifacts can be far greater than
 % that of neurophysiological signals, the component time series
 % whose amplitudes are large enough to survive the wavelet-thresholding
 % are taken as the artifact timeseries.
 %
-% Treshold of 0 => whole IC rejected
-% Higher treshold =>
-% 1. less of the IC is considered as noise
-% 2. focuses on low amplitudes of the IC,
+% Treshold of 0   -> whole IC rejected
+% Higher treshold ->
+% 1. Less of the IC is considered as noise
+% 2. Focuses on low amplitudes of the IC,
 %    so it is good for eye and channel artifacts
 %
 % SDukic, March 2024
-%
+% =========================================================================
+
+% Settings
+K = 1;
+L = 5;
+W ='coif5';
 
 % Make sure IC activations are present
 if isempty(EEG.icaact)
@@ -57,10 +64,9 @@ if ~isempty(ICsArtifact)
     % dataheog = filtfilt(bl,al,dataheog);
 
     % Wavelet padding, 2^level
-    LVL = 5;
-    modulus = mod(size(IC,2),2^LVL);
+    modulus = mod(size(IC,2),2^L);
     if modulus~=0
-        extra = zeros(1,(2^LVL)-modulus);
+        extra = zeros(1,(2^L)-modulus);
         IC = [IC, repmat(extra,NICA,1)];
         % dataveog = [dataveog, extra];
         % dataheog = [dataheog, extra];
@@ -78,17 +84,23 @@ if ~isempty(ICsArtifact)
         label = EEG.ALSUTRECHT.ica.ICLabel_clss{EEG.ALSUTRECHT.ica.ICLabel_cvec(ICsArtifact(i))};
 
         if strcmpi(label,'Muscle') || strcmpi(label,'Heart')
+            % Muscle >20 Hz
+            % Heart  0-150 Hz
+            % -> Not suitable for wavelet tresholding
+            % Maybe useful EMD?
             fprintf('%d. %s - Removing completely...\n',i,label);
             wIC(ICsArtifact(i),:) = IC(ICsArtifact(i),:);
+
+            % [imf,residual,info] = emd(X,'Interpolation','pchip','MaxNumIMF',5)
 
         elseif strcmpi(label,'Channel Noise') || strcmpi(label,'Eye')
             fprintf('%d. %s - Wavelet tresholding... ',i,label);
             
-            WLT ='coif5';
             [thresh,sorh,~] = ddencmp('den','wv',IC(ICsArtifact(i),:)); % get automatic threshold value
-            swc = swt(IC(ICsArtifact(i),:),LVL,WLT);                    % use stationary wavelet transform (SWT) to wavelet transform the ICs
-            Y = wthresh(swc,sorh,thresh);                               % threshold the wavelet to remove small values
-            wIC(ICsArtifact(i),:) = iswt(Y,WLT);                        % perform inverse wavelet transform to reconstruct a wavelet IC (wIC)
+            thresh = thresh*K;                                          % multiply threshold by scalar
+            swc    = swt(IC(ICsArtifact(i),:),L,W);                     % use stationary wavelet transform (SWT) to wavelet transform the ICs
+            Y      = wthresh(swc,sorh,thresh);                          % threshold the wavelet to remove small values
+            wIC(ICsArtifact(i),:) = iswt(Y,W);                          % perform inverse wavelet transform to reconstruct a wavelet IC (wIC)
             
             fprintf('Used treshold %1.2f\n',thresh);
 
@@ -143,10 +155,10 @@ if ~isempty(ICsArtifact)
         % figure; multisignalplot(swc,EEG.srate,'r');
         % figure; multisignalplot(Y,EEG.srate,'r');
         % % figure; multisignalplot([sig; wIC(ICsArtifact(i),:)],EEG.srate,'r');
-        tmp = [];
-        tmp.data  = wIC(ICsArtifact(i),:);
-        tmp.srate = EEG.srate;
-        [pow, freq] = checkpowerspectrum(tmp,1,[]);
+        % tmp = [];
+        % tmp.data  = wIC(ICsArtifact(i),:);
+        % tmp.srate = EEG.srate;
+        % [pow, freq] = checkpowerspectrum(tmp,1,[]);
     end
 
     % Remove extra padding
@@ -176,9 +188,9 @@ if ~isempty(ICsArtifact)
     % % Visualise
     % % vis_artifacts(EEGNEW,EEG);
     %
-    NOISE = EEG;
-    NOISE.data(chaneeg,:,:) = reshape(artifacts,size(artifacts,1),EEG.pnts,EEG.trials);
-    vis_artifacts(EEG,NOISE);
+    % NOISE = EEG;
+    % NOISE.data(chaneeg,:,:) = reshape(artifacts,size(artifacts,1),EEG.pnts,EEG.trials);
+    % vis_artifacts(EEG,NOISE);
     % % [pow, freq] = checkpowerspectrum(NOISE,1:5,[]);
 else
     fprintf('Skipping wavelet thresholding since there ar no obvious bad ICs detected...\n');

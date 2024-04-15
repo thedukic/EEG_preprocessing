@@ -5,8 +5,12 @@ function issues_to_check = preproc_cleaning(myfolders,id)
 %
 % =========================================================================
 % SDukic edits
-% v1, March 2024
+% v1, April 2024
 % =========================================================================
+% TODO
+% 1. Parameter for trial length,
+%    maybe good to save data with 2s and 5s or 10s
+%
 
 % Load preprocessing settings
 cfg = preproc_parameters;
@@ -32,10 +36,11 @@ if ~isempty(subject.datablocks)
     else
         EEG = pop_biosig(subject.datablocks,'channels',1:136);
 
-        % Rare cases of RS datasets
+        % Rare cases of RS datasets recorded with 168 channels
         if any([EEG(:).srate] == 2048)
-            EEG = pop_biosig(subject.datablocks,'channels',1:168);
-            EEG = pop_select(EEG,'channel',[1:128 161:168]);
+            maskfs2k = [EEG(:).srate] == 2048;
+            EEG(maskfs2k) = pop_biosig(subject.datablocks(maskfs2k),'channels',1:168);
+            EEG(maskfs2k) = pop_select(EEG(maskfs2k),'channel',[1:128 161:168]);
         end
     end
 else
@@ -44,7 +49,6 @@ else
     EEG.ALSUTRECHT.subject.task = subject.task;
     EEG = report_issues(EEG);
     issues_to_check = EEG.ALSUTRECHT.issues_to_check;
-
     return;
 end
 
@@ -57,7 +61,13 @@ subject.fid = fopen(fullfile(subject.preproc,['report_preprocess_v' cfg.rnum '.t
 % Log basic info
 t0 = datetime("now");
 proctime = strrep(strrep(char(t0),':','-'),' ','-');
-fprintf('\n\n%s | %s | %s dataset\n',myfolders.group,subject.id,myfolders.task);
+
+fprintf('\n');
+disp('==================================================================');
+fprintf('%s | %s | %s dataset\n',myfolders.group,subject.id,myfolders.task);
+disp('==================================================================');
+fprintf('\n');
+
 fprintf(subject.fid,'%s | %s | %s dataset\n\n',myfolders.group,subject.id,myfolders.task);
 fprintf(subject.fid,'Code version %s\n',cfg.rnum);
 fprintf(subject.fid,'Started: %s\n',t0);
@@ -109,13 +119,8 @@ for j = 1:NBLK
     EEG(j).ref = 'average';
 end
 
-% Maybe better to reorder:
-% 1. Filter
-% 2. Cute ends
-% 3. Remove line noise
-
-% Remove the line noise
-EEG = reduce_linenoise(EEG);
+% Remove the line noise here?
+% EEG = reduce_linenoise(EEG);
 
 % Filter EEG only
 chaneeg = find(strcmp({EEG(1).chanlocs.type},'EEG'));
@@ -137,11 +142,14 @@ if strcmpi(myfolders.task,'MT')
     EEG = filter_signal(EEG,cfg.flt.emg.lp,cfg.flt.emg.hp,chanemg,'eeglab');
 end
 
-% Bipolar EXT
-EEG = make_extbipolar(EEG);
-
 % Cut block ends
 EEG = remove_datasetends(EEG);
+
+% Remove the line noise
+EEG = reduce_linenoise(EEG);
+
+% Bipolar EXT
+EEG = make_extbipolar(EEG);
 
 % Mark where each RS block starts/ends
 if strcmpi(myfolders.task,'RS')
@@ -255,8 +263,8 @@ if strcmpi(myfolders.task,'SART')
     clearvars EEG0 EXT0
 elseif strcmpi(myfolders.task,'RS')
     % 2s w/ 0.75 overlap -> [1,5,9,...] -> [1:4:end] trials are unique!
-    EEG = epoch_rsdata2(EEG,2,0.75);
-    EXT = epoch_rsdata2(EXT,2,0.75);
+    EEG = epoch_rsdata2(EEG,cfg.trg.rs{1},cfg.trg.rs{2});
+    EXT = epoch_rsdata2(EXT,cfg.trg.rs{1},cfg.trg.rs{2});
 end
 
 % % ICLabel
