@@ -1,6 +1,6 @@
 function [weights,sphere,rndint] = cudaica(data,varargin)
-% cudaica() - Run stand-alone binary version of runica() from the Matlab command line. Saves time 
-%             and memory relative to runica(). If stored in a float file, data are not read into 
+% cudaica() - Run stand-alone binary version of runica() from the Matlab command line. Saves time
+%             and memory relative to runica(). If stored in a float file, data are not read into
 %             Matlab, and so may be larger than Matlab can handle owing to memory limitations.
 % Usage:
 %  >> [wts,sph] = cudaica( datavar,  'key1', arg1, 'key2', arg2 ...);
@@ -25,7 +25,7 @@ function [weights,sphere,rndint] = cudaica(data,varargin)
 %   'stop'       - (0<float<<<1) stopping learning rate {default: 1e-7}
 %                    NB: 'stop' <= 1e-7 recommended
 %   'verbose'    - 'on'/'off'    {default: 'off'}
-%   'filenum'    - the number to be used in the name of the output files. Otherwise chosen randomly. 
+%   'filenum'    - the number to be used in the name of the output files. Otherwise chosen randomly.
 %                  Will choose random number if file with that number already exists.
 %
 % Less frequently used input flags:
@@ -158,8 +158,8 @@ end
 parse(p,varargin{:},'chans',nchans,'frames',nframes);
 Args = p.Results;
 
-% SDukic edit, March 2024
-Args.verbose = 'off';
+% % SDukic edit, March 2024
+% Args.verbose = 'off';
 
 % Change snnealstep according to using extended ICA or not (see runica.m).
 if Args.extended == 1
@@ -202,9 +202,9 @@ while exist(scriptfile,'file')
 end
 
 % Generate data file name
-if ~ischar(data)  
+if ~ischar(data)
     datafile = fullfile(pwd,['cudaica',rndint,'.fdt']);  % data variable given
-else             
+else
     datafile = data;  % data filename given
 end
 
@@ -323,7 +323,7 @@ f = 0; % flag number in file
 while ischar(s)
     s = rmcomment(s,'#');   % Remove comment in line
     s = rmspace(s);         % Remove leading space in line
-    
+
     if ~isempty(s)
         [w,s] = firstword(s);
         if ~isempty(s)
@@ -334,7 +334,7 @@ while ischar(s)
             args{f} = w;
         end
     end
-    
+
     % Read the next line
     s = fgetl(fid);
 end
@@ -352,7 +352,7 @@ end
 
 function sout = rmspace(s)
 % discard leading whitespace
-n = 1;          
+n = 1;
 while n<length(s) && isspace(s(n))
     n = n+1;
 end
@@ -395,7 +395,7 @@ end
 
 fid = fopen(fname,'wb',fform);
 if fid == -1
-    error('Cannot write output file, check permission and space'); 
+    error('Cannot write output file, check permission and space');
 end
 if ~transp
     fwrite(fid,A,precision);
@@ -432,11 +432,11 @@ if fid>0
     if stts ~= 0
         error('File read offset (%d) larger than file length!',offset);
     end
-    
+
     % Read the data file.
     A = fread(fid,prod(Asize),precision);
     fclose(fid);
-    
+
     % Reshape readed data
     if Asize(end) == Inf
         Asize = Asize(1:end-1);

@@ -1,6 +1,6 @@
 function output = merge_eeglabsets(varargin)
 %
-% EEG (+EMG) +EXT + NOISE MASK
+% EEG (+ EMG) + EXT
 %
 
 output = varargin{1};

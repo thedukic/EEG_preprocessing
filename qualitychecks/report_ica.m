@@ -1,4 +1,4 @@
-function EEG = report_ica(EEG)
+function EEG = report_ICA(EEG)
 %
 % IC topoplots
 %
@@ -49,10 +49,10 @@ else
     fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data seems to be long enough for the ICA.\n');
 end
 
-% Log IClabel info
-EEG.ALSUTRECHT.ica.ICLabel_bics = find(EEG.reject.gcompreject);
-EEG.ALSUTRECHT.ica.ICLabel_clss = EEG.etc.ic_classification.ICLabel.classes;
-[EEG.ALSUTRECHT.ica.ICLabel_pvec, EEG.ALSUTRECHT.ica.ICLabel_cvec] = max(EEG.etc.ic_classification.ICLabel.classifications,[],2);
+% % Log IClabel info
+% EEG.ALSUTRECHT.ica.ICLabel_bics = find(EEG.reject.gcompreject);
+% EEG.ALSUTRECHT.ica.ICLabel_clss = EEG.etc.ic_classification.ICLabel.classes;
+% [EEG.ALSUTRECHT.ica.ICLabel_pvec, EEG.ALSUTRECHT.ica.ICLabel_cvec] = max(EEG.etc.ic_classification.ICLabel.classifications,[],2);
 
 % =========================================================================
 % Plot the first 20 ICs
@@ -65,8 +65,18 @@ th.TileSpacing = 'compact'; th.Padding = 'compact';
 for i = 1:20
     nexttile;
     topoplot(EEG.icawinv(:,i),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,i)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map');
+
+    IClabeltmp = EEG.ALSUTRECHT.ica.ICLabel_clss{EEG.ALSUTRECHT.ica.ICLabel_cvec(i)};
+    if contains(IClabeltmp,'Brain')
+        thisTitleColor = [0.1 0.8 0.2];
+    elseif contains(IClabeltmp,'Other')
+        thisTitleColor = [0 0 0];
+    else
+        thisTitleColor = [0.8 0.1 0.2];
+    end
+
     % title({['ICA' num2str(i) ', Var = ' num2str(round(varAICsNorm(i),2))], [EEG.ALSUTRECHT.ica.ICLabel_clss{EEG.ALSUTRECHT.ica.ICLabel_cvec(i)} ', P = ' num2str(round(EEG.ALSUTRECHT.ica.ICLabel_pvec(i),2))]});
-    title({['ICA' num2str(i) ', Var = ' num2str(round(varAICsNorm(i)*100)) '%'], [EEG.ALSUTRECHT.ica.ICLabel_clss{EEG.ALSUTRECHT.ica.ICLabel_cvec(i)} ', P = ' num2str(round(EEG.ALSUTRECHT.ica.ICLabel_pvec(i),2))]});
+    title({['ICA' num2str(i) ', Var = ' num2str(round(varAICsNorm(i)*100)) '%'], [IClabeltmp ', P = ' num2str(round(EEG.ALSUTRECHT.ica.ICLabel_pvec(i),2))]},'Color',thisTitleColor);
 end
 
 % Save

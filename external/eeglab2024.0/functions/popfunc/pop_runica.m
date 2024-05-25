@@ -522,7 +522,7 @@ switch lower(g.icatype)
             [EEG.icaweights,EEG.icasphere] = runica( tmpdata, 'lrate', 0.001, g.options{:} );
         end
     case 'cudaica'
-        [EEG.icaweights,EEG.icasphere] = cudaica(tmpdata, 'lrate', 0.001, g.options{:} );
+        [EEG.icaweights,EEG.icasphere] = cudaica(tmpdata,'lrate',0.001,g.options{:});
     case 'binica'
         icadefs;
         fprintf(['Warning: If the binary ICA function does not work, check that you have added the\n' ...

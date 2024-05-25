@@ -1,15 +1,17 @@
 function [myfolders, myfiles] = preproc_folders
 
 % Set paths
-myfolders.mycodes     = 'C:\DATA\MATLAB\myCodes\SDukic\Preprocessing';  % Pipeline
-myfolders.rootrawdata = 'E:\1_EEG_DATA';                                % Input
-myfolders.rootpreproc = 'E:\3_PREPROCESSED_DATA';                       % Output
+myfolders.mycodes     = 'C:\DATA\MATLAB\myCodes\SDukic\Preprocessing';                                               % Pipeline
+% myfolders.rootrawdata = 'L:\onderzoeksarchief\19-462_ALS-Electrode_BS\E_ResearchData\2_ResearchData\1_RAW\EEG_DATA'; % Input
+% myfolders.rootpreproc = 'L:\onderzoeksarchief\19-462_ALS-Electrode_BS\E_ResearchData\2_ResearchData\2_PREPROCESSED'; % Output
+myfolders.rootrawdata = 'D:\1_EEG_DATA'; % Input
+myfolders.rootpreproc = 'D:\3_PREPROCESSED_DATA'; % Output
 
 % Set group/task/visit
-myfiles.task  = 'RS';          % MMN/SART/RS/MT
+myfiles.task  = 'EO';          % MMN/SART/RS/EO/EC/MT
 myfiles.group = {'ALS','CONTROL','AFM','PLS','PMA'};
-myfiles.visit = {'T1'};        % T1/T2/...
-myfiles.todo  = {};          % If empty, all are (re)done
+myfiles.visit = {'T1','T2','T3','T4','T5'};
+myfiles.todo  = {};            % If empty, all are (re)done
 
 % Who is not processed?
 % myfiles.todo = list_missing('E:\1_EEG_DATA\AFM\T1','E:\3_PREPROCESSED_DATA\RS\AFM\T1');

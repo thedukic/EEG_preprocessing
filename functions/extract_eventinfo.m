@@ -130,11 +130,11 @@ switch EEG(1).ALSUTRECHT.subject.task
             eventinfo{i,4} = EEG(i).srate;
             fprintf('MT%d has %d trials.\n',i,floor(eventinfo{i,3}/3));
         end
-    case 'RS'
+    case {'RS','EO','EC'}
         fprintf('Resting-state data does not have events by default. Returning only the number of possible 1s trials in each block.\n');
-        L = 1; % length in [s] 
+        L = 1; % length in [s]
         for i = 1:NBLK
-            eventinfo{i,3} = floor(length(EEG(i).times)./(L.*EEG(i).srate)); % Should be an integer anyway!
+            eventinfo{i,3} = floor(length(EEG(i).times)./(L.*EEG(i).srate));
             eventinfo{i,4} = EEG(i).srate;
             fprintf('RS%d has %d (%ds long) trials.\n',i,eventinfo{i,3},L);
         end

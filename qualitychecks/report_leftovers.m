@@ -9,7 +9,7 @@ function EEG = report_leftovers(EEG)
 
 % =========================================================================
 fprintf('\nChecking muscle activity leftovers...\n');
-muscleSlopeThreshold = - 0.59;
+muscleSlopeThreshold = -0.59;
 muscleSlopeDuration  = 0.05;
 
 % Select only EEG

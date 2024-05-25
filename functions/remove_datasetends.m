@@ -89,7 +89,7 @@ switch EEG(1).ALSUTRECHT.subject.task
             N = floor(size(EEG(i).data,2)/L);
             assert(N*L==size(EEG(i).data,2));
         end
-    case 'RS'
+    case {'RS','EO','EC'}
         T = 2*EEG(1).srate;
         % for i = 1:NTRL
         %     EEG.trial{i} = EEG.trial{i}(:,T+1:end-T);
@@ -97,6 +97,7 @@ switch EEG(1).ALSUTRECHT.subject.task
         % end
 
         % Make sure data is rounded to N*1s
+        % Cuts T = 2s of data from both ends
         for i = 1:NTRL
             N = floor(EEG(i).pnts/EEG(i).srate)*EEG(i).srate-T;
             EEG(i) = pop_select(EEG(i),'point',[T+1 N]);

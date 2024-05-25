@@ -27,17 +27,21 @@ function EEG = reduce_artifacts(EEG,cfgbch)
 
 % ASR:
 % % https://academic.oup.com/sleep/article/46/12/zsad241/7275639
-% Another important future task is to evaluate frequency dependency of the spatial filter in ASR: for example, 
-% beta and gamma band EEG power generally increases, not decreases, as a result of spatial-filter component rejection. 
-% This is because an output from a spatial filter is dominated by a frequency band with dominant power, 
-% and EEG data generally have 1/f power distribution. Thus, a spatial filter works effectively only for low-frequency signals. 
-% High-frequency signals are poorly decomposed and remain correlated. Rejecting correlated components causes de-cancelation 
+% Another important future task is to evaluate frequency dependency of the spatial filter in ASR: for example,
+% beta and gamma band EEG power generally increases, not decreases, as a result of spatial-filter component rejection.
+% This is because an output from a spatial filter is dominated by a frequency band with dominant power,
+% and EEG data generally have 1/f power distribution. Thus, a spatial filter works effectively only for low-frequency signals.
+% High-frequency signals are poorly decomposed and remain correlated. Rejecting correlated components causes de-cancelation
 % which introduces the counterintuitive signal power increase. I reported it for the cases of ASR and independent component analysis
 % -> Better then to first do ASR and try to mitigate these increases with MWF?
 
 % % Remove external electrodes
 % % EEG0 = pop_select(EEG,'nochannel',{EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels});
 % EEG0 = EEG;
+
+% =========================================================================
+% 1. MWF round 1: Detect and remove EMG
+EEG = mwf_channelemg(EEG,cfgbch);
 
 % =========================================================================
 % 4. ASR
@@ -51,10 +55,6 @@ EEG = pop_clean_rawdata(pop_select(EEG,'nochannel',extchan),'FlatlineCriterion',
 
 EEG = merge_eeglabsets(EEG,EXT);
 fprintf('Done using ASR.\n');
-
-% =========================================================================
-% 1. MWF round 1: Detect and remove EMG
-EEG = mwf_channelemg(EEG,cfgbch);
 
 % =========================================================================
 % 2. MWF round 2: Detect and remove VEOG / eye blinks

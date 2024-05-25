@@ -38,28 +38,28 @@ echo off;
 % load local file
 % ---------------
 homefolder = '';
-try 
+try
     %clear eeg_options; % note: we instead clear this function handle in pop_editoptions()
-    
+
     eeg_optionsbackup;
     if isdeployed || (exist('ismcc') && ismcc)
         fileName = which('eeg_options.txt');
-        
+
         com2 = readtxtfile(fileName);
         eval( com2 );
     else
         icadefs;
-        
+
         % folder for eeg_options file (also update the pop_editoptions)
         if ~isempty(EEGOPTION_PATH) % in icadefs above
-             homefolder = EEGOPTION_PATH;
+            homefolder = EEGOPTION_PATH;
         elseif ispc
-%              if ~exist('evalc'), eval('evalc = @(x)(eval(x));'); end
-%              homefolder = deblank(evalc('!echo %USERPROFILE%'));
+            %              if ~exist('evalc'), eval('evalc = @(x)(eval(x));'); end
+            %              homefolder = deblank(evalc('!echo %USERPROFILE%'));
             homefolder = getenv('USERPROFILE');
         else homefolder = '~';
         end
-        
+
         option_file = fullfile(homefolder, 'eeg_options.m');
         oldp = pwd;
         try
@@ -75,11 +75,11 @@ try
         cd(oldp);
     end
     option_savematlab = ~option_savetwofiles;
-    
+
     if option_donotusetoolboxes
         disp('Not using signal processing toolbox, if you experience problem, reset your Matlab path to default')
     end
-catch 
+catch
     lasterr
     disp('Warning: could not access the local eeg_options file');
 end

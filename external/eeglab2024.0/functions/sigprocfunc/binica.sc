@@ -55,7 +55,7 @@
                            #  the speed of convergence.
     annealdeg    60        # Angledelta threshold for annealing {default: 60}
     momentum     0         # Momentum gain (range [0,1])      {default: 0}
-    verbose      off        # Give ascii messages (on/off) {default: on}
+    verbose      on        # Give ascii messages (on/off) {default: on}
 #
 # Optional input starting weights:
 #

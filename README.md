@@ -31,10 +31,14 @@ EEG preprocessing pipeline, ALS Centre UMC Utrecht.
 	- asr_process: change to: if usegpu % && length(range) > 1000
 	- asr_process: change to: % if splits > 1, fprintf('.'); end
 
-4. Set double precision in EEGLAB:
-	- Open EEGLAB and go to File->Preferences
-	- Select "show advanced options", click on OK and reopen EEGLAB
-	- Unselect "use single precision number" and click on OK
+4. Change EEGLAB preferences 
+	- Find the file path:
+	```MATLAB
+	fileparts(which('eeg_options.m'))
+	```
+	- Set:
+		- option_single   = 0;
+		- option_parallel = 1;
 	
 5. Set folder paths in the preproc_folders script:
 	- Root path of the pipeline folder: myfolders.mycodes
