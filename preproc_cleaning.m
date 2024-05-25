@@ -23,10 +23,18 @@ subject.group   = myfolders.group;
 subject.visit   = myfolders.visit;
 subject.rawdata = fullfile(myfolders.rawdata, subject.id);
 subject.preproc = fullfile(myfolders.preproc, subject.id);
+subject.icadata = fullfile(subject.preproc, upper(cfg.ica.type2));
 subject.clnfile = [subject.id '_' myfolders.visit '_' myfolders.task '_cleandata_' cfg.rnum '.mat'];
 
 % Find datasets
 [subject.datablocks, NBLK] = list_datasets(subject.rawdata,myfolders.task);
+
+% Report
+fprintf('\n');
+disp('==================================================================');
+fprintf('%s | %s | %s dataset\n',myfolders.group,subject.id,myfolders.task);
+disp('==================================================================');
+fprintf('\n');
 
 % Load data
 if ~isempty(subject.datablocks)
@@ -56,17 +64,9 @@ end
 if exist(subject.preproc,'dir')~=7, mkdir(subject.preproc); end
 
 % Open a report
-subject.fid = fopen(fullfile(subject.preproc,['report_preprocess_v' cfg.rnum '.txt']),'w+');
-
-% Log basic info
 t0 = datetime("now");
 proctime = strrep(strrep(char(t0),':','-'),' ','-');
-
-fprintf('\n');
-disp('==================================================================');
-fprintf('%s | %s | %s dataset\n',myfolders.group,subject.id,myfolders.task);
-disp('==================================================================');
-fprintf('\n');
+subject.fid = fopen(fullfile(subject.preproc,['report_preprocess_v' cfg.rnum '.txt']),'w+');
 
 fprintf(subject.fid,'%s | %s | %s dataset\n\n',myfolders.group,subject.id,myfolders.task);
 fprintf(subject.fid,'Code version %s\n',cfg.rnum);
@@ -94,7 +94,7 @@ EEG = eeg_checkset(EEG,'loaddata');
 chanlocs = readlocs('biosemi128_eeglab.ced');
 EEG = fix_chanlocs(EEG,chanlocs);
 
-% Subject info
+% Add subject info
 for j = 1:NBLK
     EEG(j).ALSUTRECHT.subject = subject;
 end
@@ -112,47 +112,28 @@ EEG = extract_eventinfo(EEG);
 EEG = remove_flatelec(EEG,cfg.bch);
 
 % Reference
-% Doing this first and then filtering might help line-noise removal
-chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
-for j = 1:NBLK
-    EEG(j).data(chaneeg,:) = EEG(j).data(chaneeg,:) - trimmean(EEG(j).data(chaneeg,:),10);
-    EEG(j).ref = 'average';
-end
+EEG = do_reref(EEG,'aRobust');
 
 % Remove the line noise here?
 % EEG = reduce_linenoise(EEG);
 
-% Filter EEG only
-chaneeg = find(strcmp({EEG(1).chanlocs.type},'EEG'));
-if strcmpi(myfolders.task,'RS') || strcmpi(myfolders.task,'MT')
-    % RS/MT
-    EEG = filter_signal(EEG,cfg.flt.rsmt.lp,cfg.flt.rsmt.hp,chaneeg,'eeglab');
-else
-    % MMN/SART (ERP)
-    EEG = filter_signal(EEG,cfg.flt.erp.lp,cfg.flt.erp.hp,chaneeg,'eeglab');
-end
+% Filter
+EEG = do_filtering(EEG,cfg);
 
-% Filter EXT only
-chanext = find(strcmp({EEG(1).chanlocs.type},'EXT'));
-EEG = filter_signal(EEG,cfg.flt.ext.lp,cfg.flt.ext.hp,chanext,'eeglab');
+% Remove line noise
+EEG = reduce_linenoise(EEG);
 
-% Filter MT only
-chanemg = find(strcmp({EEG(1).chanlocs.type},'EMG'));
-if strcmpi(myfolders.task,'MT')
-    EEG = filter_signal(EEG,cfg.flt.emg.lp,cfg.flt.emg.hp,chanemg,'eeglab');
-end
+% Check leftovers
+EEG = detect_linenoiseleftovers(EEG);
 
 % Cut block ends
 EEG = remove_datasetends(EEG);
-
-% Remove the line noise
-EEG = reduce_linenoise(EEG);
 
 % Bipolar EXT
 EEG = make_extbipolar(EEG);
 
 % Mark where each RS block starts/ends
-if strcmpi(myfolders.task,'RS')
+if strcmpi(myfolders.task,'RS') || strcmpi(myfolders.task,'EO') || strcmpi(myfolders.task,'EC')
     EEG = make_rsmasks(EEG);
 end
 
@@ -175,19 +156,28 @@ end
 % EEGRAW = EEG;
 
 % Remove electrode wobbles and pops
-EEG = remove_electrodewobbles(EEG,lower(cfg.ica.type));
+EEG = remove_electrodewobbles(EEG,lower(cfg.ica.type1));
 
 % Detect and remove noisy electrodes
 EEG = remove_noisyelec(EEG,cfg.bch);
 
 % Log/report bad channel
-EEG = report_badelectrodes(EEG,'individual');
+EEG = report_badelectrodes(EEG);
 
-% Detecte extremely bad epochs
+% Detect extremely bad epochs
 EEG = detect_extremelybadepochs2(EEG);
 
+% Remove extremely bad epochs
+if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
+    EEG = eeg_eegrej(EEG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
+
+    if strcmpi(myfolders.task,'MT')
+        EMG = eeg_eegrej(EMG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
+    end
+end
+
 % % Check if EC has eye blinks; Too sensitive?
-% if strcmpi(myfolders.task,'RS')
+% if strcmpi(myfolders.task,'EC')
 %     EEG = check_eyesclosedeyeblinks(EEG);
 % end
 
@@ -205,25 +195,10 @@ if ~isempty(EEG.ALSUTRECHT.badchaninfo.badElectrodes)
 end
 
 % Common-average before ICA
-EEG.data = EEG.data - (sum(EEG.data,1)/(EEG.nbchan+1));
-EEG.ref  = 'average';
-
-% Remove extreme periods
-if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3) && ~strcmpi(myfolders.task,'RS')
-    EEG = eeg_eegrej(EEG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
-    EXT = eeg_eegrej(EXT, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
-
-    if strcmpi(myfolders.task,'MT')
-        EMG = eeg_eegrej(EMG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
-    end
-end
+EEG = do_reref(EEG,'aRegular');
 
 % Epoch MT data
-if strcmpi(myfolders.task,'RS')
-    % Ñot needed as now we can epoch RS data after ICA -> better!
-    % EEG = epoch_rsdata(EEG,2*EEG.srate); % Epoch size 2 [s]
-    % EXT = epoch_rsdata(EXT,2*EXT.srate); % Epoch size 2 [s]
-elseif strcmpi(myfolders.task,'MT')
+if strcmpi(myfolders.task,'MT')
     % Epoch MT data before ICA, as there is often a lot of noise in between trials
     EEG = pop_epoch(EEG,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
     EXT = pop_epoch(EXT,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
@@ -234,37 +209,34 @@ end
 % ICA
 EEG = do_ICA(EEG,cfg);
 
-% ICLabel
-EEG = iclabel(EEG);
-
 % Flag artifact ICs
-EEG = pop_icflag(EEG,cfg.ica.iclabel);
+EEG = detect_badICs(EEG,EXT,cfg);
 
 % ICA log/report
-EEG = report_ica(EEG);
+EEG = report_ICA(EEG);
 
 % Epoch MMN
 if strcmpi(myfolders.task,'MMN')
     EEG = pop_epoch(EEG,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0),cfg.trg.mmn{2},'epochinfo','yes');
-    EXT  = pop_epoch(EXT,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0),cfg.trg.mmn{2},'epochinfo','yes');
+    EXT = pop_epoch(EXT,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0),cfg.trg.mmn{2},'epochinfo','yes');
     EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0] ,[]);
 end
 % Epoch SART: 1. wrt visual stimuli and 2. wrt response times
 if strcmpi(myfolders.task,'SART')
     EEG0 = EEG; EXT0 = EXT;
-    EEG = pop_epoch(EEG0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart1{1},'Uniformoutput',0),cfg.trg.sart1{2},'epochinfo','yes');
-    EXT = pop_epoch(EXT0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart1{1},'Uniformoutput',0),cfg.trg.sart1{2},'epochinfo','yes');
-    EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0] ,[]);
+    EEG  = pop_epoch(EEG0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart1{1},'Uniformoutput',0),cfg.trg.sart1{2},'epochinfo','yes');
+    EXT  = pop_epoch(EXT0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart1{1},'Uniformoutput',0),cfg.trg.sart1{2},'epochinfo','yes');
+    EEG  = pop_rmbase(EEG,[(EEG.xmin)*1000 0] ,[]);
 
     % This does not make sure that epochs are only from correct Go
     EEG2 = pop_epoch(EEG0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart2{1},'Uniformoutput',0),cfg.trg.sart2{2},'epochinfo','yes');
     EXT2 = pop_epoch(EXT0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart2{1},'Uniformoutput',0),cfg.trg.sart2{2},'epochinfo','yes');
     EEG2 = pop_rmbase(EEG2,[(EEG2.xmin)*1000 0] ,[]);
     clearvars EEG0 EXT0
-elseif strcmpi(myfolders.task,'RS')
-    % 2s w/ 0.75 overlap -> [1,5,9,...] -> [1:4:end] trials are unique!
-    EEG = epoch_rsdata2(EEG,cfg.trg.rs{1},cfg.trg.rs{2});
-    EXT = epoch_rsdata2(EXT,cfg.trg.rs{1},cfg.trg.rs{2});
+elseif strcmpi(myfolders.task,'RS') || strcmpi(myfolders.task,'EO') || strcmpi(myfolders.task,'EC')
+    % 2s w/ 0.75 overlap
+    EEG = epoch_rsdata3(EEG,cfg.trg.rs{1},cfg.trg.rs{2});
+    EXT = epoch_rsdata3(EXT,cfg.trg.rs{1},cfg.trg.rs{2});
 end
 
 % % ICLabel
@@ -293,7 +265,7 @@ if strcmpi(myfolders.task,'SART'), EEG2 = do_wICA(EEG2); end
 % Visually check the cleaning
 % compare_visually(EEG,EEGRAW,cfg.trg);
 
-% Report muscle and blink artifact leftovers
+% Report artifact leftovers
 EEG = report_leftovers(EEG);
 
 % Merge EMG
@@ -307,21 +279,21 @@ issues_to_check = EEG.ALSUTRECHT.issues_to_check;
 if strcmpi(myfolders.task,'SART'), EEG2.ALSUTRECHT.issues_to_check = issues_to_check; end
 
 % Save cleaned data
-fprintf('\n%s: Saving preprocessed data...\n\n',subject.id);
+fprintf('\n%s: Saving preprocessed data...\n',subject.id);
+preprocReport = EEG.ALSUTRECHT;
 if ~strcmpi(myfolders.task,'SART')
-    save(fullfile(subject.preproc, subject.clnfile),'EEG','cfg','proctime');
+    save(fullfile(subject.preproc,subject.clnfile),'EEG','preprocReport','cfg','proctime');
 else
-    save(fullfile(subject.preproc, subject.clnfile),'EEG','EEG2','cfg','proctime');
+    save(fullfile(subject.preproc,subject.clnfile),'EEG','EEG2','preprocReport','cfg','proctime');
 end
 
 % Close the report
 t1 = datetime("now");
 dd = round(minutes(diff([t0 t1])));
-fprintf(subject.fid,'Finished: %s\n',t1);
+fprintf(subject.fid,'\n\nFinished: %s\n',t1);
 fprintf(subject.fid,'Running time: %d min.\n',dd);
 fclose(subject.fid);
 
 fprintf('Finished: %s\n',t1);
-fprintf('Running time: %d min.\n',dd);
-
+fprintf('Running time: %d min.\n\n',dd);
 end

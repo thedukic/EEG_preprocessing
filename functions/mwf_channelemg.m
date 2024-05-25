@@ -10,7 +10,7 @@ function [EEG, badElectrodes, noiseMask] = mwf_channelemg(EEG,cfgbch)
 % possibly leaving low level EMG data in, and only eliminating the data we
 % know is definitely EMG)
 % (-0.59 is where the histograms between paralysed ICs and EMG ICs cross,
-% so above this value contains a very small amount of the brain data, 
+% so above this value contains a very small amount of the brain data,
 % and over 50% of the EMG data. Above this point, data is more likely to be
 % EMG than brain)
 % (-0.72 is the maximum of the histogram of the paralysed IC data, so
@@ -32,6 +32,9 @@ dataeeg = EEG.data(chaneeg,:);
 L = EEG.srate;
 N = floor(size(dataeeg,2)/L);
 dataeeg = reshape(dataeeg(:,1:N*L),sum(chaneeg),L,N);
+
+modulus = size(EEG.data,2)-N*L;
+assert(modulus>=0);
 
 % Compute (log) power spectra (7-75 Hz)
 [NCHN,NPTS,NTRL]= size(dataeeg);
@@ -94,9 +97,9 @@ badElectrodes = {EEG.chanlocs(find(badchn>cfgbch.slopeTime)).labels};
 % threshold with NaN, then sums the values that are above the threshold
 % for each epoch to allow identification of the worst epochs:
 
-% Exclude extreme epochs
-assert(size(slopesEpochsxChannels,2)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
-slopesEpochsxChannels(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
+% % Exclude extreme epochs - already done!
+% assert(size(slopesEpochsxChannels,2)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
+% slopesEpochsxChannels(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
 
 sortingOutWorstMuscleEpochs = slopesEpochsxChannels;
 sortingOutWorstMuscleEpochs(sortingOutWorstMuscleEpochs < cfgbch.muscleSlopeThreshold) = NaN;
@@ -113,9 +116,9 @@ sortingOutWorstMuscleEpochs = sortingOutWorstMuscleEpochs-cfgbch.muscleSlopeThre
 sortingOutWorstMuscleEpochs = sum(sortingOutWorstMuscleEpochs,1,'omitnan');
 
 % Work out proportion of data marked as showing muscle activity
-assert(NTRL==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
 templateMarkedForMuscleArtifacts = zeros(1,NTRL);
-templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
+% assert(NTRL==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
+% templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
 
 % Threshold = 0, because all slope values have had the threshold subtracted from them (so the threshold is now 0)
 muscleSlopeThresholdAfterAdjustment = 0;
@@ -138,7 +141,7 @@ if ProportionOfDataShowingMuscleActivityTotal > MaxProportionOfDataCanBeMarkedAs
     fprintf(EEG.ALSUTRECHT.subject.fid,'That is too much for MWF. Limiting it to worst 50%%.\n');
 
     templateMarkedForMuscleArtifacts = zeros(1,NTRL);
-    templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
+    % templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
     muscleSlopeThresholdAfterAdjustment = prctile(sortingOutWorstMuscleEpochs,100-(MaxProportionOfDataCanBeMarkedAsMuscle*100));
     templateMarkedForMuscleArtifacts(sortingOutWorstMuscleEpochs>muscleSlopeThresholdAfterAdjustment) = 1;
 end
@@ -166,9 +169,16 @@ if ~isempty(badtrl_all)
     end
 end
 
+% Mark extremly bad epochs
 assert(length(noiseMask)==size(EEG.data,2));
-assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask));
-noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
+% assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask));
+% noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
+
+% Ignore the very last samples 
+% because we do not know if they are good or not
+if modulus>0
+    noiseMask(N*L+1:end) = NaN;
+end
 
 % % Visual check
 % EEG1 = EEG;
@@ -185,7 +195,7 @@ fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF);
 
 if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF>0.05
-    [cleanEEG, d, W, SER, ARR] = mwf_process(dataeeg(:,:),noiseMask,8);
+    [cleanEEG, d, W, SER, ARR] = mwf_process(EEG.data(chaneeg,:),noiseMask,8);
 
     % % Check
     % EEG0 = EEG;

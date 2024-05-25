@@ -40,7 +40,7 @@ chaneeg = strcmp({EEG.chanlocs.type},'EEG');
 EEGICA = pop_select(EEG,'channel',{EEG.chanlocs(chaneeg).labels});
 
 % Rereference (robust)
-EEGICA.data = EEGICA.data - trimmean(EEGICA.data,10,'round',1);
+EEGICA = do_reref(EEGICA,'aRobust');
 
 % Data rank
 assert(get_rank(EEGICA.data)==EEGICA.nbchan);
@@ -53,8 +53,7 @@ NICA = find(explained>0.99,1);
 % NICA = max(NICA,50);
 
 % ICA
-% EEGICA = pop_runica(EEGICA,'icatype',ICAtype);
-EEGICA = pop_runica(EEGICA,'icatype',ICAtype,'extended',1,'pca',NICA);
+EEGICA = pop_runica(EEGICA,'icatype',ICAtype,'extended',1,'pca',NICA,'lrate',1e-4,'maxsteps',1500);
 EEGICA = eeg_checkset(EEGICA,'ica');
 
 % Make sure ICA activations are estimated
@@ -105,7 +104,7 @@ th.TileSpacing = 'compact'; th.Padding = 'compact';
 
 for i = 1:length(badChanICs)
     nexttile;
-    topoplot(EEGICA.icawinv(:,badChanICs(i)),EEGICA.chanlocs,'maplimits',max(abs(EEGICA.icawinv(:,badChanICs(i))))*[-1 1],'headrad','rim','whitebk','on','style','map','electrodes','off');
+    topoplot(EEGICA.icawinv(:,badChanICs(i)),EEGICA.chanlocs,'maplimits',max(abs(EEGICA.icawinv(:,badChanICs(i))))*[-1 1],'headrad','rim','whitebk','on','style','map','electrodes','on');
     title({['ICA' num2str(badChanICs(i))], [icLabels{ICLabel_cvec(badChanICs(i))} ', P = ' num2str(round(ICLabel_pvec(badChanICs(i)),2))]}); axis tight; colormap(myCmap);
 end
 

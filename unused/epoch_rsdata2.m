@@ -49,13 +49,13 @@ for i = 1:NBLK
             % Too short period to fit any epochs
             newleftover = cat(1,newleftover,durall(j));
         else
-            newtrl  = cat(1,newtrl,thistrl);
+            newtrl = cat(1,newtrl,thistrl);
             newleftover = cat(1,newleftover,jumpStop(j)-(thistrl(end)+nsmp-1));
         end
     end
     goodIndx{i} = newtrl;
     leftover{i} = newleftover;
-    NTRL(i) = length(goodIndx{i});
+    NTRL(i)     = length(goodIndx{i});
 end
 
 % Build a minimal but valid EEG.event from scratch

@@ -5,7 +5,7 @@ if isfield(EEG,'data')
     issues_to_check.aFileName = EEG.ALSUTRECHT.subject.id;
     issues_to_check.NumberTrials1 = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);   % Total possible
     % issues_to_check.NumberTrials2 = floor(length(EEG.times)/EEG.srate);   % Left after preproc
-    issues_to_check.NumberTrials2 = size(EEG.data,3);
+    issues_to_check.NumberTrials2 = size(EEG.data,3);                       % Left after preproc
     issues_to_check.NumberIC1 = EEG.ALSUTRECHT.badchaninfo.wica.icmax;
     issues_to_check.NumberIC2 = EEG.ALSUTRECHT.ica.icmax;
     issues_to_check.NumberIC3 = EEG.ALSUTRECHT.ica.icmax2;
@@ -68,7 +68,7 @@ if isfield(EEG,'data')
     end
 
     % RS only
-    if strcmpi(EEG.ALSUTRECHT.subject.task,'RS')
+    if strcmpi(EEG.ALSUTRECHT.subject.task,'RS') || strcmpi(EEG.ALSUTRECHT.subject.task,'EO') || strcmpi(EEG.ALSUTRECHT.subject.task,'EC') 
         % % EC eye blinks
         % if EEG.ALSUTRECHT.blockinfo.ec_blinks>0
         %     issues_to_check.ECEyeBinksDetected = EEG.ALSUTRECHT.blockinfo.ec_blinks;
@@ -121,7 +121,7 @@ else
     issues_to_check.DataTooShortForValidICA     = NaN;
     issues_to_check.HighProportionOfArtifactICs = NaN;
 
-    if strcmpi(EEG.ALSUTRECHT.subject.task,'RS')
+    if strcmpi(EEG.ALSUTRECHT.subject.task,'RS') || strcmpi(EEG.ALSUTRECHT.subject.task,'EO') || strcmpi(EEG.ALSUTRECHT.subject.task,'EC') 
         % issues_to_check.ECEyeBinksDetected = NaN;
         issues_to_check.RSdataLostbyEpoching = NaN;
     end

@@ -19,7 +19,7 @@ cfg.flt.erp.hp = [0.25, 4];
 cfg.flt.erp.lp = [80, 4];
 
 % RS/MT filter
-cfg.flt.rsmt.hp = [1, 4];
+cfg.flt.rsmt.hp = [0.5, 4];
 cfg.flt.rsmt.lp = [80, 4];
 
 % EXT filter
@@ -32,13 +32,13 @@ cfg.flt.emg.lp = [];
 
 %% Bad channel/period detection
 % Flat electrode duration
-cfg.bch.flatDuration                = 4;    % [s]
+cfg.bch.flatDuration                = 4;    % default: 4 [s]
 
 % PREP: settings
 cfg.bch.robustDeviationThreshold    = 5;    % default: 5
 cfg.bch.highFrequencyNoiseThreshold = 5;    % default: 5
-cfg.bch.correlationThreshold        = 0.4;  % default: 0.4
-cfg.bch.badTimeThreshold            = 0.01; % default: 0.01
+cfg.bch.correlationThreshold        = 0.40; % default: 0.4
+cfg.bch.badTimeThreshold            = 0.05; % default: 0.01
 
 % PREP: RANSAC (computationally heavy and nondeterministic)
 cfg.bch.ransacOff                   = true;
@@ -60,20 +60,25 @@ cfg.bch.slopeTime                   = 0.01;
 % cfg.bch.driftSlopeThreshold         = -4;
 
 % EEGLAB: ASR
-cfg.bch.asr                         = 25; % recommandation: 20-30
+cfg.bch.asr                         = 20;    % recommandation: 20-30
 
 %% ICA and ICLabels
-cfg.ica.type    = 'CUDAICA';
-cfg.ica.icMax   = 50; % PCA reduction prior ICA
-%  {'Brain' 'Muscle' 'Eye' 'Heart' 'Line Noise' 'Channel Noise' 'Other'}
+% ICA algorithm
+cfg.ica.type1    = 'CUDAICA';
+cfg.ica.type2    = 'CUDAICA'; % AMICA
+
+% PCA reduction prior ICA
+cfg.ica.icMax   = 50;
+
+% {'Brain' 'Muscle' 'Eye' 'Heart' 'Line Noise' 'Channel Noise' 'Other'}
 cfg.ica.iclabel = ....
-    [NaN NaN; 0.8 1; 0.7 1; 0.8 1; NaN NaN; 0.7 1; NaN NaN];
+    [NaN NaN; 0.8 1; 0.7 1; NaN NaN; NaN NaN; 0.7 1; NaN NaN];
 
 %% Event triggers
 cfg.trg.mmn   = {[12 17],[-0.2 0.5]};
 cfg.trg.sart1 = {[3 6],[-0.2 0.9]};
 cfg.trg.sart2 = {1,[-0.45 0.45]};
 cfg.trg.mt    = {[21 31 51],[-5 10]};
-cfg.trg.rs    = {2, 0.75}; % 2s, 0.75 overlap
+cfg.trg.rs    = {2, 0.75};            % 2s, 0.75 overlap
 
 end

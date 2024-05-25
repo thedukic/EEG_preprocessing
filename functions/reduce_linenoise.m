@@ -2,11 +2,13 @@ function EEG = reduce_linenoise(EEG)
 %
 % More or less just a wrapper function for the Zapline function
 % Zapline is slightly modifed to accept p.fig1 / p.fig2 inputs
-% SDukic, Feb 2024
+% SDukic, May 2024
 %
 
 thisMethod = 'Zaplineplus';
 fprintf('\n%s 50Hz noise cleaning...\n',thisMethod);
+fprintf('Make sure that none of the channels are bipolar!\n');
+
 NBLK = length(EEG);
 
 switch thisMethod
@@ -22,9 +24,9 @@ switch thisMethod
         % eegchan = strcmp({EEG(1).chanlocs.type},'EEG');
         eegchan = 1:EEG(1).nbchan;
 
-        if length(eegchan)==EEG(1).nbchan
-            fprintf('Make sure that none of the channels are bipolar!\n');
-        end
+        % if length(eegchan)==EEG(1).nbchan
+        %     fprintf('Make sure that none of the channels are bipolar!\n');
+        % end
 
         % Function parameters
         p = [];
@@ -54,30 +56,50 @@ switch thisMethod
     case 'Zaplineplus'
         % Is it better to merge block and do it in one go?
         % If using RS blocks, window size should be <= 120/8s = 15s
+        fprintf('Cleaning all blocks at once....\n');
+
+        % Clean all blocks at once
+        [dataeeg, ~, analyticsResults, fh] = clean_data_with_zapline_plus(cat(2,EEG(:).data),EEG(1).srate,'noisefreqs',50,'winSizeCompleteSpectrum',20,'plotResults',true);
+
+        % Split back the blocks
+        EEG2 = make_rsmasks(EEG);
+        assert(size(dataeeg,2)==size(EEG2(1).ALSUTRECHT.blockinfo.rs_mask,2));
+
         for i = 1:NBLK
-            fprintf('\nCleaning block: %1d\n', i);
-            [EEG(i).data, ~, analyticsResults(i), fh] = clean_data_with_zapline_plus(EEG(i).data,EEG(i).srate,'noisefreqs',50,'winSizeCompleteSpectrum',20,'plotResults',true);
-
-            % LineNoiseCleaning.ratioNoiseClean(i,:) = analyticsResults.ratioNoiseClean;
-            % LineNoiseCleaning.proportionRemovedBelowNoise(i,:) = analyticsResults.proportionRemovedBelowNoise;
-
-            % Save
-            plotX=35; plotY=20;
-            set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-            set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-            print(fh,fullfile(EEG(1).ALSUTRECHT.subject.preproc,[EEG(1).ALSUTRECHT.subject.id '_linenoiseremoval_' num2str(i)]),'-dtiff','-r400');
-            close(fh);
+            EEG(i).data = dataeeg(:,EEG2(i).ALSUTRECHT.blockinfo.rs_mask(i,:));
+            assert(size(EEG(i).data,2)==EEG(i).pnts);
         end
+
+        % Check
+        EEG = eeg_checkset(EEG);
+
+        % Save
+        plotX=35; plotY=20;
+        set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+        set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+        print(fh,fullfile(EEG(1).ALSUTRECHT.subject.preproc,[EEG(1).ALSUTRECHT.subject.id '_linenoiseremoval_1']),'-dtiff','-r400');
+        close(fh);
+
+        % % Old code: does cleaninging per block
+        % for i = 1:NBLK
+        %     fprintf('\nCleaning block: %1d\n', i);
+        %     [EEG(i).data, ~, analyticsResults(i), fh] = clean_data_with_zapline_plus(EEG(i).data,EEG(i).srate,'noisefreqs',50,'winSizeCompleteSpectrum',20,'plotResults',true);
+        %
+        %     % LineNoiseCleaning.ratioNoiseClean(i,:) = analyticsResults.ratioNoiseClean;
+        %     % LineNoiseCleaning.proportionRemovedBelowNoise(i,:) = analyticsResults.proportionRemovedBelowNoise;
+        %
+        %     % % Save
+        %     % plotX=35; plotY=20;
+        %     % set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+        %     % set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+        %     % print(fh,fullfile(EEG(1).ALSUTRECHT.subject.preproc,[EEG(1).ALSUTRECHT.subject.id '_linenoiseremoval_' num2str(i)]),'-dtiff','-r400');
+        %     % close(fh);
+        % end
 
         % Log / Report
         for i = 1:NBLK
-            EEG(i).ALSUTRECHT.LineNoiseCleaning = analyticsResults;
+            EEG(i).ALSUTRECHT.LineNoiseCleaning1 = analyticsResults;
         end
-        % if all(LineNoiseCleaning.ratioNoiseClean(:,1)<1.2 & LineNoiseCleaning.ratioNoiseClean(:,1)>0.8)
-        %     disp('50 Hz noise cleanining seems good!');
-        % else
-        %     disp('50 Hz noise cleanining might be suboptimal!');
-        % end
 end
 
 

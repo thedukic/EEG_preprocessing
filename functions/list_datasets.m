@@ -12,7 +12,7 @@ elseif strcmpi(thistask,'MT')
     tmp3 = dir([datapath '\*MT5*']);
     dataname  = {tmp1.name, tmp2.name, tmp3.name};
 else
-    % SART/MMN
+    % SART/MMN/EO/EC
     dataname = dir([datapath '\*' thistask '*']);
     dataname = {dataname.name};
 end

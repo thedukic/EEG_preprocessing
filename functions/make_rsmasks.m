@@ -19,6 +19,9 @@ for j = 1:NBLK
     end
 end
 
+% Check
+assert(sum(rs_mask,"all")==sum(N));
+
 % Which are eyes-open blocks
 eo_mask = contains(EEG(1).ALSUTRECHT.subject.datablocks,'EO');
 
