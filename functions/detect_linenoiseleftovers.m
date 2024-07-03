@@ -6,6 +6,8 @@ function EEG = detect_linenoiseleftovers(EEG)
 %
 % SDukic, April 2024
 
+Ptrsh = 0.0001;
+
 NBLK    = length(EEG);
 chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
 myCmap1 = brewermap(256,'BuPu');
@@ -62,8 +64,8 @@ for i = 1:NBLK
     freqsel50(freq>49 & freq<51) = true;
 
     freqselrest = false(size(freq));
-    freqselrest(freq>=45 & freq<49) = true;
-    freqselrest(freq>51 & freq<=55) = true;
+    freqselrest(freq>=45 & freq<=49) = true;
+    freqselrest(freq>=51 & freq<=55) = true;
 
     % X = mean(psdspectra2(:,freqsel50),2);
     % Y = mean(psdspectra2(:,freqselrest),2);
@@ -78,8 +80,10 @@ for i = 1:NBLK
     [h,pval{i}] = ttest2(X,Y,'tail','right');
     % [h,pval{i}] = ttest(X,Y,'tail','right');
 
+    [pvalsort,b] = sort(pval{i},2,"descend");
+
     % Determine channels with 50 Hz
-    badelec{i} = find(pval{i}<0.001);
+    badelec{i} = find(pval{i}<Ptrsh);
     % badelec{i} = find(pval{i}<0.05);
 
     % nexttile; plot(-log10(pval{i}),'LineWidth',1.2);
@@ -87,15 +91,14 @@ for i = 1:NBLK
     % title(['Block ' num2str(i)]);
 
     nexttile((i-1)*3+1);
-    pvaltmp = -log10(pval{i});
-    topoplot(pvaltmp(chaneeg),EEG(i).chanlocs,'maplimits',[0 3],'headrad','rim','whitebk','on','style','map','electrodes','off','emarker2',{badelec{i},'d','k',10,1});
+    topoplot(-log10(pval{i}(chaneeg)),EEG(i).chanlocs,'maplimits',[0 -log(Ptrsh)],'headrad','rim','whitebk','on','style','map','electrodes','on','emarker2',{badelec{i},'d','k',10,1});
     title(['Block ' num2str(i)]); axis tight; colormap(myCmap1);
     hcb = colorbar;
     hcb.Title.String = "-log_{10}(P)";
 
     if ~isempty(badelec{i})
         NCHN = length(badelec{i});
-        fprintf('Leftover line noise found in %d electrodes. Notch filtering them...\n',NCHN);
+        fprintf('Leftover line noise found in %d electrodes. Fixing them now...\n',NCHN);
         % disp(pval{i});
 
         % % Notch filter
@@ -122,10 +125,13 @@ for i = 1:NBLK
 
     else
         fprintf('Block %d: Nice! No leftover 50 Hz noise is found.\n',i);
-		NCHN = 0;
+        NCHN = 0;
     end
 
-    % Plot
+    % Sort spectra
+    psdspectra2a = psdspectra2a(b,:);
+
+    % Plot 2
     nexttile((i-1)*3+2); hold on;
     plot([50 50],[-100 50],'LineWidth',1.2,'Color',0.6*ones(1,3));
     plot([100 100],[-100 50],'LineWidth',1.2,'Color',0.6*ones(1,3));
@@ -133,10 +139,15 @@ for i = 1:NBLK
     xlim([0 128]); ylim([-100 50]); pbaspect([1.618 1 1]);
     xlabel('Frequency (Hz)'); ylabel('10log_{10}(power)');
 
+    % Plot 3
     nexttile((i-1)*3+3); hold on;
     if ~isempty(badelec{i})
-        A = psdspectra2a(badelec{i},:)-mean(psdspectra2a(badelec{i},freqselrest),2);
-        B = psdspectra2b(badelec{i},:)-mean(psdspectra2b(badelec{i},freqselrest),2);
+        % Sort spectra
+        psdspectra2b = psdspectra2b(b,:);
+        % badelectmp   = b(badelec{i});
+        badelectmp   = size(psdspectra2a,1):-1:size(psdspectra2a,1)-length(badelec{i})+1;
+        A = psdspectra2a(badelectmp,:)-mean(psdspectra2a(badelectmp,freqselrest),2);
+        B = psdspectra2b(badelectmp,:)-mean(psdspectra2b(badelectmp,freqselrest),2);
         plot(freq,A,'LineWidth',1.2,'Color',0.7*ones(1,3));
         plot(freq,B,'LineWidth',1.2,'Color',0.3*ones(1,3));
     else
@@ -145,7 +156,7 @@ for i = 1:NBLK
     end
     xlim([45 55]); ylim([-20 20]); pbaspect([1.618 1 1]);
     xlabel('Frequency (Hz)'); ylabel('10log_{10}(power)');
-	title(['N = ' num2str(NCHN)]);
+    title(['N = ' num2str(NCHN)]);
 end
 
 % Save

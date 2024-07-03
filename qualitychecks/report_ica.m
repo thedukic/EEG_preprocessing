@@ -4,6 +4,11 @@ function EEG = report_ICA(EEG)
 %
 % SDukic, Feb 2024
 
+% Separate EEG
+chanext = {EEG.chanlocs(strcmp({EEG.chanlocs.type},'EXT')).labels};
+EXT = pop_select(EEG,'channel',chanext);
+EEG = pop_select(EEG,'rmchannel',chanext);
+
 % Make sure IC activations are present
 if isempty(EEG.icaact)
     EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
@@ -167,5 +172,8 @@ EEG.ALSUTRECHT.ica.ProportionVariance_was_HeartICs        = HeartVariance/TotalV
 EEG.ALSUTRECHT.ica.ProportionVariance_was_LineNoiseICs    = LineNoiseVariance/TotalVariance;
 EEG.ALSUTRECHT.ica.ProportionVariance_was_ChannelNoiseICs = ChannelNoiseVariance/TotalVariance;
 EEG.ALSUTRECHT.ica.ProportionVariance_was_OtherICs        = OtherVariance/TotalVariance;
+
+% Merge
+EEG = merge_eeglabsets(EEG,EXT);
 
 end

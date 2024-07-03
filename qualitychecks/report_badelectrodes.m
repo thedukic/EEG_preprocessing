@@ -1,7 +1,8 @@
 function EEG = report_badelectrodes(EEG)
 
 % Log
-EEG.ALSUTRECHT.badchaninfo.badElectrodes = sort([EEG.ALSUTRECHT.badchaninfo.flatElectrodes, EEG.ALSUTRECHT.badchaninfo.PREPElectrodes]);
+EEG.ALSUTRECHT.badchaninfo.badElectrodes = sort([EEG.ALSUTRECHT.badchaninfo.flatElectrodes, EEG.ALSUTRECHT.badchaninfo.PREPElectrodes, EEG.ALSUTRECHT.badchaninfo.EMGSlope]);
+
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad  electrodes\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
@@ -17,7 +18,7 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'PREP electrodes: %s\n', str);
 
 % Plot
 fh = figure;
-th = tiledlayout(1,3);
+th = tiledlayout(1,4);
 th.TileSpacing = 'compact'; th.Padding = 'compact';
 
 % EEG electrode colours/labels
@@ -39,6 +40,11 @@ mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.PREPElectrodes));
 nexttile;
 topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map');
 title(['PREP, N = ' num2str(sum(mask))]); axis tight;
+
+mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.EMGSlope));
+nexttile;
+topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map');
+title(['EMG Slope, N = ' num2str(sum(mask))]); axis tight;
 
 % Save
 plotX=20; plotY=8;

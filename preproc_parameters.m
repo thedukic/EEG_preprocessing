@@ -23,8 +23,8 @@ cfg.flt.rsmt.hp = [0.5, 4];
 cfg.flt.rsmt.lp = [80, 4];
 
 % EXT filter
-cfg.flt.ext.hp = [0.1, 2];
-cfg.flt.ext.lp = [80, 2];
+cfg.flt.ext.hp = [0.1, 4];
+cfg.flt.ext.lp = [80, 4];
 
 % EMG filter
 cfg.flt.emg.hp = [5, 4];
@@ -38,7 +38,7 @@ cfg.bch.flatDuration                = 4;    % default: 4 [s]
 cfg.bch.robustDeviationThreshold    = 5;    % default: 5
 cfg.bch.highFrequencyNoiseThreshold = 5;    % default: 5
 cfg.bch.correlationThreshold        = 0.40; % default: 0.4
-cfg.bch.badTimeThreshold            = 0.05; % default: 0.01
+cfg.bch.badTimeThreshold            = 0.01; % default: 0.01
 
 % PREP: RANSAC (computationally heavy and nondeterministic)
 cfg.bch.ransacOff                   = true;
@@ -52,8 +52,8 @@ cfg.bch.ransacOff                   = true;
 
 % RELAX: Muscle activity
 % Less stringent = -0.31, Middle Stringency = -0.59, More stringent = -0.72
-cfg.bch.muscleSlopeThreshold        = -0.5;
-cfg.bch.slopeTime                   = 0.01;
+cfg.bch.muscleSlopeThreshold        = -0.31;
+cfg.bch.MuscleSlopeTime             = 0.50;
 
 % RELAX: Slow drifts
 % cfg.bch.DriftSeverityThreshold      = 12;  % default: 10 (MAD from the median of all electrodes)
@@ -72,7 +72,7 @@ cfg.ica.icMax   = 50;
 
 % {'Brain' 'Muscle' 'Eye' 'Heart' 'Line Noise' 'Channel Noise' 'Other'}
 cfg.ica.iclabel = ....
-    [NaN NaN; 0.8 1; 0.7 1; NaN NaN; NaN NaN; 0.7 1; NaN NaN];
+    [NaN NaN; 0.7 1; 0.7 1; NaN NaN; NaN NaN; 0.7 1; NaN NaN];
 
 %% Event triggers
 cfg.trg.mmn   = {[12 17],[-0.2 0.5]};

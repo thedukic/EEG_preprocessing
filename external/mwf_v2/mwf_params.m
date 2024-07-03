@@ -10,21 +10,23 @@
 %   p        MWF parameter struct
 %
 % KEY - VALUE PAIRS
-%   delay       number of time lags to include in MWF (default = 0)
-%   rank        specifies how the rank for the MWF should be set
-%               'full':     use full rank MWF (don't use GEVD)
-%               'poseig':   use GEVD, only retain positive eigenvalues (default)
-%               'pct':      use GEVD, only retain x% of eigenvalues
-%               'first':    use GEVD, only retain x eigenvalues
-%   rankopt     additional rank options, required if rank is 'pct' or 'first'
-%               'pct': specify the percentage of eigenvalues to keep (0-100)
-%               'first': specify the number of eigenvalues to keep (positive integer)
-%   treatnans   specifies how to treat NaNs in the artifact mask
-%               'ignore':   ignore all NaNs, i.e. exclude them from MWF training (default)
-%               'artifact': set all NaNs to 1, i.e. treat them as artifact for MWF training
-%               'clean':    set all NaNs to 0, i.e. treat them as clean data for MWF training
-%   mu          noiseweighting factor (default = 1)
-%   verbose     true or false: allow logging in the command window (default = true)
+%   delay           number of time lags to include in MWF (default = 0)
+%   delay_spacing   spacing between time lags to include in MWF (default = 1)
+%   singlesided     specifies whether time lags should be positive (causal) or not (default = false)
+%   rank            specifies how the rank for the MWF should be set
+%                   'full':     use full rank MWF (don't use GEVD)
+%                   'poseig':   use GEVD, only retain positive eigenvalues (default)
+%                   'pct':      use GEVD, only retain x% of eigenvalues
+%                   'first':    use GEVD, only retain x eigenvalues
+%   rankopt         additional rank options, required if rank is 'pct' or 'first'
+%                   'pct': specify the percentage of eigenvalues to keep (0-100)
+%                   'first': specify the number of eigenvalues to keep (positive integer)
+%   treatnans       specifies how to treat NaNs in the artifact mask
+%                   'ignore':   ignore all NaNs, i.e. exclude them from MWF training (default)
+%                   'artifact': set all NaNs to 1, i.e. treat them as artifact for MWF training
+%                   'clean':    set all NaNs to 0, i.e. treat them as clean data for MWF training
+%   mu              noiseweighting factor (default = 1)
+%   verbose         true or false: allow logging in the command window (default = true)
 % 
 % EXAMPLES
 %   p = mwf_params('delay', 5, 'rank', 'full')
@@ -45,12 +47,14 @@ function p = mwf_params(varargin)
 
 % Set processing parameter defaults
 p = struct(...
-    'delay', 0, ...         % any integer >= 0
-    'rank', 'poseig', ...   % 'full', 'poseig', 'pct', 'first'
-    'rankopt', 1, ...       % additional specifier if 'rank' is 'pct' or 'first'
+    'delay', 0, ...             % any integer >= 0
+    'delay_spacing', 1, ...     % any integer >= 1
+    'singlesided', false, ...   % true, false or 1, 0
+    'rank', 'poseig', ...       % 'full', 'poseig', 'pct', 'first'
+    'rankopt', 1, ...           % additional specifier if 'rank' is 'pct' or 'first'
     'treatnans', 'ignore', ...  % 'ignore', 'artifact', 'clean'
-    'mu', 1, ...            % any value (1 = default, >1 = noise weighted MWF)
-    'verbose', true);       % true or false
+    'mu', 1, ...                % any value (1 = default, >1 = noise weighted MWF)
+    'verbose', true);           % true or false
 
 p_names = fieldnames(p);
 
@@ -75,7 +79,11 @@ end
 for i = 1:numel(p_names)
     switch p_names{i}
         case 'delay'
-            validateattributes(p.(p_names{i}), {'numeric'}, {'integer','nonnegative'}, mfilename, p_names{i})
+            validateattributes(p.(p_names{i}), {'numeric'}, {'integer','nonnegative', 'scalar'}, mfilename, p_names{i})
+        case 'delay_spacing'
+            validateattributes(p.(p_names{i}), {'numeric'}, {'integer','positive', 'scalar'}, mfilename, p_names{i})
+        case 'singlesided'
+            validateattributes(p.(p_names{i}), {'logical', 'numeric'}, {'binary', 'scalar'}, mfilename, p_names{i})
         case 'rank'
             validateattributes(p.(p_names{i}), {'char'}, {'nonempty'}, mfilename, p_names{i})
             validatestring(p.(p_names{i}), {'full','poseig','pct','first'}, mfilename, p_names{i});

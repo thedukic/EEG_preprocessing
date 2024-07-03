@@ -15,23 +15,23 @@ maskelec = zeros(length(chanlocs),NSUB);
 
 N = NaN(NSUB,4);
 for i = 1:NSUB
-    load(fullfile(myfolders.preproc,subjects{i},[subjects{i} '_' myfolders.visit '_' myfolders.task '_cleandata_' rnum '.mat']),'EEG');
+    load(fullfile(myfolders.preproc,subjects{i},[subjects{i} '_' myfolders.visit '_' myfolders.task '_cleandata_' rnum '.mat']),'preprocReport');
 
-    maskelec(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
+    maskelec(:,i) = double(ismember(chanlbls,preprocReport.badchaninfo.badElectrodes));
     N(i,1) = sum(maskelec(:,i));
 
     % Total possible
     switch myfolders.task
         case {'RS','EO','EC'}
             % Assume 2s with 0.75 overlap
-            N(i,2) = sum([EEG.ALSUTRECHT.eventinfo{:,3}])*4/2;
+            N(i,2) = sum([preprocReport.eventinfo{:,3}])*4/2;
         otherwise
-            N(i,2) = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);
+            N(i,2) = sum([preprocReport.eventinfo{:,3}]);
     end
     % Left after preproc
-    N(i,3) = size(EEG.data,3);
+    N(i,3) = preprocReport.issues_to_check.NumberTrials2;
     % Leftover EMG
-    N(i,4) = EEG.ALSUTRECHT.issues_to_check.MuscleLeftovers;
+    N(i,4) = preprocReport.issues_to_check.MuscleLeftovers;
 end
 
 % Plot
@@ -51,7 +51,7 @@ hcb.Title.String = "%";
 % Plot 2
 nexttile; hold on;
 plot([0 NSUB],[0.15 0.15],'LineWidth',1.2,'Color',0.6*ones(1,3));
-bar(N(:,1)/128); ylim([0 0.25]); box on;
+bar(N(:,1)/128); ylim([0 0.35]); box on;
 ylabel('Interpolated channels (%)');
 
 % Plot 3
