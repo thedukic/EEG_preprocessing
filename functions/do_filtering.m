@@ -1,25 +1,47 @@
-function EEG = do_filtering(EEG,cfg)
+function EEG = do_filtering(EEG,thisFiltering,cfg)
 
 thisTask = EEG(1).ALSUTRECHT.subject.task;
 chaneeg = find(strcmp({EEG(1).chanlocs.type},'EEG'));
 chanext = find(strcmp({EEG(1).chanlocs.type},'EXT'));
 chanemg = find(strcmp({EEG(1).chanlocs.type},'EMG'));
 
-% Filter EEG
-if strcmpi(thisTask,'RS') || strcmpi(thisTask,'EO') || strcmpi(thisTask,'EC') || strcmpi(thisTask,'MT')
-    % RS/EO/EC/MT
-    EEG = filter_signal(EEG,cfg.flt.rsmt.lp,cfg.flt.rsmt.hp,chaneeg,'eeglab');
-else
-    % MMN/SART (ERP)
-    EEG = filter_signal(EEG,cfg.flt.erp.lp,cfg.flt.erp.hp,chaneeg,'eeglab');
-end
+if thisFiltering == 1
+    cfg.rsmt.lp = [];
+    cfg.erp.lp  = [];
 
-% Filter EXT
-EEG = filter_signal(EEG,cfg.flt.ext.lp,cfg.flt.ext.hp,chanext,'eeglab');
+    % EEG
+    fprintf('EEG singals:\n');
+    if strcmpi(thisTask,'RS') || strcmpi(thisTask,'EO') || strcmpi(thisTask,'EC') || strcmpi(thisTask,'MT')
+        % RS/EO/EC/MT
+        EEG = filter_signal(EEG,cfg.rsmt.lp,cfg.rsmt.hp,chaneeg,'eeglab');
+    else
+        % MMN/SART (ERP)
+        EEG = filter_signal(EEG,cfg.erp.lp,cfg.erp.hp,chaneeg,'eeglab');
+    end
 
-% Filter MT
-if strcmpi(thisTask,'MT')
-    EEG = filter_signal(EEG,cfg.flt.emg.lp,cfg.flt.emg.hp,chanemg,'eeglab');
+    % EXT
+    fprintf('EXT singals:\n');
+    EEG = filter_signal(EEG,cfg.ext.lp,cfg.ext.hp,chanext,'eeglab');
+
+    % MT
+    if strcmpi(thisTask,'MT')
+        fprintf('EMG singals:\n');
+        EEG = filter_signal(EEG,cfg.emg.lp,cfg.emg.hp,chanemg,'eeglab');
+    end
+
+elseif thisFiltering == 2
+    cfg.rsmt.hp = [];
+    cfg.erp.hp  = [];
+
+    % EEG
+    fprintf('EEG singals:\n');
+    if strcmpi(thisTask,'RS') || strcmpi(thisTask,'EO') || strcmpi(thisTask,'EC') || strcmpi(thisTask,'MT')
+        % RS/EO/EC/MT
+        EEG = filter_signal(EEG,cfg.rsmt.lp,cfg.rsmt.hp,chaneeg,'eeglab');
+    else
+        % MMN/SART (ERP)
+        EEG = filter_signal(EEG,cfg.erp.lp,cfg.erp.hp,chaneeg,'eeglab');
+    end
 end
 
 end

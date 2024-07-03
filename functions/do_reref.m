@@ -15,6 +15,7 @@ switch typeRef
             EEG(i).ref = 'average';
         end
     case 'aRegular2'
+        error('Not supported!');
         % EEG.data = EEG.data - (sum(EEG.data,1)/(EEG.nbchan+1));
         % EEG.ref  = 'average';
 end

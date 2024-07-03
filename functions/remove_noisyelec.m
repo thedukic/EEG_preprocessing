@@ -1,4 +1,4 @@
-function [EEG, badElectrodes] = remove_noisyelec(EEG,cfgbch)
+function [EEG, badElectrodes1] = remove_noisyelec(EEG,cfgbch)
 %
 % In this function, however, instead "findNoisyChannels" is called (from PREP pipeline)
 % Note: "findNoisyChannels" must be edited so that it is undeterministic!
@@ -18,7 +18,7 @@ function [EEG, badElectrodes] = remove_noisyelec(EEG,cfgbch)
 % =========================================================================
 
 % =========================================================================
-% PREP function
+% 1. PREP function
 fprintf('\nDetecting and removing noisy electrodes using PREP toolbox...\n');
 
 % Remove external channels
@@ -29,7 +29,7 @@ if cfgbch.ransacOff
     disp('Deterministic method is used (ransac is off), thus iterations are not done.');
     noisyOut = findNoisyChannels(EEGTMP,cfgbch);
 
-    badElectrodes = noisyOut.noisyChannels.all;
+    badElectrodes1 = noisyOut.noisyChannels.all;
 else
     % badElectrodes_iter = false(EEG.nbchan,cfgbch.iter.num);
     %
@@ -61,16 +61,27 @@ else
     % badElectrodes = find(badness_percent >= cfgbch.iter.frc);
 end
 
-% Remove bad channels
-badElectrodes = {EEG.chanlocs(badElectrodes).labels};
+% 2. Detect EMG-contaminated channels
+[~, badElectrodes2] = dected_emg(EEGTMP,cfgbch);
+
+% Log
+EEG.ALSUTRECHT.badchaninfo.PREPElectrodes = {EEG.chanlocs(badElectrodes1).labels};
+EEG.ALSUTRECHT.badchaninfo.EMGSlope       = {EEG.chanlocs(badElectrodes2).labels};
+
+% 3. Combine
+badElectrodes = unique([badElectrodes1 badElectrodes2']);
+
+% 4. Remove
 if ~isempty(badElectrodes)
+    badElectrodes = {EEG.chanlocs(badElectrodes).labels};
     EEG = pop_select(EEG,'nochannel',badElectrodes);
 end
 
+% Report
+fprintf('PREP detected %d bad electrodes.\n',length(badElectrodes1));
+fprintf('EMG-slope detected %d bad electrodes.\n',length(badElectrodes2));
+
 % ADD THIS
 % RELAX_excluding_channels_and_epoching
-
-% Log
-EEG.ALSUTRECHT.badchaninfo.PREPElectrodes = badElectrodes;
 
 end

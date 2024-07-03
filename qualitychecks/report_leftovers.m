@@ -1,4 +1,4 @@
-function EEG = report_leftovers(EEG)
+function EEG = report_leftovers(EEG,cfg)
 %
 % Inspired by:
 % RELAX_metrics_muscle
@@ -9,7 +9,7 @@ function EEG = report_leftovers(EEG)
 
 % =========================================================================
 fprintf('\nChecking muscle activity leftovers...\n');
-muscleSlopeThreshold = -0.59;
+muscleSlopeThreshold = cfg.bch.muscleSlopeThreshold;
 muscleSlopeDuration  = 0.05;
 
 % Select only EEG

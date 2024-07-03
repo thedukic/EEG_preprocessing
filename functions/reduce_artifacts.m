@@ -22,6 +22,15 @@ function EEG = reduce_artifacts(EEG,cfgbch)
 % they are shorter than this value to reduce rank deficiency issues in MWF cleaning).
 % Note that it's better to include clean periods in the artifact mask rather than the including artifact in the clean mask.
 
+% A contribution made by Neil Bailey (Monash University) suggests that MWF cleaning can be improved by using sparse delay spacing. For example, 
+% instead of using consecutive delays [-3 -2 -1 0 1 2 3], it is now possible to specify the "delay_spacing" parameter to create a sparser sampling such as [-9 -6 -3 0 3 6 9], 
+% which is obtained with "delay = 3" and "delay_spacing = 3". This is also useful to include more relevant samples when your data has a higher sample rate.
+% 
+% From informal testing by Neil Bailey, for data sampled at 1000Hz, optimal performance at cleaning eye blink artifacts was obtained by using a delay parameter setting of 8
+% (so that 8 positive & negative delays are included in the MWF ), as well as a delay spacing of 16 (so that each delay is separated from the previous delay by 16 samples or 16 milliseconds).
+% This provides the MWF algorithm with delay embedded covariance matrices that characterises 272ms of the data, enabling the MWF algorithm to account for a considerable proportion of each blink period. 
+% For muscle artifact cleaning of data sampled at 1000Hz, a delay period of 10 and delay spacing of 2 was found to be optimal.
+
 % Good performance of the artifact removal algorithm is indicated by
 % both high SER and high ARR.
 

@@ -55,7 +55,7 @@ if strcmpi(cfg.ica.type2,'AMICA')
     % If you want to know which data points were rejected, you can check EEG.etc.amica.Lht.
     % If any datapoint shows 0, it means the datapoints were rejected by AMICA.
 else
-    EEG = pop_runica(EEG,'icatype',lower(cfg.ica.type2),'extended',1,'pca',cfg.ica.icMax,'lrate',1e-4,'maxsteps',1500);
+    EEG = pop_runica(EEG,'icatype',lower(cfg.ica.type2),'extended',1,'pca',cfg.ica.icMax,'lrate',1e-4,'maxsteps',2000);
 end
 
 % Double-check

@@ -24,54 +24,57 @@ function [EEG, badElectrodes, noiseMask] = mwf_channelemg(EEG,cfgbch)
 
 fprintf('\nMWF (EMG) muscle artifacts...\n');
 
-% Select only EEG
-chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-dataeeg = EEG.data(chaneeg,:);
+% % Select only EEG
+% chaneeg = strcmp({EEG.chanlocs.type},'EEG');
+% dataeeg = EEG.data(chaneeg,:);
+%
+% % Epoch into 1s (or maybe better into 1s with 0.5 overlap, but OK)
+% L = EEG.srate;
+% N = floor(size(dataeeg,2)/L);
+% dataeeg = reshape(dataeeg(:,1:N*L),sum(chaneeg),L,N);
+%
+% modulus = size(EEG.data,2)-N*L;
+% assert(modulus>=0);
+%
+% % Compute (log) power spectra (7-75 Hz)
+% [NCHN,NPTS,NTRL]= size(dataeeg);
+% NWIN = NPTS;
+% psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
+% for i = 1:NTRL
+%     [psdspectra(:,:,i),freq] = pwelch(dataeeg(:,:,i)',NWIN,0,NWIN,EEG.srate);
+% end
+%
+% foi = [7 75];
+% frqmsk = freq>=foi(1) & freq<=foi(2);
+% psdspectra = permute(psdspectra,[1 3 2]);
+% logpow = log10(psdspectra(frqmsk,:,:));
+% logfoi = log10(freq(frqmsk));
+%
+% % Fit linear regression to log-log data, and store the slope
+% slopesChannelsxEpochs = NaN(NCHN,NTRL);
+% for i = 1:NCHN
+%     for j = 1:NTRL
+%         p = polyfit(logfoi,logpow(:,j,i),1);
+%         slopesChannelsxEpochs(i,j) = p(1);
+%     end
+% end
+%
+% % Strong slow drifts are reflected as very steep negative slopes of the power spectrum
+% badchn = sum(slopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,2);
+% badchn = badchn./NTRL;
+% badElectrodes = {EEG.chanlocs(find(badchn>cfgbch.MuscleSlopeTime)).labels};
 
-% Epoch into 1s (or maybe better into 1s with 0.5 overlap, but OK)
-L = EEG.srate;
-N = floor(size(dataeeg,2)/L);
-dataeeg = reshape(dataeeg(:,1:N*L),sum(chaneeg),L,N);
-
-modulus = size(EEG.data,2)-N*L;
-assert(modulus>=0);
-
-% Compute (log) power spectra (7-75 Hz)
-[NCHN,NPTS,NTRL]= size(dataeeg);
-NWIN = NPTS;
-psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
-for i = 1:NTRL
-    [psdspectra(:,:,i),freq] = pwelch(dataeeg(:,:,i)',NWIN,0,NWIN,EEG.srate);
-end
-
-foi = [7 75];
-frqmsk = freq>=foi(1) & freq<=foi(2);
-psdspectra = permute(psdspectra,[1 3 2]);
-logpow = log10(psdspectra(frqmsk,:,:));
-logfoi = log10(freq(frqmsk));
-
-% Fit linear regression to log-log data, and store the slope
-slopesEpochsxChannels = NaN(NCHN,NTRL);
-for i = 1:NCHN
-    for j = 1:NTRL
-        p = polyfit(logfoi,logpow(:,j,i),1);
-        slopesEpochsxChannels(i,j) = p(1);
-    end
-end
-
-% Strong slow drifts are reflected as very steep negative slopes of the power spectrum
-badchn = sum(slopesEpochsxChannels>cfgbch.muscleSlopeThreshold,2);
-badchn = badchn./NTRL;
-badElectrodes = {EEG.chanlocs(find(badchn>cfgbch.slopeTime)).labels};
+[slopesChannelsxEpochs, badElectrodes, other] = dected_emg(EEG,cfgbch);
+badElectrodes = {EEG.chanlocs(badElectrodes).labels};
 
 % =========================================================================
 % OLD CODE
 % Make a noise mask using very bad epochs
-% badtrl_all = find(any(SlopesEpochsxChannels>cfgbch.muscleSlopeThreshold,1));
+% badtrl_all = find(any(SlopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,1));
 % badtrl_all = unique([badtrl_all badtrl_all-1 badtrl_all+1]);
 % badtrl_all(badtrl_all==0 | badtrl_all>NTRL) = [];
 %
-% BadEpochs = sum(SlopesEpochsxChannels>cfgbch.muscleSlopeThreshold,1);
+% BadEpochs = sum(SlopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,1);
 % K = ceil(max(6,median(BadEpochs(BadEpochs>0))));
 % % K = max(8,mode(BadEpochs(BadEpochs>0)));
 % badtrl_all = find(BadEpochs>K);
@@ -98,10 +101,10 @@ badElectrodes = {EEG.chanlocs(find(badchn>cfgbch.slopeTime)).labels};
 % for each epoch to allow identification of the worst epochs:
 
 % % Exclude extreme epochs - already done!
-% assert(size(slopesEpochsxChannels,2)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
-% slopesEpochsxChannels(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
+% assert(size(slopesChannelsxEpochs,2)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
+% slopesChannelsxEpochs(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
 
-sortingOutWorstMuscleEpochs = slopesEpochsxChannels;
+sortingOutWorstMuscleEpochs = slopesChannelsxEpochs;
 sortingOutWorstMuscleEpochs(sortingOutWorstMuscleEpochs < cfgbch.muscleSlopeThreshold) = NaN;
 
 % Shift the baseline of the values to the cfgbch.muscleSlopeThreshold, so that all
@@ -116,6 +119,7 @@ sortingOutWorstMuscleEpochs = sortingOutWorstMuscleEpochs-cfgbch.muscleSlopeThre
 sortingOutWorstMuscleEpochs = sum(sortingOutWorstMuscleEpochs,1,'omitnan');
 
 % Work out proportion of data marked as showing muscle activity
+NTRL = size(slopesChannelsxEpochs,2);
 templateMarkedForMuscleArtifacts = zeros(1,NTRL);
 % assert(NTRL==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
 % templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
@@ -174,10 +178,10 @@ assert(length(noiseMask)==size(EEG.data,2));
 % assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask));
 % noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
 
-% Ignore the very last samples 
+% Ignore the very last samples
 % because we do not know if they are good or not
-if modulus>0
-    noiseMask(N*L+1:end) = NaN;
+if other.modulus>0
+    noiseMask(other.N*other.L+1:end) = NaN;
 end
 
 % % Visual check
@@ -195,7 +199,9 @@ fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF);
 
 if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF>0.05
-    [cleanEEG, d, W, SER, ARR] = mwf_process(EEG.data(chaneeg,:),noiseMask,8);
+    chaneeg = strcmp({EEG.chanlocs.type},'EEG');
+    params = mwf_params('delay',10,'delay_spacing',2); % EMG
+    [cleanEEG, d, W, SER, ARR] = mwf_process(EEG.data(chaneeg,:),noiseMask,params);
 
     % % Check
     % EEG0 = EEG;
@@ -210,6 +216,8 @@ if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF>0.05
     EEG.ALSUTRECHT.MWF.R1.signalToErrorRatio     = SER;
     EEG.ALSUTRECHT.MWF.R1.artifactToResidueRatio = ARR;
 
+    fprintf('Signal to error ratio:     %1.2f\n',SER);
+    fprintf('Artifact to residue ratio: %1.2f\n',ARR);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Signal to error ratio:     %1.2f\n',SER);
     fprintf(EEG.ALSUTRECHT.subject.fid,'Artifact to residue ratio: %1.2f\n',ARR);
 else
