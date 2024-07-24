@@ -68,7 +68,7 @@ if isfield(EEG,'data')
     end
 
     % RS only
-    if strcmpi(EEG.ALSUTRECHT.subject.task,'RS') || strcmpi(EEG.ALSUTRECHT.subject.task,'EO') || strcmpi(EEG.ALSUTRECHT.subject.task,'EC') 
+    if strcmpi(EEG.ALSUTRECHT.subject.task,'RS') || strcmpi(EEG.ALSUTRECHT.subject.task,'EO') || strcmpi(EEG.ALSUTRECHT.subject.task,'EC')
         % % EC eye blinks
         % if EEG.ALSUTRECHT.blockinfo.ec_blinks>0
         %     issues_to_check.ECEyeBinksDetected = EEG.ALSUTRECHT.blockinfo.ec_blinks;
@@ -94,6 +94,9 @@ if isfield(EEG,'data')
     % else
     %     issues_to_check.EyeLeftovers    = 0;
     % end
+
+    voltageshiftwithinepoch = range(EEG.data(:,:,:),2);
+    issues_to_check.Medianvoltageshiftwithinepoch = median(voltageshiftwithinepoch,3);
 
 else
     % The participant will not be processed, likely cos data is missing
@@ -121,7 +124,7 @@ else
     issues_to_check.DataTooShortForValidICA     = NaN;
     issues_to_check.HighProportionOfArtifactICs = NaN;
 
-    if strcmpi(EEG.ALSUTRECHT.subject.task,'RS') || strcmpi(EEG.ALSUTRECHT.subject.task,'EO') || strcmpi(EEG.ALSUTRECHT.subject.task,'EC') 
+    if strcmpi(EEG.ALSUTRECHT.subject.task,'RS') || strcmpi(EEG.ALSUTRECHT.subject.task,'EO') || strcmpi(EEG.ALSUTRECHT.subject.task,'EC')
         % issues_to_check.ECEyeBinksDetected = NaN;
         issues_to_check.RSdataLostbyEpoching = NaN;
     end

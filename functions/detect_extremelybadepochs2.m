@@ -119,7 +119,7 @@ EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections = ...
     EEG.ALSUTRECHT.extremeNoise.muscleExceededThreshold;
 
 % Epoch into 1s, needed only for EMG MWF
-extremeMask0  = EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections;
+extremeMask0 = EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections;
 
 if any(extremeMask0)
     % Make sure good epochs have minimal length
@@ -131,7 +131,7 @@ if any(extremeMask0)
     goodEpochs(goodEpochsDur<mindur,:) = [];
 
     % New noise mask
-    extremeMask  = true(size(extremeMask0));
+    extremeMask = true(size(extremeMask0));
     for i = 1:size(goodEpochs,1)
         extremeMask(goodEpochs(i,1):goodEpochs(i,2)) = false;
     end
@@ -151,6 +151,7 @@ if any(extremeMask0)
     % Makes sure that the two masks are equivalent
     assert(sum(diff(extremeNoiseEpochs3'))+size(extremeNoiseEpochs3,1) == sum(extremeMask));
 else
+    % No extreme noise found...
     extremeMask = extremeMask0;
     extremeNoiseEpochs3 = [];
 end

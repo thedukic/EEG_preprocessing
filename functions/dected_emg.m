@@ -1,5 +1,4 @@
-function [slopesChannelsxEpochs, badElectrodes, other] = dected_emg(EEG,cfgbch)
-
+function [slopesChannelsxEpochs, other] = dected_emg(EEG)
 
 % Select only EEG
 chaneeg = strcmp({EEG.chanlocs.type},'EEG');
@@ -35,12 +34,6 @@ for i = 1:NCHN
         slopesChannelsxEpochs(i,j) = p(1);
     end
 end
-
-% Strong slow drifts are reflected as very steep negative slopes of the power spectrum
-badElectrodes = sum(slopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,2);
-badElectrodes = badElectrodes./NTRL;
-badElectrodes = find(badElectrodes>cfgbch.MuscleSlopeTime);
-% badElectrodes = {EEG.chanlocs(find(badElectrodes>cfgbch.slopeTime)).labels};
 
 other.modulus = modulus;
 other.L = L;

@@ -1,112 +1,139 @@
-function mask = detect_eog(EEG)
+function [eyeBlinksMask, eyeBlinksEpochs, BlinkMaxLatency, dataeog, treshold]= detect_eog(EEG,winBlink)
 %
-% Using https://github.com/bwrc/eogert
-% SDukic, March 2024
+% SDukic, July 2024
+%
+% EOGfocus = +- time window around the max point of the blink [ms]
+% EOGfocus = 400;  % ms for left/right eyeblink base
+% EOGfocus = 2000; % ms for blink leftovers
 
 % =========================================================================
-% Apporach 2 (new)
+% Apporach 1 (RELAX)
 
-% % Select only EEG + EOG
-% chanheog = strcmp({EEG.chanlocs.labels},'HEOG');
-% chanveog = strcmp({EEG.chanlocs.labels},'VEOG');
-%
-% data.heog = EEG.data(chanheog,:);
-% data.veog = EEG.data(chanveog,:);
+mspersmpl = 1000/EEG.srate;
+winBlinksmpl = round(winBlink/mspersmpl);
+fprintf('VEOG evaluation window is +-%d ms around the detected peaks.\n',winBlink);
 
-% % Temporarily filter VEOG, bandpass 1-25 Hz
-% [bl, al] = butter(2,25/(EEG.srate/2),'low');
-% [bh, ah] = butter(2,0.1/(EEG.srate/2),'high');
-% assert(isstable(bl,al));
-% assert(isstable(bh,ah));
-% tmp = filtfilt(bh,ah,filtfilt(bl,al,data.veog'))';
-%
-% figure; hold on;
-% times = EEG.times/1000;
-% plot(times(:),tmp(:));
-% figure; histogram(tmp);
+chaneog = strcmp({EEG.chanlocs.labels},'VEOG');
+dataeog = EEG.data(chaneog,:);
 
-% % Detect VEOG/HEOG events
-% % This may fale if (not enough) blinks are detected in the training block
-% [BLI, SAC] = eogert_offline(data.heog,data.veog,EEG.srate,90);
-%
-% % Did the detection fail?
-% if ~isempty(BLI)
-%     padding = 0.5; % in [s]
-%
-%     % Blinks
-%     NVEOG = length(BLI.BLI_START);
-%     events.veog = cell(1,NVEOG);
-%     for i = 1:NVEOG
-%         events.veog{i} = [round((BLI.BLI_START(i)-padding)*EEG.srate), round((BLI.BLI_START(i)+BLI.BLI_DUR(i)+padding)*EEG.srate)];
-%     end
-%
-%     % Saccades
-%     NHEOG = length(SAC.SAC_START);
-%     events.heog = cell(1,NHEOG);
-%     for i = 1:NHEOG
-%         events.heog{i} = [round((SAC.SAC_START(i)-padding)*EEG.srate), round((SAC.SAC_START(i)+SAC.SAC_DUR(i)+padding)*EEG.srate)];
-%     end
-% else
-%     events = [];
-% end
-
-% % Make a mask
-% noiseMask = false(1,EEG.pnts);
-% for i = 1:NHEOG
-%     noiseMask(events.heog{i}(1):events.heog{i}(2)) = true;
-% end
-%
-% chanveog  = strcmp({EEG.chanlocs.labels},'VEOG');
-% chanheog  = strcmp({EEG.chanlocs.labels},'HEOG');
-% dataveog  = EEG.data(chanveog,:);
-% dataheog  = EEG.data(chanheog,:);
-%
-% % Temporarily filter VEOG, bandpass 1-25 Hz
-% [bl, al] = butter(2,25/(EEG.srate/2),'low');
-% [bh, ah] = butter(2,1/(EEG.srate/2),'high');
-% assert(isstable(bl,al)); assert(isstable(bh,ah));
-% EEG.data(chanveog,:) = filtfilt(bh,ah,filtfilt(bl,al,dataveog'))';
-% EEG.data(chanheog,:) = filtfilt(bh,ah,filtfilt(bl,al,dataheog'))';
-%
-% % Visual check
-% EEG1 = EEG;
-% EEG1.data(:,~logical(noiseMask)) = 0;
-% vis_artifacts(EEG,EEG1,'ChannelSubset',[65:96, find(chanveog), find(chanheog)]);
-
-% =========================================================================
-% Approach 1 (old)
-chaneog  = strcmp({EEG.chanlocs.labels},'VEOG');
-dataeog  = EEG.data(chaneog,:);
-
-% Temporarily filter VEOG, bandpass 1-25 Hz
+% Temporarily filter for better detection
+% It is fine that it will be now double-filtered
 [bl, al] = butter(2,25/(EEG.srate/2),'low');
-[bh, ah] = butter(2,0.5/(EEG.srate/2),'high');
+[bh, ah] = butter(2,1/(EEG.srate/2),'high');
 assert(isstable(bl,al));
 assert(isstable(bh,ah));
-dataeog = filtfilt(bh,ah,filtfilt(bl,al,dataeog'))';
+dataeog = filtfilt(bl,al,dataeog);
+dataeog = filtfilt(bh,ah,dataeog);
+% dataeog = abs(dataeog);
 
-% See: RELAX_blinks_IQR_method
+% VEOG
 EOGIQR = iqr(dataeog);
 EOG75P = prctile(dataeog,75);
-treshold = EOG75P + 2*EOGIQR;
+treshold = EOG75P + 3*EOGIQR;
 
-% mask = dataeog>treshold;
+% Treshold the EOG signal
+BlinkIndexMetric = double(dataeog>treshold);
 
-% Detect eye blinks
-[qrspeaks, locs] = findpeaks(dataeog,EEG.srate,'MinPeakHeight',treshold,'MinPeakDistance',0.2);
+% figure; hold on;
+% plot(EEG.times(1:40*256),dataeog(1:40*256));
+% plot(EEG.times(1:40*256),treshold*BlinkIndexMetric(1:40*256));
 
-EOGfocus = 400; % ms
-EOGfocussamples = round(EOGfocus/(1000/EEG.srate));
-% fprintf('EOG duration is +-%dms wrt the detected peaks.\n',EOGfocus);
+% Check that blinks exceed the IQR threshold for more
+% than 50ms, and to detect the blink peak within the period that
+% exceeds the threshold:
+ix_blinkstart = find(diff(BlinkIndexMetric)==1)+1;  % indices where BlinkIndexMetric goes from 0 to 1
+ix_blinkend   = find(diff(BlinkIndexMetric)==-1);   % indices where BlinkIndexMetric goes from 1 to 0
 
-badEpoch = round(locs*EEG.srate);
-badEpoch = [badEpoch-EOGfocussamples; badEpoch+EOGfocussamples]';
-badEpoch(badEpoch<1) = 1;
-badEpoch(badEpoch>length(dataeog)) = length(dataeog);
+if ~isempty(ix_blinkstart)
+    if ix_blinkend(1,1)<ix_blinkstart(1,1); ix_blinkend(:,1)=[]; end % if the first downshift occurs before the upshift, remove the first value in end
+    if ix_blinkend(1,size(ix_blinkend,2))<ix_blinkstart(1,size(ix_blinkstart,2)); ix_blinkstart(:,size(ix_blinkstart,2))=[];end % if the last upshift occurs after the last downshift, remove the last value in start
 
-mask = false(size(dataeog));
-for i = 1:size(badEpoch,1)
-    mask(badEpoch(i,1):badEpoch(i,2)) = true;
+    BlinkThresholdExceededLength=ix_blinkend-ix_blinkstart; % length of consecutive samples where blink threshold was exceeded
+    BlinkRunIndex = find(BlinkThresholdExceededLength>round(50/mspersmpl)); % find locations where blink threshold was exceeded by more than 50ms
+    % find latency of the max voltage within each period where the blink
+    % threshold was exceeded:
+    if size(BlinkRunIndex,2)>0
+        % continuousEEG.RELAX.IQRmethodDetectedBlinks = 1;
+        % epochedEEG.RELAX.IQRmethodDetectedBlinks    = 1;
+        for x=1:size(BlinkRunIndex,2)
+            o=ix_blinkstart(BlinkRunIndex(x));
+            c=ix_blinkend(BlinkRunIndex(x));
+            [~,I] = max(dataeog(1,o:c),[],2);
+            BlinkMaxLatency(1,x) = o+I;
+        end
+    end
+end
+
+eyeBlinksEpochs = [BlinkMaxLatency-winBlinksmpl; BlinkMaxLatency+winBlinksmpl]';
+
+% Blinks cannot be outside of the recorded data
+% Remove those that do not
+eyeBlinksEpochs(eyeBlinksEpochs<1) = 1;
+eyeBlinksEpochs(eyeBlinksEpochs>EEG.pnts) = EEG.pnts;
+
+% Check if all blinks fit in the data
+L = 2*winBlinksmpl+1;
+NTRL = length(BlinkMaxLatency);
+goodEyeBlinks = false(NTRL,1);
+
+for i = 1:NTRL
+    if length(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2))==L
+        goodEyeBlinks(i) = true;
+    end
+end
+
+eyeBlinksEpochs = eyeBlinksEpochs(goodEyeBlinks,:);
+
+% Report
+if ~all(goodEyeBlinks)
+    warning('There are %d blinks excluded because their window was outside of the recorded data.',sum(~goodEyeBlinks));
+end
+
+% mask = zeros(size(dataeog));
+% for i = 1:size(eyeBlinksEpochs,1)
+%     mask(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2)) = mask(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2))+1;
+% end
+% figure; hold on;
+% plot(EEG.times(274803:end),dataeog(274803:end));
+% plot(EEG.times(274803:end),treshold*mask(274803:end));
+
+% =========================================================================
+% Approach 2 (old)
+% chaneog  = strcmp({EEG.chanlocs.labels},'VEOG');
+% dataeog  = EEG.data(chaneog,:);
+% assert(sum(chaneog)==1);
+%
+% % Temporarily filter VEOG, bandpass 1-25 Hz
+% [bl, al] = butter(2,25/(EEG.srate/2),'low');
+% [bh, ah] = butter(2,0.5/(EEG.srate/2),'high');
+% assert(isstable(bl,al));
+% assert(isstable(bh,ah));
+% dataeog = filtfilt(bh,ah,filtfilt(bl,al,dataeog'))';
+%
+% % See: RELAX_blinks_IQR_method
+% EOGIQR = iqr(dataeog);
+% EOG75P = prctile(dataeog,75);
+% treshold = EOG75P + 2*EOGIQR;
+%
+% % mask = dataeog>treshold;
+%
+% % Detect eye blinks
+% [qrspeaks, badLocs] = findpeaks(dataeog,EEG.srate,'MinPeakHeight',treshold,'MinPeakDistance',0.2);
+%
+% EOGfocus = 400; % ms
+% EOGfocussamples = round(EOGfocus/(1000/EEG.srate));
+% % fprintf('EOG duration is +-%dms wrt the detected peaks.\n',EOGfocus);
+%
+% eyeBlinksEpochs = round(badLocs*EEG.srate);
+% eyeBlinksEpochs = [eyeBlinksEpochs-EOGfocussamples; eyeBlinksEpochs+EOGfocussamples]';
+% eyeBlinksEpochs(eyeBlinksEpochs<1) = 1;
+% eyeBlinksEpochs(eyeBlinksEpochs>length(dataeog)) = length(dataeog);
+
+% =========================================================================
+
+eyeBlinksMask = false(size(dataeog));
+for i = 1:size(eyeBlinksEpochs,1)
+    eyeBlinksMask(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2)) = true;
 end
 
 % figure; hold on;
