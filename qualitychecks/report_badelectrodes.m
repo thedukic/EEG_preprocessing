@@ -47,10 +47,10 @@ topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'w
 title(['EMG Slope, N = ' num2str(sum(mask))]); axis tight;
 
 % Save
-plotX=20; plotY=8;
+plotX=15; plotY=8;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_badelectrodes']),'-dtiff','-r400');
+print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_badelectrodes']),'-dtiff','-r300');
 close(fh);
 
 end

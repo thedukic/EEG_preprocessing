@@ -12,11 +12,27 @@ myfiles.task  = 'SART';          % MMN/SART/RS/EO/EC/MT
 myfiles.group = {'ALS','CONTROL','AFM','PLS','PMA'};
 myfiles.visit = {'T1','T2','T3','T4','T5'};
 
+drivedata = 'E:';
+myfolders.excpath = fullfile(drivedata,'2_OTHER_DATA\Excel\Utrecht\');
+myfolders.gendata = [myfolders.excpath 'C9STATUS.xlsx'];
+myfolders.peddata = [myfolders.excpath 'EEGPED.xlsx'];
+myfolders.cogdata = [myfolders.excpath 'ECAS.xlsx'];
+myfolders.nexdata = [myfolders.excpath 'NE.xlsx'];
+myfolders.dmdata1 = [myfolders.excpath 'Table1_LME.xlsx'];
+addpath('C:\DATA\MATLAB\myCodes\RS\common');
+
 % Who to processed?
-% myfiles.todo = list_missing('E:\1_EEG_DATA\AFM\T1','E:\3_PREPROCESSED_DATA\RS\AFM\T1');
-% load('E:\4_POSTPROCESSED_DATA\AFM\EO\data\AFM_databag.mat','subjects');
-% myfiles.todo = subjects;
-myfiles.todo  = {'ALS26029'};          % If empty, all are (re)done
+% 1. Selected or all participants
+myfiles.todo = {};          % If empty, all are (re)done
+
+% 2. C9 without the excluded participants
+% % 1. Too noisy data
+% % 2. Psychoactive medication
+% % 3. Headtrauma
+% excl_medication = {'ALS26360','ALS35895','ALS08665'};
+% excl_headtrauma = {'ALS34168'}; % Does not have ECAS anyway ...
+% cfg.excl        = [excl_medication,excl_headtrauma];
+% myfiles.todo = select_participants(cfg,'C9',myfolders);
 
 % Navigate the main folder
 cd(myfolders.mycodes);
@@ -42,5 +58,5 @@ if any(contains(subFolderPaths,'mwf'))
 end
 
 % Initialise the toolboxes
-[ALLEEG, EEG, CURRENTSET] = eeglab;
+[ALLEEG, EEG, CURRENTSET, ALLCOM] = eeglab;
 close all;

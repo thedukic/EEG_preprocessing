@@ -5,7 +5,7 @@ fprintf('\nEpoching (L = %ds) resting-state data...\n',epochLength);
 thisTask  = EEG.ALSUTRECHT.subject.task;
 thisShift = (1-epochOverlap)*epochLength;
 
-EEG = eeg_eegrej(EEG,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
+% EEG = eeg_eegrej(EEG,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
 EEG = eeg_regepochs(EEG,'recurrence',thisShift,'eventtype',thisTask,'extractepochs','off');
 EEG = pop_epoch(EEG,{thisTask},epochLength/2*[-1 1]);
 EEG = eeg_checkset(EEG);

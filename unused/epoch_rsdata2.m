@@ -17,7 +17,7 @@ function EEG = epoch_rsdata2(EEG,epochLength,epochOverlap)
 fprintf('\nEpoching (L = %ds) resting-state data...\n',epochLength);
 
 % Check
-% assert(size(EEG.data,2)==length(EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections));
+% assert(size(EEG.data,2)==length(~maskGood));
 nsmp    = round(epochLength*EEG.srate);
 nshift  = round((1-epochOverlap)*nsmp);
 if nshift<=0, error('the overlap is too large'); end
@@ -28,13 +28,29 @@ goodIndx = cell(NBLK,1);
 leftover = cell(NBLK,1);
 NTRL     = NaN(NBLK,1);
 
+% Fix the masks as the extreme epochs have been removed already!
+maskGood = ~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1;
+maskRS = EEG.ALSUTRECHT.blockinfo.rs_mask;
+
+% Find start/stop of good periods
+jump = find(diff([false, maskGood, false])~=0);
+jumpStop  = jump(2:2:end)-1; jumpStop(end) = [];
+
+% Mark one sample as the break point at each jump
+maskGood(jumpStop) = false;
+
+maskGood(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
+maskRS(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
+
+assert(size(EEG.data,2)==length(maskGood));
+assert(size(EEG.data,2)==length(maskRS));
+
 for i = 1:NBLK
     % Good data in this block
-    assert(length(EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections)==length(EEG.ALSUTRECHT.blockinfo.rs_mask(i,:)));
-    maskGood = ~EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections(EEG.ALSUTRECHT.blockinfo.rs_mask(i,:));
+    maskGoodTmp = maskGood(maskRS(i,:));
 
     % Find start/stop of good periods
-    jump = find(diff([false, maskGood, false])~=0);
+    jump = find(diff([false, maskGoodTmp, false])~=0);
     jumpStart = jump(1:2:end);
     jumpStop  = jump(2:2:end)-1;
     durall    = jumpStop-jumpStart+1;
@@ -65,7 +81,7 @@ EEG.event = [];
 
 cnt = 0;
 for i = 1:NBLK
-    K = find(EEG.ALSUTRECHT.blockinfo.rs_mask(i,:),1,"first")-1;
+    K = find(maskRS(i,:),1,"first")-1;
     for j = 1:NTRL(i)
         cnt = cnt+1;
         if EEG.ALSUTRECHT.blockinfo.eo_mask(i)
@@ -98,18 +114,18 @@ assert(nsmp==size(EEG.data,2));
 
 % % This is correct only if not overlapping is done!
 % % % -> extreme noise + epoching
-% % oldL = length(EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections);
+% % oldL = length(~maskGood);
 % % % -> epoching only
-% oldL = sum(~EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections);
+% oldL = sum(maskGood);
 % newL = prod(size(EEG.data,[2 3]));
 % R = 1-newL./oldL;
 % fprintf('By epoching (L = %ds), %1.2f of the data is lost.\n',epochLength./EEG.srate,R);
 
 % Takes into account overlap
-oldL = sum(~EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections);
+oldL = sum(maskGood);
 lostL = sum(cell2mat(leftover));
 R = lostL./oldL;
-fprintf('Epoching resulted in %1.2f data loss.\n',R);
+fprintf('Epoching resulted in %1.3f data loss.\n',R);
 
 % Log
 EEG.ALSUTRECHT.blockinfo.goodIndx   = goodIndx;

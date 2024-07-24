@@ -15,7 +15,7 @@ cfg.rnum = '1';
 % lp: lowpass
 
 % MMN/SART (ERP) filter
-cfg.flt.erp.hp = [0.25, 4];
+cfg.flt.erp.hp = [0.5, 4];
 cfg.flt.erp.lp = [80, 4];
 
 % RS/MT filter
@@ -23,7 +23,7 @@ cfg.flt.rsmt.hp = [0.5, 4];
 cfg.flt.rsmt.lp = [80, 4];
 
 % EXT filter
-cfg.flt.ext.hp = [0.1, 4];
+cfg.flt.ext.hp = [0.15, 4];
 cfg.flt.ext.lp = [80, 4];
 
 % EMG filter
@@ -60,7 +60,7 @@ cfg.bch.MuscleSlopeTime             = 0.50;
 % cfg.bch.driftSlopeThreshold         = -4;
 
 % EEGLAB: ASR
-cfg.bch.asr                         = 20;    % recommandation: 20-30
+% cfg.bch.asr                         = 20;    % recommandation: 20-30
 
 %% ICA and ICLabels
 % ICA algorithm
@@ -74,11 +74,15 @@ cfg.ica.icMax   = 50;
 cfg.ica.iclabel = ....
     [NaN NaN; 0.7 1; 0.7 1; NaN NaN; NaN NaN; 0.7 1; NaN NaN];
 
+cfg.ica.blinkchans = {'C8','C9','C10','C14','C15','C16','C17','C18','C19','C27','C28','C29','C30','C31','C32','C26','C20','C13','C21'};
+% BlinkElectrodes = {'C14','C15','C16','C17','C18','C19','C27','C28','C29'};
+% BlinkElectrodes = {'C8','C17','C29','C30'};
+
 %% Event triggers
 cfg.trg.mmn   = {[12 17],[-0.2 0.5]};
 cfg.trg.sart1 = {[3 6],[-0.2 0.9]};
-cfg.trg.sart2 = {1,[-0.45 0.45]};
+cfg.trg.sart2 = {[1 11],[-0.45 0.45]};
 cfg.trg.mt    = {[21 31 51],[-5 10]};
-cfg.trg.rs    = {2, 0.75};            % 2s, 0.75 overlap
+cfg.trg.rs    = {2,0.75};             % 2s, 0.75 overlap
 
 end

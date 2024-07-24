@@ -5,11 +5,11 @@ function issues_to_check = preproc_cleaning(myfolders,id)
 %
 % =========================================================================
 % SDukic edits
-% v1, April 2024
+% v1, July 2024
 % =========================================================================
 % TODO
-% 1. Parameter for trial length,
-%    maybe good to save data with 2s and 5s or 10s
+% 1. MWF on eye blinks
+% 2. Detect better ECG ICs
 %
 
 % Load preprocessing settings
@@ -134,17 +134,17 @@ EEG = remove_datasetends(EEG);
 EEG = make_extbipolar(EEG);
 
 % Mark where each RS block starts/ends
-if strcmpi(myfolders.task,'RS') || strcmpi(myfolders.task,'EO') || strcmpi(myfolders.task,'EC')
-    EEG = make_rsmasks(EEG);
-end
+% if strcmpi(myfolders.task,'RS') || strcmpi(myfolders.task,'EO') || strcmpi(myfolders.task,'EC')
+%     EEG = make_rsmasks(EEG);
+% end
 
 % Merge datasets
 EEG = pop_mergeset(EEG,1:NBLK);
 
-% Clean EMG
-if strcmpi(myfolders.task,'MT')
-    % EEG = clean_emgdata(EEG);
-end
+% % Clean EMG
+% if strcmpi(myfolders.task,'MT')
+%     EEG = clean_emgdata(EEG);
+% end
 
 % Separate EMG before EEG cleaning
 if strcmpi(myfolders.task,'MT')
@@ -168,6 +168,14 @@ EEG = report_badelectrodes(EEG);
 % Detect extremely bad epochs
 EEG = detect_extremelybadepochs2(EEG);
 
+% Check if EC has eye blinks; Too sensitive?
+% if strcmpi(myfolders.task,'EC')
+%     EEG = check_eyesclosedeyeblinks(EEG);
+% end
+
+% Reduce artifacts
+EEG = reduce_artifacts(EEG,cfg.bch);
+
 % Remove extremely bad epochs
 if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
     EEG = eeg_eegrej(EEG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
@@ -176,14 +184,6 @@ if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
         EMG = eeg_eegrej(EMG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
     end
 end
-
-% % Check if EC has eye blinks; Too sensitive?
-% if strcmpi(myfolders.task,'EC')
-%     EEG = check_eyesclosedeyeblinks(EEG);
-% end
-
-% Do MWF and ASR
-EEG = reduce_artifacts(EEG,cfg.bch);
 
 % Separate EXT channels before ICA
 chanext = {EEG.chanlocs(strcmp({EEG.chanlocs.type},'EXT')).labels};
@@ -202,8 +202,8 @@ EEG = do_filtering(EEG,2,cfg.flt);
 EEG = do_reref(EEG,'aRegular');
 
 % Epoch MT data
+% Before ICA, as there is often a lot of noise in between trials
 if strcmpi(myfolders.task,'MT')
-    % Epoch MT data before ICA, as there is often a lot of noise in between trials
     EEG = pop_epoch(EEG,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
     EXT = pop_epoch(EXT,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
     EMG = pop_epoch(EMG,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
@@ -216,67 +216,73 @@ EEG = do_ICA(EEG,cfg);
 % Flag artifact ICs
 EEG = detect_badICs(EEG,EXT,cfg);
 
-% Epoch
-EEG0 = EEG; EXT0 = EXT;
-if strcmpi(myfolders.task,'MMN')
-    % MMN
-    EEG = pop_epoch(EEG,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0),cfg.trg.mmn{2},'epochinfo','yes');
-    EXT = pop_epoch(EXT,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0),cfg.trg.mmn{2},'epochinfo','yes');
-    EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0] ,[]);
-elseif strcmpi(myfolders.task,'SART')
-    % SART: 1. wrt visual stimuli and 2. wrt response times
-    EEG  = pop_epoch(EEG0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart1{1},'Uniformoutput',0),cfg.trg.sart1{2},'epochinfo','yes');
-    EXT  = pop_epoch(EXT0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart1{1},'Uniformoutput',0),cfg.trg.sart1{2},'epochinfo','yes');
-    EEG  = pop_rmbase(EEG,[(EEG.xmin)*1000 0] ,[]);
-
-    % This does not make sure that epochs are only from correct Go
-    EEG2 = pop_epoch(EEG0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart2{1},'Uniformoutput',0),cfg.trg.sart2{2},'epochinfo','yes');
-    EXT2 = pop_epoch(EXT0,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart2{1},'Uniformoutput',0),cfg.trg.sart2{2},'epochinfo','yes');
-    EEG2 = pop_rmbase(EEG2,[(EEG2.xmin)*1000 0] ,[]);
-elseif strcmpi(myfolders.task,'RS') || strcmpi(myfolders.task,'EO') || strcmpi(myfolders.task,'EC')
-    % 2s w/ 0.75 overlap
-    EEG = epoch_rsdata3(EEG,cfg.trg.rs{1},cfg.trg.rs{2});
-    EXT = epoch_rsdata3(EXT,cfg.trg.rs{1},cfg.trg.rs{2});
-end
-
-% % ICLabel
-% EEG = iclabel(EEG);
-% if strcmpi(myfolders.task,'SART'), EEG2 = iclabel(EEG2); end
-%
-% % Flag artifact ICs
-% EEG = pop_icflag(EEG,cfg.ica.iclabel);
-% if strcmpi(myfolders.task,'SART'), EEG2 = pop_icflag(EEG2,cfg.ica.iclabel); end
-%
-% % ICA log/report
-% EEG = report_ica(EEG);
-% if strcmpi(myfolders.task,'SART'), EEG2 = report_ica(EEG2); end
+% Do wICA
+EEG = do_wICA(EEG,EXT,cfg);
 
 % Interim data saving
-% EEGM = pop_saveset(EEGM,'filename',[subject.icafile '.set'],'filepath',subject.preproc);
-
-% Merge EXT
-EEG0 = merge_eeglabsets(EEG0,EXT0);
-EEG  = merge_eeglabsets(EEG,EXT);
-if strcmpi(myfolders.task,'SART'), EEG2 = merge_eeglabsets(EEG2,EXT2); end
-
-% Do wICA
-EEG = do_wICA(EEG,EEG0,cfg);
-if strcmpi(myfolders.task,'SART'), EEG2 = do_wICA(EEG2,EEG0,cfg); end
-clearvars EEG0 EXT0
-
-% ICA log/report
-EEG = report_ICA(EEG);
+% EEG = pop_saveset(EEG,'filename',[subject.icafile '.set'],'filepath',subject.preproc);
 
 % Visually check the cleaning
 % compare_visually(EEG,EEGRAW,cfg.trg);
 
-% Report artifact leftovers
-EEG = report_leftovers(EEG,cfg);
+% Log/Report
+EEG = report_ICA(EEG);
 
-% Merge EMG
-if strcmpi(myfolders.task,'MT')
-    EEG = merge_eeglabsets(EEG,EMG);
+% Report artifact leftovers
+EEG = report_leftovers(EEG,EXT,cfg);
+
+% Epoch
+if strcmpi(myfolders.task,'MMN')
+    % MMN
+    condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0);
+    EEG = pop_epoch(EEG,condLabel,cfg.trg.mmn{2},'epochinfo','yes');
+    EXT = pop_epoch(EXT,condLabel,cfg.trg.mmn{2},'epochinfo','yes');
+
+elseif strcmpi(myfolders.task,'SART')
+    EEG0 = EEG; EXT0 = EXT;
+
+    % SART wrt visual stimuli
+    condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart1{1},'Uniformoutput',0);
+    EEG  = pop_epoch(EEG0,condLabel,cfg.trg.sart1{2},'epochinfo','yes');
+    EXT  = pop_epoch(EXT0,condLabel,cfg.trg.sart1{2},'epochinfo','yes');
+
+    % SART wrt response times
+    condLabel2 = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart2{1},'Uniformoutput',0);
+    EEG2 = pop_epoch(EEG0,condLabel2,cfg.trg.sart2{2},'epochinfo','yes');
+    EXT2 = pop_epoch(EXT0,condLabel2,cfg.trg.sart2{2},'epochinfo','yes');
+
+    EEG.ALSUTRECHT.SART.type  = 'StimulusLocked';
+    EXT.ALSUTRECHT.SART.type  = 'StimulusLocked';
+    EEG2.ALSUTRECHT.SART.type = 'ResponseLocked';
+    EXT2.ALSUTRECHT.SART.type = 'ResponseLocked';
+
+    clearvars EEG0 EXT0
+
+elseif strcmpi(myfolders.task,'RS') || strcmpi(myfolders.task,'EO') || strcmpi(myfolders.task,'EC')
+    % 2s w/ 0.75 overlap
+    % EEG = epoch_rsdata3(EEG,cfg.trg.rs{1},cfg.trg.rs{2}); % OK if proc EO/EC only
+    % EXT = epoch_rsdata3(EXT,cfg.trg.rs{1},cfg.trg.rs{2});
+    EEG = epoch_rsdata2(EEG,cfg.trg.rs{1},cfg.trg.rs{2});   % OK if proc EO+EC together
+    EXT = epoch_rsdata2(EXT,cfg.trg.rs{1},cfg.trg.rs{2});
 end
+
+% Baseline correct
+% EEG  = pop_rmbase(EEG,[(EEG.xmin)*1000 0],[]);
+% EEG2 = pop_rmbase(EEG2,[(EEG2.xmin)*1000 0],[]);
+
+% Regression based baseline correction method (recommended)
+if strcmpi(myfolders.task,'MMN') || strcmpi(myfolders.task,'SART')
+    EEG = correct_baseline(EEG,[(EEG.xmin)*1000 0],'Factor_1_Level_1',condLabel);
+else
+    error('Check this step for MT data.');
+    % EEG = correct_baseline(EEG,[(EEG.xmin)*1000 0]); % if only 1 stimulus condition present
+end
+
+% Merge
+EEG  = merge_eeglabsets(EEG,EXT);
+if strcmpi(myfolders.task,'SART'), EEG2 = merge_eeglabsets(EEG2,EXT2); end
+if strcmpi(myfolders.task,'MT'),   EEG = merge_eeglabsets(EEG,EMG); end
+clearvars EXT EXT2 EMG
 
 % Record warnings about potential issues
 EEG = report_issues(EEG);

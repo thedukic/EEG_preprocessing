@@ -62,14 +62,19 @@ else
 end
 
 % 2. Detect EMG-contaminated channels
-[~, badElectrodes2] = dected_emg(EEGTMP,cfgbch);
+% Estimate log-log power spectra
+slopesChannelsxEpochs = dected_emg(EEGTMP);
+
+% Detect noisy channels
+badElectrodes2 = mean(slopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,2);
+badElectrodes2 = find(badElectrodes2>cfgbch.MuscleSlopeTime);
 
 % Log
 EEG.ALSUTRECHT.badchaninfo.PREPElectrodes = {EEG.chanlocs(badElectrodes1).labels};
 EEG.ALSUTRECHT.badchaninfo.EMGSlope       = {EEG.chanlocs(badElectrodes2).labels};
 
 % 3. Combine
-badElectrodes = unique([badElectrodes1 badElectrodes2']);
+badElectrodes = unique([badElectrodes1(:); badElectrodes2(:)]);
 
 % 4. Remove
 if ~isempty(badElectrodes)

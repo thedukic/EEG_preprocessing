@@ -39,14 +39,18 @@ for i = 3  % :length(myfiles.group)
                 summaries(k,:) = struct2table(output,'AsArray',true);
             end
 
+            % Report
+            myfolders.reports = fullfile(myfolders.preproc,'reports');
+            if exist(myfolders.reports,'dir')~=7, mkdir(myfolders.reports); end
+
             % Visual report
             report_final(myfolders,1);
 
             % Add that there is a group-level overview of channels being rejected
             % Save the summary report
-            save(fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task '_' myfolders.proctime]),'summaries');
-            writetable(summaries,fullfile(myfolders.preproc,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' myfolders.proctime '.xlsx']));
-            clearvars summaries;
+            save(fullfile(myfolders.reports,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task '_' myfolders.proctime]),'summaries');
+            writetable(summaries,fullfile(myfolders.reports,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' myfolders.proctime '.xlsx']));
+            clearvars summaries
         end
     end
 end

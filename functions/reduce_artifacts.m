@@ -6,7 +6,6 @@ function EEG = reduce_artifacts(EEG,cfgbch)
 % 1. cleaning muscle activity first, then
 % 2. eye blinks, then
 % 3. horizontal eye movement and voltage drift
-%
 
 % The following selections determine how many epochs of each type of
 % artifact to include in the mask. It's not obvious what the best choices are.
@@ -22,17 +21,16 @@ function EEG = reduce_artifacts(EEG,cfgbch)
 % they are shorter than this value to reduce rank deficiency issues in MWF cleaning).
 % Note that it's better to include clean periods in the artifact mask rather than the including artifact in the clean mask.
 
-% A contribution made by Neil Bailey (Monash University) suggests that MWF cleaning can be improved by using sparse delay spacing. For example, 
-% instead of using consecutive delays [-3 -2 -1 0 1 2 3], it is now possible to specify the "delay_spacing" parameter to create a sparser sampling such as [-9 -6 -3 0 3 6 9], 
+% A contribution made by Neil Bailey (Monash University) suggests that MWF cleaning can be improved by using sparse delay spacing. For example,
+% instead of using consecutive delays [-3 -2 -1 0 1 2 3], it is now possible to specify the "delay_spacing" parameter to create a sparser sampling such as [-9 -6 -3 0 3 6 9],
 % which is obtained with "delay = 3" and "delay_spacing = 3". This is also useful to include more relevant samples when your data has a higher sample rate.
-% 
+%
 % From informal testing by Neil Bailey, for data sampled at 1000Hz, optimal performance at cleaning eye blink artifacts was obtained by using a delay parameter setting of 8
 % (so that 8 positive & negative delays are included in the MWF ), as well as a delay spacing of 16 (so that each delay is separated from the previous delay by 16 samples or 16 milliseconds).
-% This provides the MWF algorithm with delay embedded covariance matrices that characterises 272ms of the data, enabling the MWF algorithm to account for a considerable proportion of each blink period. 
+% This provides the MWF algorithm with delay embedded covariance matrices that characterises 272ms of the data, enabling the MWF algorithm to account for a considerable proportion of each blink period.
 % For muscle artifact cleaning of data sampled at 1000Hz, a delay period of 10 and delay spacing of 2 was found to be optimal.
 
-% Good performance of the artifact removal algorithm is indicated by
-% both high SER and high ARR.
+% Good performance of the artifact removal algorithm is indicated by both high SER and high ARR.
 
 % ASR:
 % % https://academic.oup.com/sleep/article/46/12/zsad241/7275639
@@ -49,35 +47,35 @@ function EEG = reduce_artifacts(EEG,cfgbch)
 % EEG0 = EEG;
 
 % =========================================================================
-% 1. MWF round 1: Detect and remove EMG
+% 1. MWF round 1: EMG
 EEG = mwf_channelemg(EEG,cfgbch);
 
 % =========================================================================
-% 4. ASR
-fprintf('\nUsing ASR to fix bad segments of EEG data...\n');
-
-extchan = {EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels};
-EXT = pop_select(EEG,'channel',extchan);
-
-EEG = pop_clean_rawdata(pop_select(EEG,'nochannel',extchan),'FlatlineCriterion','off','ChannelCriterion','off','LineNoiseCriterion','off','Highpass','off', ...
-    'BurstCriterion',cfgbch.asr,'WindowCriterion','off','BurstRejection','off','Distance','Euclidian');
-
-EEG = merge_eeglabsets(EEG,EXT);
-fprintf('Done using ASR.\n');
+% 2. MWF round 2: VEOG / eye blinks
+EEG = mwf_eyeblinks(EEG);
 
 % =========================================================================
-% 2. MWF round 2: Detect and remove VEOG / eye blinks
-% EEG = mwf_eyeblinks(EEG);
-
-% =========================================================================
-% % 4. MWF round 3: Detect and remove HEOG / slow drifts
+% 3. MWF round 3: HEOG / slow drifts - hard to properly detect
 % if ~strcmpi(EEG.ALSUTRECHT.subject.task,'RS') % also SART?
 %     EEG = mwf_channeldrifts(EEG);
 % end
 
 % =========================================================================
-% 3. MWF round 4: Detect and remove ECG - too much?
+% 4. MWF round 4: ECG - an overkill?
 % EEG = mwf_heartbeats(EEG,EEG);
+
+% =========================================================================
+% 5. ASR - automatic, which is nice but maybe not as good as targeted MWF?
+% fprintf('\nUsing ASR to fix bad segments of EEG data...\n');
+%
+% extchan = {EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels};
+% EXT = pop_select(EEG,'channel',extchan);
+%
+% EEG = pop_clean_rawdata(pop_select(EEG,'nochannel',extchan),'FlatlineCriterion','off','ChannelCriterion','off','LineNoiseCriterion','off','Highpass','off', ...
+%     'BurstCriterion',cfgbch.asr,'WindowCriterion','off','BurstRejection','off','Distance','Euclidian');
+%
+% EEG = merge_eeglabsets(EEG,EXT);
+% fprintf('Done using ASR.\n');
 
 % =========================================================================
 % % Visual check
