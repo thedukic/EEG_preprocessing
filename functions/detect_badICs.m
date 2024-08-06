@@ -48,14 +48,24 @@ ICAdata = filtfilt(bh,ah,ICAdata);
 EXTdata = filtfilt(bl,al,dataExt');
 EXTdata = filtfilt(bh,ah,EXTdata);
 
-ICAdata = robust_zscore(ICAdata);
-EXTdata = robust_zscore(EXTdata);
+% ICAdata = robust_zscore(ICAdata);
+% EXTdata = robust_zscore(EXTdata);
+% ICAdata = zscore(ICAdata);
+% EXTdata = zscore(EXTdata);
 
 corrMat = abs(corr(ICAdata,EXTdata));
-% figure; imagesc(corrMat); clim([0 1]); colorbar;
 
-% [corrMax, badIC] = max(X);
-[badIC, badICtype] = find(corrMat>0.7);
+% figure; imagesc(corrMat); clim([0 1]); colorbar;
+% xticks([1 2 3]); xticklabels(extLabels); colormap(brewermap(128,'PuRd'));
+
+% ECG / VEOG / HEOG
+if length(extLabels)==3
+    [badIC, badICtype] = find(corrMat>[0.2 0.2 0.9]);
+else
+    % VEOG / HEOG
+    assert(sum(chanveog|chanheog)==2); assert(sum(chanecg)==0);
+    [badIC, badICtype] = find(corrMat>[0.2 0.9]);
+end
 
 % Log
 EEG.ALSUTRECHT.ica.extra1.corr = single(corrMat);
@@ -119,7 +129,9 @@ for compNum = 1:NICA
     % Store the slope
     muscleRatio(compNum) = p(1);
 end
+
 ICsMostLikelyMuscle = muscleRatio>=cfg.bch.muscleSlopeThreshold;
+% ICsMostLikelyMuscle = muscleRatio>=-0.5;
 % ICsMostLikelyMuscle = (muscle_ICs==1);
 
 % 2. Use icablinkmetrics for eyeblinks
@@ -133,6 +145,7 @@ if exist('icablinkmetrics','file') == 2
             % ICsMostLikelyEye(icablinkmetricsout.identifiedcomponents)      = true;
         else
             fprintf('icablinkmetrics has not identified any eye components.\n');
+            icablinkmetricsout.identifiedcomponents = [];
         end
     catch
         warning('icablinkmetrics has failed...');
@@ -162,13 +175,14 @@ allBadICMethTmp = allBadICMeth(blinkMask);
 allBadICindxTmp = allBadICindx(blinkMask);
 allBadICindxTmpUnq = unique(allBadICindxTmp);
 
-blinksICs = [];
-for i = 1:length(allBadICindxTmpUnq)
-    maskTmp = allBadICindxTmp == allBadICindxTmpUnq(i);
-    if sum(maskTmp)>1
-        blinksICs = [blinksICs, allBadICindxTmpUnq(i)];
-    end
-end
+blinksICs = allBadICindxTmpUnq;
+% blinksICs = [];
+% for i = 1:length(allBadICindxTmpUnq)
+%     maskTmp = allBadICindxTmp == allBadICindxTmpUnq(i);
+%     if sum(maskTmp)>1
+%         blinksICs = [blinksICs, allBadICindxTmpUnq(i)];
+%     end
+% end
 
 % blinksICs = [];
 % for i = 1:length(allBadICindx)
@@ -178,30 +192,39 @@ end
 % end
 % if ~isempty(blinksICs), blinksICs = min(blinksICs); end
 
-corrMat = abs(corr(EEG.icawinv,EEG.icawinv(:,blinksICs)));
-% figure; plot(corrMat);
-blinksICs = find(corrMat>0.80);
-
-mask = ismember({EEG.chanlocs(:).labels},cfg.ica.blinkchans);
 blinksICsNew  = [];
 distBlinksICs = [];
-for i = 1:length(blinksICs)
-    W = abs(zscore(EEG.icawinv(:,blinksICs(i))));
-    D = max(W(mask))-max(W(~mask));
-    if D>0.5
-        blinksICsNew  = [blinksICsNew, blinksICs(i)];
-        distBlinksICs = [distBlinksICs, D];
-    end
-end
 
-% figure; mytopoplot(W,mask,'',nexttile); colorbar;
+if ~isempty(blinksICs)
+    corrMat = single(abs(corr(EEG.icawinv,EEG.icawinv(:,blinksICs))));
+    [blinksICs, tmp] = find(corrMat>0.75);
+    blinksICs = unique(blinksICs);
+
+    % figure; imagesc(corrMat); clim([0 1]); colorbar;
+    % colormap(brewermap(128,'PuRd'));
+
+    maskChanBlink = ismember({EEG.chanlocs(:).labels},cfg.ica.blinkchans);
+
+    for i = 1:length(blinksICs)
+        W = abs(zscore(EEG.icawinv(:,blinksICs(i))));
+        D = max(W(maskChanBlink))-max(W(~maskChanBlink));
+        if D>0.5
+            blinksICsNew  = [blinksICsNew, blinksICs(i)];
+            distBlinksICs = [distBlinksICs, D];
+        end
+    end
+
+    % figure; mytopoplot(W,maskChanBlink,'',nexttile); colorbar;
+else
+    corrMat = NaN;
+end
 
 % Fix as it is likely false positive
 EEG.ALSUTRECHT.ica.extra2.bics = [find(ICsMostLikelyMuscle(:)); blinksICsNew(:)];
 EEG.ALSUTRECHT.ica.extra2.cvec = [ones(sum(ICsMostLikelyMuscle),1); 2*ones(length(blinksICsNew),1)];
 
 % Log
-EEG.ALSUTRECHT.ica.extra3.corr = single(corrMat);
+EEG.ALSUTRECHT.ica.extra3.corr = corrMat;
 EEG.ALSUTRECHT.ica.extra3.dist = distBlinksICs(:);
 EEG.ALSUTRECHT.ica.extra3.bics = blinksICsNew(:);
 EEG.ALSUTRECHT.ica.extra3.cvec = ones(length(blinksICsNew),1);

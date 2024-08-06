@@ -31,7 +31,7 @@ function EEG = remove_electrodewobbles(EEG,ICAtype)
 % 2nd - when ICLabel is unsure (P<0.5) that the it is a bad electrode IC
 % Maybe good to be even more strict, to preserve more brain signals
 % But this might mean that we put back some noise
-K = [2 5];
+K = [1.5 2.5];
 W ='coif5';
 L = 5;
 
@@ -58,7 +58,7 @@ switch thisTask
         NICA = 80;
     case 'SART'
         % 3 or 4 *5 = 15-20min
-        NICA = 90;
+        NICA = 100;
     case 'MMN'
         % 3*7 = 20 min
         NICA = 100;
@@ -96,7 +96,7 @@ EEGICA = iclabel(EEGICA);
 
 % Find bad electrode ICs: ICLabel 6 is channel noise
 % badChanICs = find(ICLabel_cvec==6);
-badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.5);
+badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.2);
 % badChanICs = unique([badChanICs; find(EEGICA.etc.ic_classification.ICLabel.classifications(:,6)>=0.2)]); % BETTER DO NOT DO THIS
 % badChanICs = setdiff(badChanICs,find(EEGICA.etc.ic_classification.ICLabel.classifications(:,1)>=0.2));
 
@@ -136,11 +136,11 @@ if ~isempty(badChanICs)
     print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ICwobbles1']),'-dtiff','-r200');
     close(fh);
 
-    fh = figure;
-    th = tiledlayout(NBICS,4); th.TileSpacing = 'compact'; th.Padding = 'compact';
-    colormap(fh,myCmap);
-    LEpoch = EEG.srate;
-    NEpoch = floor(size(IC,2)/LEpoch);
+    % fh = figure;
+    % th = tiledlayout(NBICS,4); th.TileSpacing = 'compact'; th.Padding = 'compact';
+    % colormap(fh,myCmap);
+    % LEpoch = EEG.srate;
+    % NEpoch = floor(size(IC,2)/LEpoch);
 
     % Get the weights and determine the channel that is problematic
     if ~isempty(badChanICs)
@@ -153,15 +153,15 @@ if ~isempty(badChanICs)
             % So even if the trheshold is too low
             % (i.e. higher trheshold excludes less data, by keeping higher freq)
             % then we wont lose too much brain/good data
-            % if ICLabel_pvec(badChanICs(i))>0.5
-            %     % Playing safe and trying to avoid losing too much good/brain data
-            %     thresh = thresh.*K(1);
-            % else
-            %     % If ICLabel is less certain, probably there is more
-            %     % brain/good data here, so further increase the treshold
-            %     thresh = thresh.*K(2);
-            % end
-            thresh = thresh.*K(1);
+            if ICLabel_pvec(badChanICs(i))>0.5
+                % Playing safe and trying to avoid losing too much good/brain data
+                thresh = thresh.*K(1);
+            else
+                % If ICLabel is less certain, probably there is more
+                % brain/good data here, so further increase the treshold
+                thresh = thresh.*K(2);
+            end
+            % thresh = thresh.*K(1);
             swc = swt(IC(badChanICs(i),:),L,W);
             Y   = wthresh(swc,sorh,thresh);
             wIC(badChanICs(i),:) = iswt(Y,W);
@@ -171,21 +171,21 @@ if ~isempty(badChanICs)
             % tmp.srate = EEG.srate;
             % [pow, freq] = checkpowerspectrum(tmp,1,[]);
 
-            % Apply only on targeted segments?
-            ICsz = abs(robust_zscore(IC(badChanICs(i),:)))<3;
-            ICsz = reshape(ICsz,LEpoch,NEpoch)';
-            ICs_all    = reshape(IC(badChanICs(i),:),LEpoch,NEpoch)';
-            ICs_noise  = reshape(wIC(badChanICs(i),:),LEpoch,NEpoch)';
-            ICs_signal = ICs_all-ICs_noise;
-            myClim = 0.9*max(abs(ICs_signal(:)));
+            % % Apply only on targeted segments?
+            % ICsz = abs(robust_zscore(IC(badChanICs(i),:)))<3;
+            % ICsz = reshape(ICsz,LEpoch,NEpoch)';
+            % ICs_all    = reshape(IC(badChanICs(i),:),LEpoch,NEpoch)';
+            % ICs_noise  = reshape(wIC(badChanICs(i),:),LEpoch,NEpoch)';
+            % ICs_signal = ICs_all-ICs_noise;
+            % myClim = 0.9*max(abs(ICs_signal(:)));
 
-            nexttile; topoplot(EEGICA.icawinv(:,badChanICs(i)),EEGICA.chanlocs,'maplimits',max(abs(EEGICA.icawinv(:,badChanICs(i))))*[-1 1],'headrad','rim','whitebk','on','style','map','electrodes','on');
-            axis tight; colormap(myCmap);
-            th = nexttile; imagesc(th,ICs_all); axis off; clim(th,myClim*[-1 1]);
-            % text(th.Position(1),mean(th.Position([2 4])),myYlabel{i},'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','bottom','FontSize',10);
-            ICs_noise(ICsz) = 0;
-            th = nexttile; imagesc(th,ICs_noise); axis off; clim(th,myClim*[-1 1]);
-            th = nexttile; imagesc(th,ICs_signal); axis off; clim(th,myClim*[-1 1]);
+            % nexttile; topoplot(EEGICA.icawinv(:,badChanICs(i)),EEGICA.chanlocs,'maplimits',max(abs(EEGICA.icawinv(:,badChanICs(i))))*[-1 1],'headrad','rim','whitebk','on','style','map','electrodes','on');
+            % axis tight; colormap(myCmap);
+            % th = nexttile; imagesc(th,ICs_all); axis off; clim(th,myClim*[-1 1]);
+            % % text(th.Position(1),mean(th.Position([2 4])),myYlabel{i},'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','bottom','FontSize',10);
+            % ICs_noise(ICsz) = 0;
+            % th = nexttile; imagesc(th,ICs_noise); axis off; clim(th,myClim*[-1 1]);
+            % th = nexttile; imagesc(th,ICs_signal); axis off; clim(th,myClim*[-1 1]);
         end
 
         % figure; hold on; plot(ICs0(2,:)); plot(ICs1(2,:));
@@ -206,16 +206,20 @@ if ~isempty(badChanICs)
         % vis_artifacts(EEGNEW,EEG);
     end
 
-    % Save
-    plotX=35; plotY=55;
-    set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-    set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ICwobbles2']),'-dtiff','-r300');
-    close(fh);
+    % % Save
+    % plotX=35; plotY=55;
+    % set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+    % set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+    % print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ICwobbles2']),'-dtiff','-r300');
+    % close(fh);
 else
     NBICS = 0;
     badChans = {};
 end
+
+% % Visual check
+% EEGNEW = pop_select(EEG,'channel',{EEG.chanlocs(chaneeg).labels});
+% vis_artifacts(EEGNEW,EEGICA);
 
 % Log
 EEG.ALSUTRECHT.badchaninfo.wica.icmax = NICA;

@@ -1,5 +1,5 @@
-% Compute artifact removal performance measures SER and ARR. 
-% If the real, ground truth artifact is known and given as 4th argument, 
+% Compute artifact removal performance measures SER and ARR.
+% If the real, ground truth artifact is known and given as 4th argument,
 % the real ARR can be computed. Otherwise, the artifact is approximated by
 % the raw data. SER and ARR are expressed in dB.
 %
@@ -11,7 +11,7 @@
 %   mask    markings of artifacts in y (1 x samples)
 %   d_real  [optional] ground truth artifact signal (channels x samples)
 %
-% OUTPUTS: 
+% OUTPUTS:
 %   SER     Signal to Error Ratio, measures clean EEG distortion
 %   ARR     Artifact to Residue Ratio, measures artifact estimation
 %
@@ -49,4 +49,3 @@ ARR_w = ARR_i .* p; % ARR per channel (weighted)
 ARR = sum(ARR_w); % Total ARR (weighted average)
 
 end
-

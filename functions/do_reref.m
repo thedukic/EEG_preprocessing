@@ -1,4 +1,5 @@
 function EEG = do_reref(EEG,typeRef)
+
 chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
 NBLK = length(EEG);
 

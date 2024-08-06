@@ -104,7 +104,7 @@ badTrialsAll = find(badTrialsAll==1);
 noiseMask = zeros(1,EEG.pnts);
 if ~isempty(badTrialsAll)
     badEpochs1 = [badTrialsAll-1; badTrialsAll]'; % in [s]
-    badEpochs2 = badEpochs1*EEG.srate;             % in [samples]
+    badEpochs2 = badEpochs1*EEG.srate;            % in [samples]
     badEpochs2(:,1) = badEpochs2(:,1)+1;
 
     for i = 1:length(badTrialsAll)

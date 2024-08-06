@@ -1,56 +1,60 @@
 
 % =========================================================================
 %
-% EEG preprocessing main file
+% EEG preprocessing main file, ALS Centre UMC Utrecht
 % Check README.md for instructions
-% SDukic, April 2024
+% SDukic, August 2024
 %
 % =========================================================================
 
 close all; fclose all; clc; clearvars summaries;
-[myfolders, myfiles] = preproc_folders;
-
-proctime = strrep(strrep(char(datetime("now")),':','-'),' ','-');
+delete(gcp("nocreate")); parpool("Processes");
+myPaths = preproc_folders;
 
 % Add specific info: group/task/visit
-for i = 3  % :length(myfiles.group)
-    for j = 1 % :length(myfiles.visit)
-        myfolders.proctime = proctime;
-        myfolders.group    = myfiles.group{i};
-        myfolders.task     = myfiles.task;
-        myfolders.visit    = myfiles.visit{j};
-        myfolders.rawdata  = fullfile(myfolders.rootrawdata,myfolders.group,myfolders.visit);
-        myfolders.preproc  = fullfile(myfolders.rootpreproc,myfolders.task,myfolders.group,myfolders.visit);
+for i = 3  % :length(myPaths.group)
+    for j = 1 % :length(myPaths.visit)
+        myPathsTmp          = myPaths;
+        myPathsTmp.task     = myPaths.task;
+        myPathsTmp.group    = myPaths.group{i};
+        myPathsTmp.visit    = myPaths.visit{j};
+        myPathsTmp.rawdata  = fullfile(myPathsTmp.rootrawdata,myPathsTmp.group,myPathsTmp.visit);
+        myPathsTmp.preproc  = fullfile(myPathsTmp.rootpreproc,myPathsTmp.task,myPathsTmp.group,myPathsTmp.visit);
 
-        % To-do list makes sense if you set one cohort only!
-        subjects = list_subjects(myfolders.rawdata,myfiles.todo);
+        % Be careful when defining the to-do list
+        % if processing more than one group
+        subjects = list_subjects(myPathsTmp.rawdata,{});
+        % myPathsTmp.excl = {'ALS08665','ALS34168'};
+        % subjects = select_participants([],'C9',myPathsTmp);
         NSUB = length(subjects);
 
         if NSUB>0
             for k = 1:NSUB
                 fprintf('\n');
                 disp('==================================================================');
-                disp([myfolders.task ' | ' myfolders.visit ' | ' myfolders.group ' | [' num2str(k) '/' num2str(NSUB) '] ' subjects{k} ' has started.']);
+                disp([myPathsTmp.task ' | ' myPathsTmp.visit ' | ' myPathsTmp.group ' | [' num2str(k) '/' num2str(NSUB) '] ' subjects{k} ' has started.']);
                 disp('==================================================================');
                 fprintf('\n');
-                output = preproc_cleaning(myfolders,subjects{k});
+
+                % Clean 1&2
+                output = preproc_cleaning1(myPathsTmp,subjects{k});
+                output = preproc_cleaning2(myPathsTmp,subjects{k});
 
                 % Record warnings for all participants in single table
                 summaries(k,:) = struct2table(output,'AsArray',true);
             end
 
-            % Report
-            myfolders.reports = fullfile(myfolders.preproc,'reports');
-            if exist(myfolders.reports,'dir')~=7, mkdir(myfolders.reports); end
+            % Report folder
+            myPathsTmp.reports = fullfile(myPathsTmp.preproc,'reports');
+            if exist(myPathsTmp.reports,'dir')~=7, mkdir(myPathsTmp.reports); end
 
-            % Visual report
-            report_final(myfolders,1);
-
-            % Add that there is a group-level overview of channels being rejected
-            % Save the summary report
-            save(fullfile(myfolders.reports,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task '_' myfolders.proctime]),'summaries');
-            writetable(summaries,fullfile(myfolders.reports,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' myfolders.proctime '.xlsx']));
+            % Report table
+            save(fullfile(myPathsTmp.reports,['Summary_' myPathsTmp.group '_' myPathsTmp.visit '_' myPathsTmp.task '_' myPathsTmp.proctime]),'summaries');
+            writetable(summaries,fullfile(myPathsTmp.reports,['Summary_' myPathsTmp.group '_' myPathsTmp.visit '_' myPathsTmp.task  '_' myPathsTmp.proctime '.xlsx']),"WriteMode","overwrite");
             clearvars summaries
+
+            % Report visual
+            report_final(myPathsTmp,1);
         end
     end
 end

@@ -1,15 +1,15 @@
-function issues_to_check = preproc_cleaning(myfolders,id)
+function checkReport = preproc_cleaning1(myPaths,id)
 %
 % Script for EEG data preprocessing
 % ALS Centre, University Medical Centre Utrecht
 %
 % =========================================================================
 % SDukic edits
-% v1, July 2024
+% v1, August 2024
 % =========================================================================
 % TODO
-% 1. MWF on eye blinks
-% 2. Detect better ECG ICs
+% 1. Targeted ECG cleaning
+% 2.
 %
 
 % Load preprocessing settings
@@ -18,27 +18,27 @@ cfg = preproc_parameters;
 % Define paths and files
 subject         = [];
 subject.id      = id;
-subject.task    = myfolders.task;
-subject.group   = myfolders.group;
-subject.visit   = myfolders.visit;
-subject.rawdata = fullfile(myfolders.rawdata, subject.id);
-subject.preproc = fullfile(myfolders.preproc, subject.id);
+subject.task    = myPaths.task;
+subject.group   = myPaths.group;
+subject.visit   = myPaths.visit;
+subject.rawdata = fullfile(myPaths.rawdata, subject.id);
+subject.preproc = fullfile(myPaths.preproc, subject.id);
 subject.icadata = fullfile(subject.preproc, upper(cfg.ica.type2));
-subject.clnfile = [subject.id '_' myfolders.visit '_' myfolders.task '_cleandata_' cfg.rnum '.mat'];
+subject.clnfile = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' cfg.rnum '.mat'];
 
 % Find datasets
-[subject.datablocks, NBLK] = list_datasets(subject.rawdata,myfolders.task);
+[subject.datablocks, NBLK] = list_datasets(subject.rawdata,myPaths.task);
 
 % Report
 fprintf('\n');
 disp('==================================================================');
-fprintf('%s | %s | %s dataset\n',myfolders.group,subject.id,myfolders.task);
+fprintf('%s | %s | %s dataset\n',myPaths.group,subject.id,myPaths.task);
 disp('==================================================================');
 fprintf('\n');
 
 % Load data
 if ~isempty(subject.datablocks)
-    if strcmpi(myfolders.task,'MT')
+    if strcmpi(myPaths.task,'MT')
         EEG = pop_biosig(subject.datablocks,'channels',1:168);
         EEG = pop_select(EEG,'rmchannel',[131 132 143:160]);
     else
@@ -52,11 +52,11 @@ if ~isempty(subject.datablocks)
         end
     end
 else
-    warning([subject.id ' is missing ' myfolders.task ' data!']);
+    warning([subject.id ' is missing ' myPaths.task ' data!']);
     EEG.ALSUTRECHT.subject.id   = subject.id;
     EEG.ALSUTRECHT.subject.task = subject.task;
     EEG = report_issues(EEG);
-    issues_to_check = EEG.ALSUTRECHT.issues_to_check;
+    checkReport = EEG.ALSUTRECHT.issues_to_check;
     return;
 end
 
@@ -65,25 +65,25 @@ if exist(subject.preproc,'dir')~=7, mkdir(subject.preproc); end
 
 % Open a report
 t0 = datetime("now");
-proctime = strrep(strrep(char(t0),':','-'),' ','-');
-subject.fid = fopen(fullfile(subject.preproc,['report_preprocess_v' cfg.rnum '.txt']),'w+');
+procTimeTags = {myPaths.proctime; strrep(strrep(char(t0),':','-'),' ','-')};
+subject.fid  = fopen(fullfile(subject.preproc,['report_preprocess_v' cfg.rnum '.txt']),'w+');
 
-fprintf(subject.fid,'%s | %s | %s dataset\n\n',myfolders.group,subject.id,myfolders.task);
+fprintf(subject.fid,'%s | %s | %s dataset\n\n',myPaths.group,subject.id,myPaths.task);
 fprintf(subject.fid,'Code version %s\n',cfg.rnum);
 fprintf(subject.fid,'Started: %s\n',t0);
 
 % Manually fix datasets in some rare cases
-if strcmp(subject.id,'C50') && strcmpi(myfolders.task,'SART')
+if strcmp(subject.id,'C50') && strcmpi(myPaths.task,'SART')
     % C48 is very strage - low quality data?
     warning([subject.id 'has swapped C- and B- set. Fixing that now...']);
     for j = 1:NBLK
         EEG(j).data(33:96,:) = [EEG(j).data(65:96,:); EEG(j).data(33:64,:)];
     end
-elseif strcmp(subject.id,'ALS26603') && strcmpi(myfolders.task,'MMN')
+elseif strcmp(subject.id,'ALS26603') && strcmpi(myPaths.task,'MMN')
     warning([subject.id ' has MMN2 file currpted. Removing it now...']);
     EEG(2) = []; NBLK = length(EEG);
 
-elseif strcmp(subject.id,'ALS26603') && strcmpi(myfolders.task,'SART')
+elseif strcmp(subject.id,'ALS26603') && strcmpi(myPaths.task,'SART')
     warning([subject.id ' has SART1 and SART3 files currpted. Removing some parts now...']);
     EEG(1) = pop_select(EEG(1),'rmtime',[0 5; 93.3 100.1]);
     EEG(3) = pop_select(EEG(3),'rmtime',[183 201]);
@@ -97,7 +97,7 @@ EEG = fix_chanlocs(EEG,chanlocs);
 % Add subject info
 for j = 1:NBLK
     EEG(j).ALSUTRECHT.subject = subject;
-    EEG(j).ALSUTRECHT.cfg     = cfg;
+    EEG(j).ALSUTRECHT.cfg = cfg;
 end
 
 % Demean
@@ -134,20 +134,20 @@ EEG = remove_datasetends(EEG);
 EEG = make_extbipolar(EEG);
 
 % Mark where each RS block starts/ends
-% if strcmpi(myfolders.task,'RS') || strcmpi(myfolders.task,'EO') || strcmpi(myfolders.task,'EC')
-%     EEG = make_rsmasks(EEG);
-% end
+if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EO') || strcmpi(myPaths.task,'EC')
+    EEG = make_rsmasks(EEG);
+end
 
 % Merge datasets
 EEG = pop_mergeset(EEG,1:NBLK);
 
 % % Clean EMG
-% if strcmpi(myfolders.task,'MT')
+% if strcmpi(myPaths.task,'MT')
 %     EEG = clean_emgdata(EEG);
 % end
 
 % Separate EMG before EEG cleaning
-if strcmpi(myfolders.task,'MT')
+if strcmpi(myPaths.task,'MT')
     chanemg = {EEG(1).chanlocs(strcmp({EEG(1).chanlocs.type},'EMG')).labels};
     EMG = pop_select(EEG,'channel',chanemg);
     EEG = pop_select(EEG,'rmchannel',chanemg);
@@ -169,18 +169,25 @@ EEG = report_badelectrodes(EEG);
 EEG = detect_extremelybadepochs2(EEG);
 
 % Check if EC has eye blinks; Too sensitive?
-% if strcmpi(myfolders.task,'EC')
+% if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EC')
 %     EEG = check_eyesclosedeyeblinks(EEG);
 % end
 
+% Make a copy
+EEGRAW = EEG;
+
 % Reduce artifacts
 EEG = reduce_artifacts(EEG,cfg.bch);
+
+% Report MWF metrics
+EEG = report_mwf(EEG,EEGRAW);
+clearvars EEGRAW
 
 % Remove extremely bad epochs
 if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
     EEG = eeg_eegrej(EEG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
 
-    if strcmpi(myfolders.task,'MT')
+    if strcmpi(myPaths.task,'MT')
         EMG = eeg_eegrej(EMG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
     end
 end
@@ -201,15 +208,6 @@ EEG = do_filtering(EEG,2,cfg.flt);
 % Common-average before ICA
 EEG = do_reref(EEG,'aRegular');
 
-% Epoch MT data
-% Before ICA, as there is often a lot of noise in between trials
-if strcmpi(myfolders.task,'MT')
-    EEG = pop_epoch(EEG,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
-    EXT = pop_epoch(EXT,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
-    EMG = pop_epoch(EMG,arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0),cfg.trg.mt{2},'epochinfo','yes');
-    EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0] ,[]);
-end
-
 % ICA
 EEG = do_ICA(EEG,cfg);
 
@@ -225,20 +223,19 @@ EEG = do_wICA(EEG,EXT,cfg);
 % Visually check the cleaning
 % compare_visually(EEG,EEGRAW,cfg.trg);
 
-% Log/Report
+% Report ICA
 EEG = report_ICA(EEG);
 
 % Report artifact leftovers
 EEG = report_leftovers(EEG,EXT,cfg);
 
 % Epoch
-if strcmpi(myfolders.task,'MMN')
-    % MMN
+if strcmpi(myPaths.task,'MMN')
     condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0);
     EEG = pop_epoch(EEG,condLabel,cfg.trg.mmn{2},'epochinfo','yes');
     EXT = pop_epoch(EXT,condLabel,cfg.trg.mmn{2},'epochinfo','yes');
 
-elseif strcmpi(myfolders.task,'SART')
+elseif strcmpi(myPaths.task,'SART')
     EEG0 = EEG; EXT0 = EXT;
 
     % SART wrt visual stimuli
@@ -258,45 +255,43 @@ elseif strcmpi(myfolders.task,'SART')
 
     clearvars EEG0 EXT0
 
-elseif strcmpi(myfolders.task,'RS') || strcmpi(myfolders.task,'EO') || strcmpi(myfolders.task,'EC')
+elseif strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EO') || strcmpi(myPaths.task,'EC')
     % 2s w/ 0.75 overlap
     % EEG = epoch_rsdata3(EEG,cfg.trg.rs{1},cfg.trg.rs{2}); % OK if proc EO/EC only
     % EXT = epoch_rsdata3(EXT,cfg.trg.rs{1},cfg.trg.rs{2});
     EEG = epoch_rsdata2(EEG,cfg.trg.rs{1},cfg.trg.rs{2});   % OK if proc EO+EC together
     EXT = epoch_rsdata2(EXT,cfg.trg.rs{1},cfg.trg.rs{2});
-end
 
-% Baseline correct
-% EEG  = pop_rmbase(EEG,[(EEG.xmin)*1000 0],[]);
-% EEG2 = pop_rmbase(EEG2,[(EEG2.xmin)*1000 0],[]);
-
-% Regression based baseline correction method (recommended)
-if strcmpi(myfolders.task,'MMN') || strcmpi(myfolders.task,'SART')
-    EEG = correct_baseline(EEG,[(EEG.xmin)*1000 0],'Factor_1_Level_1',condLabel);
-else
-    error('Check this step for MT data.');
-    % EEG = correct_baseline(EEG,[(EEG.xmin)*1000 0]); % if only 1 stimulus condition present
+elseif strcmpi(myPaths.task,'MT')
+    % Maybe before ICA, as there is often a lot of noise before/after the contrations
+    condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0);
+    EEG = pop_epoch(EEG,condLabel,cfg.trg.mt{2},'epochinfo','yes');
+    EXT = pop_epoch(EXT,condLabel,cfg.trg.mt{2},'epochinfo','yes');
+    EMG = pop_epoch(EMG,condLabel,cfg.trg.mt{2},'epochinfo','yes');
 end
 
 % Merge
-EEG  = merge_eeglabsets(EEG,EXT);
-if strcmpi(myfolders.task,'SART'), EEG2 = merge_eeglabsets(EEG2,EXT2); end
-if strcmpi(myfolders.task,'MT'),   EEG = merge_eeglabsets(EEG,EMG); end
+EEG = merge_eeglabsets(EEG,EXT);
+if strcmpi(myPaths.task,'SART'), EEG2 = merge_eeglabsets(EEG2,EXT2); end
+if strcmpi(myPaths.task,'MT'),   EEG = merge_eeglabsets(EEG,EMG); end
 clearvars EXT EXT2 EMG
 
 % Record warnings about potential issues
 EEG = report_issues(EEG);
-issues_to_check = EEG.ALSUTRECHT.issues_to_check;
-if strcmpi(myfolders.task,'SART'), EEG2.ALSUTRECHT.issues_to_check = issues_to_check; end
+if strcmpi(myPaths.task,'SART'), EEG2.ALSUTRECHT.issues_to_check = EEG.ALSUTRECHT.issues_to_check; end
 
 % Save cleaned data
-fprintf('\n%s: Saving preprocessed data...\n',subject.id);
+fprintf('\n%s: Saving the preprocessed data...\n',subject.id);
 preprocReport = EEG.ALSUTRECHT;
-if ~strcmpi(myfolders.task,'SART')
-    save(fullfile(subject.preproc,subject.clnfile),'EEG','preprocReport','cfg','proctime');
+if ~strcmpi(myPaths.task,'SART')
+    save(fullfile(subject.preproc,subject.clnfile),'EEG','preprocReport','cfg','procTimeTags');
 else
-    save(fullfile(subject.preproc,subject.clnfile),'EEG','EEG2','preprocReport','cfg','proctime');
+    save(fullfile(subject.preproc,subject.clnfile),'EEG','EEG2','preprocReport','cfg','procTimeTags');
 end
+
+% Return
+checkReport = EEG.ALSUTRECHT.issues_to_check;
+checkReport = rmfield(checkReport,'Medianvoltageshiftwithinepoch');
 
 % Close the report
 t1 = datetime("now");
@@ -305,6 +300,8 @@ fprintf(subject.fid,'\n\nFinished: %s\n',t1);
 fprintf(subject.fid,'Running time: %d min.\n',dd);
 fclose(subject.fid);
 
+% Report
 fprintf('Finished: %s\n',t1);
 fprintf('Running time: %d min.\n\n',dd);
+
 end

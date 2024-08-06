@@ -2,7 +2,7 @@ function EEG = report_ICA(EEG)
 %
 % IC topoplots
 %
-% SDukic, Feb 2024
+% SDukic, August 2024
 
 % Separate EEG
 chanext = {EEG.chanlocs(strcmp({EEG.chanlocs.type},'EXT')).labels};
@@ -11,22 +11,18 @@ if ~isempty(chanext)
     EEG = pop_select(EEG,'rmchannel',chanext);
 end
 
-% Make sure IC activations are present
-% But also this is necessary if wICA was done!
-EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
-EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
+% % Make sure IC activations are present
+% % But also this is necessary if wICA was done!
+% EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
+% EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
 
 % Evaluate only the first K = 20 ICs, they carry the most power and thus relevance
 K = 20;
 NICA = length(EEG.reject.gcompreject);
-
-varAICs = NaN(NICA,1);
-for i = 1:NICA
-    [~, varAICs(i)] = compvar(EEG.data,EEG.icaact,EEG.icawinv,i);
-end
+varICs = EEG.ALSUTRECHT.ica.varICs;
 
 % Normalised var of all ICs
-varAICsNorm = varAICs./sum(varAICs);
+varAICsNorm = varICs./sum(varICs);
 % Total var of the first K ICs
 varKICs = sum(varAICsNorm(1:K));
 
@@ -208,6 +204,50 @@ print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ba
 close(fh);
 
 % =========================================================================
+% Plot wICA eye and muscle
+
+ICsMostLikelyBlink  = EEG.ALSUTRECHT.ica.extra3.bics;
+ICsMostLikelyMuscle = find(EEG.ALSUTRECHT.ica.extra2.ICsMostLikelyMuscle);
+
+% Eye
+fh = figure;
+th = tiledlayout('flow');
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+
+for i = 1:length(ICsMostLikelyBlink)
+    nexttile;
+    thisIC = ICsMostLikelyBlink(i);
+    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map');
+    title(['ICA' num2str(thisIC),', Eye']);
+end
+
+% Save
+plotX=20; plotY=10;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_badICsEye']),'-dtiff','-r300');
+close(fh);
+
+% Muscle
+fh = figure;
+th = tiledlayout('flow');
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+
+for i = 1:length(ICsMostLikelyMuscle)
+    nexttile;
+    thisIC = ICsMostLikelyMuscle(i);
+    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map');
+    title(['ICA' num2str(thisIC),', Muscle']);
+end
+
+% Save
+plotX=20; plotY=10;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_badICsMuscle']),'-dtiff','-r300');
+close(fh);
+
+% =========================================================================
 % Estimates of "good/successful" ICA:
 %
 % https://sccn.ucsd.edu/pipermail/eeglablist/2020/015096.html
@@ -249,16 +289,16 @@ ICsMostLikelyLineNoise    = (I==5)';
 ICsMostLikelyChannelNoise = (I==6)';
 ICsMostLikelyOther        = (I==7)';
 
-BrainVariance    = sum(abs(varAICs(ICsMostLikelyBrain)));
-ArtifactVariance = sum(abs(varAICs(~ICsMostLikelyBrain)));
+BrainVariance    = sum(abs(varICs(ICsMostLikelyBrain)));
+ArtifactVariance = sum(abs(varICs(~ICsMostLikelyBrain)));
 TotalVariance    = BrainVariance+ArtifactVariance;
 
-MuscleVariance       = sum(abs(varAICs(ICsMostLikelyMuscle)));
-EyeVariance          = sum(abs(varAICs(ICsMostLikelyEye)));
-HeartVariance        = sum(abs(varAICs(ICsMostLikelyHeart)));
-LineNoiseVariance    = sum(abs(varAICs(ICsMostLikelyLineNoise)));
-ChannelNoiseVariance = sum(abs(varAICs(ICsMostLikelyChannelNoise)));
-OtherVariance        = sum(abs(varAICs(ICsMostLikelyOther)));
+MuscleVariance       = sum(abs(varICs(ICsMostLikelyMuscle)));
+EyeVariance          = sum(abs(varICs(ICsMostLikelyEye)));
+HeartVariance        = sum(abs(varICs(ICsMostLikelyHeart)));
+LineNoiseVariance    = sum(abs(varICs(ICsMostLikelyLineNoise)));
+ChannelNoiseVariance = sum(abs(varICs(ICsMostLikelyChannelNoise)));
+OtherVariance        = sum(abs(varICs(ICsMostLikelyOther)));
 
 EEG.ALSUTRECHT.ica.ProportionVariance_was_BrainICs        = BrainVariance/TotalVariance;
 EEG.ALSUTRECHT.ica.ProportionVariance_was_MuscleICs       = MuscleVariance/TotalVariance;

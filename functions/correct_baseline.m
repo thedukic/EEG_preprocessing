@@ -1,38 +1,21 @@
-%% RELAX EEG CLEANING PIPELINE, Copyright (C) (2022) Neil Bailey
-
-%     This program is free software: you can redistribute it and/or modify
-%     it under the terms of the GNU General Public License as published by
-%     the Free Software Foundation, either version 3 of the License, or
-%     any later version.
-%
-%     This program is distributed in the hope that it will be useful,
-%     but WITHOUT ANY WARRANTY; without even the implied warranty of
-%     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-%     GNU General Public License for more details.
-%
-%     You should have received a copy of the GNU General Public License
-%     along with this program.  If not, see https://www.gnu.org/licenses/.
-
-%% RELAX_RegressionBL_Correction:
-
 function EEG = correct_baseline(EEG,BLperiod,varargin)
-
+%
 % This script performs a regression based baseline correction method
 % (the benefits of this over subtraction BL correction are explained in Alday, 2019,
 % and the specific implementation performed in Bailey et al. 2022)
-
+%
 % Alday, P. M. (2019). How much baseline correction do we need in ERP research? Extended GLM model can replace baseline correction while lifting its limits. Psychophysiology, 56(12), e13451.
 % Bailey et al. (2022). Meditators probably show increased behaviour-monitoring related neural activity.
-
-%% Use as:
-
-% [EEG]=RELAX_RegressionBL_Correction(EEG,RELAX_epoching_cfg,'Factor_1_Level_1', {'HappyGo' 'SadGo' }, 'Factor_2_Level_1', {'HappyGo' 'HappyNogo' });
+%
+% Use as:
+%
+% [EEG]=correct_baseline(EEG,BLperiod,'Factor_1_Level_1', {'HappyGo' 'SadGo' }, 'Factor_2_Level_1', {'HappyGo' 'HappyNogo' });
 % if a 2 x 2 design, this will code triggers other than 'HappyGo'/'SadGo' as -1, and Go as 1 in the first factor, and triggers other than 'HappyGo'/'HappyNogo' as -1 in the second factor
-
-% [EEG]=RELAX_RegressionBL_Correction(EEG,RELAX_epoching_cfg,'Factor_1_Level_1',{'Go'});
+%
+% [EEG]=correct_baseline(EEG,BLperiod,'Factor_1_Level_1',{'Go'});
 % if a 2 condition design, this will code triggers other than 'Go' as -1, and Go as 1
-
-% [EEG]=RELAX_RegressionBL_Correction(EEG,RELAX_epoching_cfg);
+%
+% [EEG]=correct_baseline(EEG,BLperiod);
 % if only 1 stimulus condition present for each participant
 
 %% check inputs
@@ -104,7 +87,7 @@ confounds(:,size(confounds,2)+1) = 1; % add a constant
 % and includes individual as a factor is more appropriate.
 
 %% Determine mean amplitude in baseline period and remove with regression:
-[dif1, BLperiod(1)] = min(abs(EEG.times - BLperiod(1,1))); % RELAX v1.1.3 addition to overcome selected value not being in the data if sampling rate is < 1000Hz. Thankyou to Kate Godfrey for the fix!
+[dif1, BLperiod(1)] = min(abs(EEG.times - BLperiod(1,1)));
 [dif2, BLperiod(2)] = min(abs(EEG.times - BLperiod(1,2)));
 
 if dif1 > 5 || dif2 > 5
@@ -115,17 +98,29 @@ end
 chaneeg = find(strcmp({EEG.chanlocs.type},'EEG'));
 
 for c = chaneeg % 1:size(EEG.data,1) % c = channels, for each channel
-    confounds(:,1) = squeeze(mean(EEG.data(c,BLperiod(1):BLperiod(2),:),2)); % obtain a list of the mean amplitude in the BL period from each trial to regress this out from each timepoint for that channel
-    for s = 1:size(EEG.data, 2) % s = samples, for each sample
-        Beta(:,s) =  confounds \  squeeze(EEG.data(c, s, :)); % B = X\Y = confounds \ data
-    end
-    for s = 1:size(Beta,2)
-        model(1,s,:) = confounds(:,1) .* squeeze(Beta(1,s)); % model = confounds * weights = X * X\Y
-        % (because only column 1 is included in the model, only the influence of the mean BL period is included in the model)
+    % obtain a list of the mean amplitude in the BL period from each trial to regress this out from each timepoint for that channel
+    confounds(:,1) = squeeze(mean(EEG.data(c,BLperiod(1):BLperiod(2),:),2));
+
+    % B = X\Y = confounds \ data
+    for s = 1:size(EEG.data,2) % s = samples, for each sample
+        Beta(:,s) =  confounds \  squeeze(EEG.data(c, s, :));
     end
 
-    EEGcorrected(c,:,:) = EEG.data(c,:,:) - model(:,:,:); % Yclean = data - model = Y - X * X\Y  (the model of the confounding mean BL data is subtracted from the data)
+    % model = confounds * weights = X * X\Y
+    % (because only column 1 is included in the model, only the influence of the mean BL period is included in the model)
+    for s = 1:size(Beta,2)
+        model(1,s,:) = confounds(:,1) .* squeeze(Beta(1,s));
+    end
+
+    % Yclean = data - model = Y - X * X\Y 
+    % (the model of the confounding mean BL data is subtracted from the data)
+    EEGcorrected(c,:,:) = EEG.data(c,:,:) - model(:,:,:);
 end
+
+% figure; plot(EEG.times,mean(model,3));
+% figure; tiledlayout(1,2);
+% nexttile; plot(EEG.times,mean(EEG.data,3));
+% nexttile; plot(EEG.times,mean(EEGcorrected,3));
 
 EEG.data = EEGcorrected;
 EEG = eeg_checkset(EEG);

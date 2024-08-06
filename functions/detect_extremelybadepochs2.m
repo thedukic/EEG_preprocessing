@@ -40,49 +40,61 @@ end
 EEG.ALSUTRECHT.extremeNoise.absoluteAmplitudeExceededThreshold = extremeMask;
 
 %% Strong EMG
-% EOG: Temporarily filter, lowpass 6 Hz
-[bl, al] = butter(2,6/(EEG.srate/2),'low');
+
+% 1. EOG: Temporarily filter, lowpass 6 Hz
+[bl, al] = butter(2,15/(EEG.srate/2),'low');
 assert(isstable(bl,al));
-dataeog = filtfilt(bl,al,dataeog);
+dataeog = filtfilt(bl,al,dataeog')';
 
 treshold = prctile(dataeog,75,2) + 3*iqr(dataeog,2);
-mask = dataeog<treshold;
+mask = dataeog>treshold;
 
 data2 = dataeog;
-data2(mask)  = 0;
-data2(~mask) = 20;
+data2(~mask)  = 0;
+data2(mask) = 20;
 
-data2 = conv(data2,ones(1,2),'same');
+data2 = conv(data2,ones(1,8),'same');
 data2 = movmean(data2',16)';
 
-% EOG mask looks like it is lagging wrt EEG mask by ~d samples
-d = 20;
-data2(1:d) = [];
-data2 = [data2, data2(end)*ones(1,d)];
-assert(length(data2)==length(dataeog));
+% % EOG mask looks like it is lagging wrt EEG mask by ~d samples
+% d = 20;
+% data2(1:d) = [];
+% data2 = [data2, data2(end)*ones(1,d)];
+% assert(length(data2)==length(dataeog));
 
-% EEG: Temporarily filter, highpass 25 Hz
-[bl, al] = butter(5,25/(EEG.srate/2),'high');
+% 2. EEG: Temporarily filter, highpass 25 Hz
+[bl, al] = butter(5,70/(EEG.srate/2),'high');
 assert(isstable(bl,al));
-dataeeg = filtfilt(bl,al,dataeeg);
-dataeeg = [zeros(sum(chaneeg),1), diff(dataeeg')'];
+dataeeg = filtfilt(bl,al,dataeeg')';
+% dataeeg = [zeros(sum(chaneeg),1), diff(dataeeg')'];
 dataeeg = abs(dataeeg);
+
+% Zero out parts around EOG
+dataeeg(:,data2>0) = 0;
+% dataeeg = movmean(dataeeg',64)';
 
 % % Check
 % EEG0 = EEG;
 % EEG0.data(chaneeg,:) = dataeeg;
 % vis_artifacts(EEG,EEG0);
 
-treshold = prctile(dataeeg,75,2) + 3*iqr(dataeeg,2);
-mask = dataeeg<treshold;
+dataTmp = dataeeg(:,data2==0);
+dataTmp(dataTmp==0) = [];
+treshold = prctile(dataTmp(:),50);
+dataeeg(dataeeg<treshold) = 0;
+
+dataTmp = dataeeg(:,data2==0);
+dataTmp(dataTmp==0) = [];
+treshold = prctile(dataTmp(:),75) + 3*iqr(dataTmp(:));
+mask = dataeeg>treshold;
 
 data1 = dataeeg;
-data1(mask)  = 0;
-data1(~mask) = 1;
+data1(~mask) = 0;
+data1(mask)  = 1;
 
-for i = 1:size(data1,1)
-    data1(i,:) = conv(data1(i,:),ones(1,10),'same');
-end
+% for i = 1:size(data1,1)
+%     data1(i,:) = conv(data1(i,:),ones(1,10),'same');
+% end
 data1 = movmean(data1',64)';
 
 % Mask
@@ -91,9 +103,29 @@ data1 = movmean(data1',64)';
 % extremeMask(extremeMask<25) = 0;
 
 % At least 25% of electrodes must be affected
-extremeMask = data1>0.1*max(data1,[],"all");
+dataTmp = data1(:,data2==0);
+dataTmp(dataTmp==0) = [];
+treshold = prctile(dataTmp,50);
+
+% h = histogram(dataTmp);
+% % Retrieve some properties from the histogram
+% V = h.Values;
+% E = h.BinEdges;
+% % Use islocalmax
+% L = islocalmax(V);
+% % Find the centers of the bins that islocalmax identified as peaks
+% left = E(L);
+% right = E([false L]);
+% center = (left + right)/2;
+% % Plot markers on those bins
+% figure; plot(V);
+% figure; plot(center, V(L), 'o');
+% % figure; histogram(dataTmp);
+
+extremeMask = data1>treshold;
+% extremeMask = data1>0.1*max(data1(:,~data2),[],"all");
 extremeMask = 100*mean(extremeMask,1);
-extremeMask(extremeMask<25) = 0;
+extremeMask(extremeMask<20) = 0;
 extremeMask = movmean(extremeMask,64)>0;
 
 % extremeMask = sum(data1,1);
@@ -139,7 +171,7 @@ if any(extremeMask0)
     % % Check
     % EEG0 = EEG;
     % EEG0.data = EEG0.data*0;
-    % EEG0.data(chaneeg,:) = 10*data1;
+    % EEG0.data(chaneeg,:) = 100*data1;
     % EEG0.data(chaneog,:) = 10*data2;
     % EEG0.data(end,:)     = 500*extremeMask;
     % vis_artifacts(EEG,EEG0);
