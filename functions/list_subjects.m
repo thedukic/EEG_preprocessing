@@ -22,10 +22,10 @@ if ~isempty(todolist)
         if sum(ismember(subjects,todolist))==length(todolist)
             subjects = todolist;
         else
-            error('Some of your to-do participants are not in the given folder...');
+            error('Some of your to-do participants are not in the given folder.');
         end
     else
-        error('Check you to-do participant list...');
+        error('Check your to-do participant list.');
     end
 end
 

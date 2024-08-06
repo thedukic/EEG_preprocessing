@@ -22,9 +22,15 @@ dataeog = EEG.data(chaneog,:);
 [bh, ah] = butter(2,1/(EEG.srate/2),'high');
 assert(isstable(bl,al));
 assert(isstable(bh,ah));
-dataeog = filtfilt(bl,al,dataeog);
-dataeog = filtfilt(bh,ah,dataeog);
+dataeog = filtfilt(bl,al,dataeog')';
+dataeog = filtfilt(bh,ah,dataeog')';
 % dataeog = abs(dataeog);
+
+% Do this only if it is for MWF (R2)
+if ~isfield(EEG.ALSUTRECHT.MWF,'R2')
+    assert(length(dataeog)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1));
+    dataeog(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = 0;
+end
 
 % VEOG
 EOGIQR = iqr(dataeog);

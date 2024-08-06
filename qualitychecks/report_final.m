@@ -15,29 +15,33 @@ chanlbls = {chanlocs.labels};
 maskelec = zeros(length(chanlocs),NSUB);
 
 % =========================================================================
-N = NaN(NSUB,4);
+N = NaN(NSUB,5);
 Medianvoltageshift = NaN(length(chanlbls),NSUB);
 
 for i = 1:NSUB
-    load(fullfile(myfolders.preproc,subjects{i},[subjects{i} '_' myfolders.visit '_' myfolders.task '_cleandata_' rnum '.mat']),'preprocReport');
+    load(fullfile(myfolders.preproc,subjects{i},[subjects{i} '_' myfolders.visit '_' myfolders.task '_cleandata_' rnum 'b.mat']),'preprocReport');
 
     maskelec(:,i) = double(ismember(chanlbls,preprocReport.badchaninfo.badElectrodes));
     N(i,1) = sum(maskelec(:,i));
 
     % Total possible
-    switch myfolders.task
-        case {'RS','EO','EC'}
-            % Assume 2s with 0.75 overlap
-            N(i,2) = sum([preprocReport.eventinfo{:,3}])*4/2;
-        otherwise
-            N(i,2) = sum([preprocReport.eventinfo{:,3}]);
-    end
+    % switch myfolders.task
+    %     case {'RS','EO','EC'}
+    %         % Assume 2s with 0.75 overlap
+    %         N(i,2) = sum([preprocReport.eventinfo{:,3}])*4/2;
+    %     otherwise
+    %         % N(i,2) = sum([preprocReport.eventinfo{:,3}]);
+    % end
+    N(i,2) = preprocReport.issues_to_check.NumberTrials1;
+
     % Left after preproc
     N(i,3) = preprocReport.issues_to_check.NumberTrials2;
+    % Left after trial rejection
+    N(i,4) = preprocReport.issues_to_check.NumberTrials4;
     % Leftover EMG
-    N(i,4) = preprocReport.issues_to_check.MuscleLeftovers;
+    N(i,5) = preprocReport.issues_to_check.MuscleLeftovers;
 
-    Medianvoltageshift(:,i) = preprocReport.issues_to_check.Medianvoltageshiftwithinepoch(1:128);
+    Medianvoltageshift(:,i) = preprocReport.issues_to_check.MedianvoltageshiftwithinepochFinal(1:128);
 end
 
 % =========================================================================
@@ -46,33 +50,45 @@ fh = figure;
 th = tiledlayout(4,1);
 th.TileSpacing = 'compact'; th.Padding = 'compact';
 
-% Plot 1
-myCmap = brewermap(256,'RdPu');
+% Plot 1: Which channels are usually interpoalted
+myCmap1 = brewermap(128,'RdPu');
+myCmap2 = brewermap(3,'YlOrRd');
+myCmap3 = brewermap(12,'Paired');
 
 nexttile(1);
-topoplot(mean(maskelec,2),chanlocs,'maplimits',[0 0.25],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map');
+topoplot(mean(maskelec,2),chanlocs,'maplimits',[0 0.25],'headrad','rim','colormap',myCmap1,'whitebk','on','electrodes','on','style','map');
 axis tight; title([myfolders.group ', N = ' num2str(NSUB)]);
 hcb = colorbar;
 hcb.Title.String = "%";
 
-% Plot 2
+% Plot 2: Interpoalted channels per person
 nexttile; hold on;
 plot([0 NSUB],[0.15 0.15],'LineWidth',1.2,'Color',0.6*ones(1,3));
-bar(N(:,1)/128); ylim([0 0.35]); box on;
+bar(N(:,1)/128,'FaceColor',myCmap1(end/2,:)); ylim([0 1]); box on;
+
 ylabel('Interpolated channels (%)');
+xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
+
+% Plot 3: EMG lefovers from preprocessing but might be less after trial rejection
+nexttile; hold on;
+plot([0 NSUB],[0.25 0.25],'LineWidth',1.2,'Color',0.6*ones(1,3));
+bar(N(:,5),'FaceColor',myCmap3(12,:)); ylim([0 1]); box on;
+
+xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
+ylabel('EMG leftover (%)');
 
 % Plot 3
 nexttile;
-Ntmp = [N(:,3), N(:,2)-N(:,3)];
-bar(Ntmp,'stacked');
-ylabel('Number of trials');
+Ntmp = [N(:,4), N(:,3)-N(:,4), N(:,2)-N(:,3)];
+bh = bar(Ntmp,'stacked');
+bh(1).FaceColor = myCmap2(3,:);
+bh(2).FaceColor = myCmap2(2,:);
+bh(3).FaceColor = myCmap2(1,:);
 
-% Plot 4
-nexttile; hold on;
-plot([0 NSUB],[0.25 0.25],'LineWidth',1.2,'Color',0.6*ones(1,3));
-bar(N(:,4)); ylim([0 1]); box on;
-ylabel('EMG leftover');
-xlabel('Participant');
+ylim([0 max(sum(Ntmp,2))]);
+ylabel('Number of trials');
+xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
+% xlabel('Participant');
 
 % Save
 plotX=18; plotY=14;
@@ -103,24 +119,50 @@ end
 
 VoltageShiftsTooLow=MedianvoltageshiftwithinepochLogged;
 VoltageShiftsTooLow=VoltageShiftsTooLow-LowerBound;
-VoltageShiftsTooLow(0<VoltageShiftsTooLow)=0;
+VoltageShiftsTooLow(VoltageShiftsTooLow>0)=0;
 CumulativeSeverityOfAmplitudesBelowThreshold = sum(VoltageShiftsTooLow,1)';
 
 VoltageShiftsTooHigh=MedianvoltageshiftwithinepochLogged;
 VoltageShiftsTooHigh=VoltageShiftsTooHigh-UpperBound;
-VoltageShiftsTooHigh(0>VoltageShiftsTooHigh)=0;
+VoltageShiftsTooHigh(VoltageShiftsTooHigh<0)=0;
 CumulativeSeverityOfAmplitudesAboveThreshold = sum(VoltageShiftsTooHigh,1)';
 
-% Plot:
+% 2. Plot:
 fh = figure; hold on;
-plot(LowerBound,'LineWidth',1.5,'Color','k'); 
+plot(LowerBound,'LineWidth',1.5,'Color','k');
 plot(UpperBound,'LineWidth',1.5,'Color','k');
 plot(MedianvoltageshiftwithinepochLogged,'LineWidth',1.2);
 
+ylabel('Median Voltage shift (uV)');
 xticks(1:128); xticklabels({chanlocs.labels}); xlim([1 128]);
 legend('LowerBound', 'UpperBound');
-
 set(gca,'ColorOrder',[0 0 0; 0 0 0; brewermap(NSUB,'BuGn')]);
+
+plotX=15; plotY=10;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+
+% 3. Visualise
+maskSubj = find(CumulativeSeverityOfAmplitudesAboveThreshold>0);
+
+fh = figure;
+th = tiledlayout(1,length(maskSubj));
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+
+for i = 1:length(maskSubj)
+    maskChan = VoltageShiftsTooHigh(:,maskSubj(i))>0;
+    str = strjoin(chanlbls(maskChan),', ');
+    fprintf('%s: %s\n',subjects{maskSubj(i)},str);
+
+    % [min(MedianvoltageshiftwithinepochLogged(:,maskSubj(i))), max(MedianvoltageshiftwithinepochLogged(:,maskSubj(i)))]
+    nexttile;
+    topoplot(MedianvoltageshiftwithinepochLogged(:,maskSubj(i)),chanlocs,'maplimits',[1.2 1.9],'headrad','rim','colormap',myCmap1,'whitebk','on','electrodes','on','style','map','emarker',{'.',[.5 .5 .5],[],1},'emarker2',{find(maskChan),'o','k',4,1});
+    title(subjects{maskSubj(i)});
+end
+
+plotX=15; plotY=10;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
 
 % OutlierParticipantsToManuallyCheck   = table(Participant_IDs', CumulativeSeverityOfAmplitudesBelowThreshold,CumulativeSeverityOfAmplitudesAboveThreshold);
 % LoggedMedianVoltageShiftAcrossEpochs = array2table(MedianvoltageshiftwithinepochLogged);

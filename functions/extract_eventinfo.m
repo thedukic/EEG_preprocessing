@@ -128,7 +128,7 @@ switch EEG(1).ALSUTRECHT.subject.task
 
             eventinfo{i,3} = sum(eventinfo{i,1}==labels2(1) | eventinfo{i,1}==labels2(2) | eventinfo{i,1}==labels2(3))/3;
             eventinfo{i,4} = EEG(i).srate;
-            fprintf('MT%d has %d trials.\n',i,floor(eventinfo{i,3}/3));
+            fprintf('MT%d has %d trials.\n',i,floor(eventinfo{i,3}));
         end
     case {'RS','EO','EC'}
         fprintf('Resting-state data does not have events by default. Returning only the number of possible 1s trials in each block.\n');
@@ -144,4 +144,5 @@ end
 for i = 1:NBLK
     EEG(i).ALSUTRECHT.eventinfo = eventinfo;
 end
+
 end

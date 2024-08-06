@@ -2,14 +2,23 @@ function [slopesChannelsxEpochs, other] = dected_emg(EEG)
 
 % Select only EEG
 chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-dataeeg = EEG.data(chaneeg,:);
 
-% Epoch into 1s (or maybe better into 1s with 0.5 overlap, but OK)
-L = EEG.srate;
-N = floor(size(dataeeg,2)/L);
-dataeeg = reshape(dataeeg(:,1:N*L),sum(chaneeg),L,N);
+if ndims(EEG.data)==3
+    dataeeg = EEG.data(chaneeg,:,:);
 
-modulus = size(EEG.data,2)-N*L;
+    L = EEG.pnts;
+    N = EEG.trials;
+else
+    dataeeg = EEG.data(chaneeg,:);
+
+    % Epoch into 1s (or maybe better into 1s with 0.5 overlap, but OK)
+    L = EEG.srate;
+    N = floor(size(dataeeg,2)/L);
+    dataeeg = reshape(dataeeg(:,1:N*L),sum(chaneeg),L,N);
+end
+
+% Check
+modulus = size(EEG.data(:,:),2)-N*L;
 assert(modulus>=0);
 
 % Compute (log) power spectra (7-75 Hz)

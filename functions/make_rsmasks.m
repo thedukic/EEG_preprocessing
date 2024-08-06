@@ -1,28 +1,27 @@
 function EEG = make_rsmasks(EEG)
-% Make a mask for each trial
-% eg
+% Make a mask for each block
+% e.g.,
 % 111 000 000
 % 000 111 000
 % 000 000 111
-% N = cellfun(@(x,y) size(x,2),{EEG(:).data});
 
-% Mark where each block starts/stops
+% Mark start/stop of each block
 N = cellfun(@(x,y) size(x,2),{EEG(:).data});
 NBLK = length(N);
 
 rs_mask = false(NBLK,sum(N));
-for j = 1:NBLK
-    if j == 1
-        rs_mask(j,1:N(1)) = true;
+for i = 1:NBLK
+    if i == 1
+        rs_mask(i,1:N(1)) = true;
     else
-        rs_mask(j,sum(N(1:j-1))+1:sum(N(1:j))) = true;
+        rs_mask(i,sum(N(1:i-1))+1:sum(N(1:i))) = true;
     end
 end
 
-% Check
+% Double-check
 assert(sum(rs_mask,"all")==sum(N));
 
-% Which are eyes-open blocks
+% Mark eyes-open blocks
 eo_mask = contains(EEG(1).ALSUTRECHT.subject.datablocks,'EO');
 
 % Log

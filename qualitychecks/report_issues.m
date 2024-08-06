@@ -4,7 +4,6 @@ if isfield(EEG,'data')
     % ALS number
     issues_to_check.aFileName = EEG.ALSUTRECHT.subject.id;
     issues_to_check.NumberTrials1 = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);   % Total possible
-    % issues_to_check.NumberTrials2 = floor(length(EEG.times)/EEG.srate);   % Left after preproc
     issues_to_check.NumberTrials2 = size(EEG.data,3);                       % Left after preproc
     issues_to_check.NumberIC1 = EEG.ALSUTRECHT.badchaninfo.wica.icmax;
     issues_to_check.NumberIC2 = EEG.ALSUTRECHT.ica.icmax;
@@ -32,22 +31,25 @@ if isfield(EEG,'data')
 
     % MWF
     MFWrounds = fields(EEG.ALSUTRECHT.MWF);
+    MFWrounds = MFWrounds(contains(MFWrounds,'R'));
     for j = 1:length(MFWrounds)
-        issues_to_check.(['MWF' MFWrounds{j} 'Status1']) =  EEG.ALSUTRECHT.MWF.(MFWrounds{j}).status;
+        issues_to_check.(['MWF' MFWrounds{j} 'Status1']) = EEG.ALSUTRECHT.MWF.(MFWrounds{j}).status;
 
         % If SER/ARR are NaN, then MWF failed
-        if isnan(EEG.ALSUTRECHT.MWF.(MFWrounds{j}).signalToErrorRatio) || isnan(EEG.ALSUTRECHT.MWF.(MFWrounds{j}).artifactToResidueRatio)
-            issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  0;
+        if isnan(EEG.ALSUTRECHT.MWF.(MFWrounds{j}).signalToErrorRatio)
+            issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  NaN;
+        elseif isinf(EEG.ALSUTRECHT.MWF.(MFWrounds{j}).signalToErrorRatio)
+            issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  Inf;
         else
             issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  1;
         end
 
-        % Bad data should not be more than 50-ish%
-        if EEG.ALSUTRECHT.MWF.(MFWrounds{j}).proportionMarkedForMWF>0.6
-            issues_to_check.(['MWF' MFWrounds{j} 'BadData']) =  EEG.ALSUTRECHT.MWF.(MFWrounds{j}).proportionMarkedForMWF;
-        else
-            issues_to_check.(['MWF' MFWrounds{j} 'BadData']) =  0;
-        end
+        % % Bad data should not be more than 50-ish%
+        % if EEG.ALSUTRECHT.MWF.(MFWrounds{j}).proportionMarkedForMWF>0.6
+        %     issues_to_check.(['MWF' MFWrounds{j} 'BadData']) =  EEG.ALSUTRECHT.MWF.(MFWrounds{j}).proportionMarkedForMWF;
+        % else
+        %     issues_to_check.(['MWF' MFWrounds{j} 'BadData']) =  0;
+        % end
     end
     % if ~isempty(tmpLabels)
     %     issues_to_check.HighProportionOfBadDataMWF = strjoin(aField(tmpLabels),', ');

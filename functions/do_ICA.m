@@ -58,12 +58,24 @@ else
     EEG = pop_runica(EEG,'icatype',lower(cfg.ica.type2),'extended',1,'pca',cfg.ica.icMax,'lrate',1e-4,'maxsteps',2000);
 end
 
+% Make sure IC activations are present
+EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
+EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
+
+% Calculate the variances
+NICA = length(EEG.reject.gcompreject);
+varICs = NaN(NICA,1);
+for i = 1:NICA
+    [~, varICs(i)] = compvar(EEG.data,EEG.icaact,EEG.icawinv,i);
+end
+
 % Double-check
 EEG = eeg_checkset(EEG,'ica');
 
 % Log
 EEG.ALSUTRECHT.ica.icmax  = cfg.ica.icMax;
 EEG.ALSUTRECHT.ica.icmax2 = NICA95;
+EEG.ALSUTRECHT.ica.varICs = varICs;
 
 % Report
 fprintf('\nICA has just finished...\n');
