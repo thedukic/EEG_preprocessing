@@ -32,7 +32,7 @@ subject.clnfile = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' c
 % Report
 fprintf('\n');
 disp('==================================================================');
-fprintf('%s | %s | %s dataset\n',myPaths.group,subject.id,myPaths.task);
+fprintf('%s | %s | %s dataset | processing part 1\n',myPaths.group,subject.id,myPaths.task);
 disp('==================================================================');
 fprintf('\n');
 
@@ -281,7 +281,7 @@ EEG = report_issues(EEG);
 if strcmpi(myPaths.task,'SART'), EEG2.ALSUTRECHT.issues_to_check = EEG.ALSUTRECHT.issues_to_check; end
 
 % Save cleaned data
-fprintf('\n%s: Saving the preprocessed data...\n',subject.id);
+fprintf('\n%s: Saving the preprocessed data (part 1)...\n',subject.id);
 preprocReport = EEG.ALSUTRECHT;
 if ~strcmpi(myPaths.task,'SART')
     save(fullfile(subject.preproc,subject.clnfile),'EEG','preprocReport','cfg','procTimeTags');

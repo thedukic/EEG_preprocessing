@@ -1,7 +1,15 @@
 function EEG = do_ICA(EEG,cfg)
 
 % Check the rank
-assert(get_rank(EEG.data(:,:))>cfg.ica.icMax);
+rankData = get_rank(EEG.data(:,:));
+rankICA  = cfg.ica.icMax;
+
+if rankICA>rankData
+    warning('Many electrodes were already excluded.. Probably low quality data.');
+    printf('Data rank %d < %d\n',rankData,cfg.ica.icMax);
+    rankICA = rankData;
+end
+% assert(get_rank(EEG.data(:,:))>cfg.ica.icMax);
 
 % Check variance explained
 [~,~,~,~,explained] = pca(EEG.data(:,:)');
@@ -16,8 +24,8 @@ if strcmpi(cfg.ica.type2,'AMICA')
     cd(EEG.ALSUTRECHT.subject.icadata);
 
     % Run AMICA
-    % runamica15(EEG.data,'num_chans',EEG.nbchan,'outdir',EEG.ALSUTRECHT.subject.icadata,'pcakeep',cfg.ica.icMax,'num_models',1,'numprocs',1,'max_threads',10,'do_reject',1,'numrej',15,'rejsig',3,'rejint',1);
-    runamica15(EEG.data,'num_chans',EEG.nbchan,'outdir',EEG.ALSUTRECHT.subject.icadata,'pcakeep',cfg.ica.icMax,'num_models',1,'numprocs',1,'max_threads',10,'max_iter',1000);
+    % runamica15(EEG.data,'num_chans',EEG.nbchan,'outdir',EEG.ALSUTRECHT.subject.icadata,'pcakeep',rankICA,'num_models',1,'numprocs',1,'max_threads',10,'do_reject',1,'numrej',15,'rejsig',3,'rejint',1);
+    runamica15(EEG.data,'num_chans',EEG.nbchan,'outdir',EEG.ALSUTRECHT.subject.icadata,'pcakeep',rankICA,'num_models',1,'numprocs',1,'max_threads',10,'max_iter',1000);
 
     EEG.etc.amica   = loadmodout15(EEG.ALSUTRECHT.subject.icadata);
     EEG.etc.amica.S = EEG.etc.amica.S(1:EEG.etc.amica.num_pcs,:);
@@ -25,7 +33,7 @@ if strcmpi(cfg.ica.type2,'AMICA')
     EEG.icasphere   = EEG.etc.amica.S;
 
     % % Run multimode AMICA for RS (EO+EC) data - MT too???
-    % runamica15(EEG.data,'num_chans',EEG.nbchan,'outdir',EEG.ALSUTRECHT.subject.icadata,'pcakeep',cfg.ica.icMax,'num_models',2,'numprocs',1,'max_threads',10,'max_iter',1000);
+    % runamica15(EEG.data,'num_chans',EEG.nbchan,'outdir',EEG.ALSUTRECHT.subject.icadata,'pcakeep',rankICA,'num_models',2,'numprocs',1,'max_threads',10,'max_iter',1000);
     %
     % model_index = 2;
     % EEG.etc.amica   = loadmodout15(EEG.ALSUTRECHT.subject.icadata);
@@ -55,7 +63,7 @@ if strcmpi(cfg.ica.type2,'AMICA')
     % If you want to know which data points were rejected, you can check EEG.etc.amica.Lht.
     % If any datapoint shows 0, it means the datapoints were rejected by AMICA.
 else
-    EEG = pop_runica(EEG,'icatype',lower(cfg.ica.type2),'extended',1,'pca',cfg.ica.icMax,'lrate',1e-4,'maxsteps',2000);
+    EEG = pop_runica(EEG,'icatype',lower(cfg.ica.type2),'extended',1,'pca',rankICA,'lrate',1e-4,'maxsteps',2000);
 end
 
 % Make sure IC activations are present
@@ -73,19 +81,20 @@ end
 EEG = eeg_checkset(EEG,'ica');
 
 % Log
-EEG.ALSUTRECHT.ica.icmax  = cfg.ica.icMax;
+EEG.ALSUTRECHT.ica.icmax0 = cfg.ica.icMax;
+EEG.ALSUTRECHT.ica.icmax1 = rankICA;
 EEG.ALSUTRECHT.ica.icmax2 = NICA95;
 EEG.ALSUTRECHT.ica.varICs = varICs;
 
 % Report
 fprintf('\nICA has just finished...\n');
-fprintf('Total number of estimated ICs: %d\n', cfg.ica.icMax);
+fprintf('Total number of estimated ICs (max %d): %d\n', rankICA,cfg.ica.icMax);
 fprintf('Suggested number of useful ICs: %d\n', NICA95);
 
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'ICA\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
-fprintf(EEG.ALSUTRECHT.subject.fid,'Total number of estimated ICs: %d\n', cfg.ica.icMax);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Total number of estimated ICs (max %d): %d\n', rankICA,cfg.ica.icMax);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Suggested number of useful ICs: %d\n', NICA95);
 
 end

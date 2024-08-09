@@ -17,6 +17,11 @@ function [EEG, badElectrodes1] = remove_noisyelec(EEG,cfgbch)
 % SDukic edit, Feb 2024
 % =========================================================================
 
+cfgbch.MaxProportionOfElec = 0.15;
+TotalInitialChannels = 128;
+CurrentChannels      = sum(strcmp({EEG.chanlocs.type},'EEG'));
+YouCanRejectThisManyChannelsHere = floor(cfgbch.MaxProportionOfElec*TotalInitialChannels)-(TotalInitialChannels-CurrentChannels);
+
 % =========================================================================
 % 1. PREP function
 fprintf('\nDetecting and removing noisy electrodes using PREP toolbox...\n');
@@ -67,11 +72,25 @@ slopesChannelsxEpochs = dected_emg(EEGTMP);
 
 % Detect noisy channels
 badElectrodes2 = mean(slopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,2);
-badElectrodes2 = find(badElectrodes2>cfgbch.MuscleSlopeTime);
+
+% badElectrodes2 = badElectrodes2;
+% badElectrodes2(badElectrodes1) = [];
+
+initalSum = sum(badElectrodes2>cfgbch.MuscleSlopeTime);
+initalProportion = initalSum/length(badElectrodes2);
+if initalProportion>cfgbch.MaxProportionOfElec
+    warning('Too many electrodes (%d) are makred for rejection based on their EMG-slope.',initalSum);
+    badElectrodes2sorted = sort(badElectrodes2,1,'descend');
+    MuscleSlopeTimeNew   = badElectrodes2sorted(YouCanRejectThisManyChannelsHere,1);
+    badElectrodes2       = find(badElectrodes2>MuscleSlopeTimeNew);
+    warning('Lowering that to N = %d.',length(badElectrodes2));
+end
 
 % Log
 EEG.ALSUTRECHT.badchaninfo.PREPElectrodes = {EEG.chanlocs(badElectrodes1).labels};
 EEG.ALSUTRECHT.badchaninfo.EMGSlope       = {EEG.chanlocs(badElectrodes2).labels};
+EEG.ALSUTRECHT.badchaninfo.EMGSlopeInitalSum        = initalSum;
+EEG.ALSUTRECHT.badchaninfo.EMGSlopeInitalProportion = initalProportion;
 
 % 3. Combine
 badElectrodes = unique([badElectrodes1(:); badElectrodes2(:)]);
