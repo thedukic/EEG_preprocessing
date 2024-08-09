@@ -61,12 +61,14 @@ sortingOutWorstMuscleEpochs = sum(sortingOutWorstMuscleEpochs,1,'omitnan');
 NTRL = size(slopesChannelsxEpochs,2);
 templateMarkedForMuscleArtifacts = zeros(1,NTRL);
 
-assert(NTRL==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
-templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
-
 % Threshold = 0, because all slope values have had the threshold subtracted from them (so the threshold is now 0)
 muscleSlopeThresholdAfterAdjustment = 0;
 templateMarkedForMuscleArtifacts(sortingOutWorstMuscleEpochs>muscleSlopeThresholdAfterAdjustment) = 1;
+
+% Mark extremly bad epochs as they may now appear as EMG-free!
+assert(NTRL==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
+templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
+
 ProportionOfDataShowingMuscleActivityTotal = mean(templateMarkedForMuscleArtifacts,"omitnan");
 
 fprintf('Total amount of muscle artifact: %1.2f\n', ProportionOfDataShowingMuscleActivityTotal);
@@ -85,9 +87,14 @@ if ProportionOfDataShowingMuscleActivityTotal > MaxProportionOfDataCanBeMarkedAs
     fprintf(EEG.ALSUTRECHT.subject.fid,'That is too much for MWF. Limiting it to worst 50%%.\n');
 
     templateMarkedForMuscleArtifacts = zeros(1,NTRL);
+    % 1. Original
+    % muscleSlopeThresholdAfterAdjustment = prctile(sortingOutWorstMuscleEpochs,100-(MaxProportionOfDataCanBeMarkedAsMuscle*100));
+    % 2. Use only those epochs that are not extremly bad, as they can obscure the following estimation
+    extremelyBadEpochsExcluded = sortingOutWorstMuscleEpochs(~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2);
+    muscleSlopeThresholdAfterAdjustment = prctile(extremelyBadEpochsExcluded,100-(MaxProportionOfDataCanBeMarkedAsMuscle*100));
+
+    templateMarkedForMuscleArtifacts(sortingOutWorstMuscleEpochs>=muscleSlopeThresholdAfterAdjustment) = 1;
     templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
-    muscleSlopeThresholdAfterAdjustment = prctile(sortingOutWorstMuscleEpochs,100-(MaxProportionOfDataCanBeMarkedAsMuscle*100));
-    templateMarkedForMuscleArtifacts(sortingOutWorstMuscleEpochs>muscleSlopeThresholdAfterAdjustment) = 1;
 end
 
 % Find those trials

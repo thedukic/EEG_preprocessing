@@ -32,7 +32,7 @@ procTimeTags = {myPaths.proctime; strrep(strrep(char(t0),':','-'),' ','-')};
 % Report
 fprintf('\n');
 disp('==================================================================');
-fprintf('%s | %s | %s dataset\n',myPaths.group,subject.id,myPaths.task);
+fprintf('%s | %s | %s dataset | processing part 2\n',myPaths.group,subject.id,myPaths.task);
 disp('==================================================================');
 fprintf('\n');
 
@@ -296,6 +296,7 @@ elseif strcmpi(myPaths.task,'MT')
 end
 
 % 7. Save and return
+fprintf('\n%s: Saving the preprocessed data (part 2)...\n',subject.id);
 checkReport = EEG.ALSUTRECHT.issues_to_check;
 checkReport = rmfield(checkReport,{'Medianvoltageshiftwithinepoch','MedianvoltageshiftwithinepochFinal'});
 

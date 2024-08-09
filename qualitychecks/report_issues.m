@@ -6,8 +6,9 @@ if isfield(EEG,'data')
     issues_to_check.NumberTrials1 = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);   % Total possible
     issues_to_check.NumberTrials2 = size(EEG.data,3);                       % Left after preproc
     issues_to_check.NumberIC1 = EEG.ALSUTRECHT.badchaninfo.wica.icmax;
-    issues_to_check.NumberIC2 = EEG.ALSUTRECHT.ica.icmax;
-    issues_to_check.NumberIC3 = EEG.ALSUTRECHT.ica.icmax2;
+    issues_to_check.NumberIC2 = EEG.ALSUTRECHT.ica.icmax0;
+    issues_to_check.NumberIC3 = EEG.ALSUTRECHT.ica.icmax1;
+    issues_to_check.NumberIC4 = EEG.ALSUTRECHT.ica.icmax2;
 
     % Bad electrodes
     issues_to_check.FlatElectrodesDiscrepancy = EEG.ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy;

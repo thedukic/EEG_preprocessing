@@ -12,7 +12,7 @@ delete(gcp("nocreate")); parpool("Processes");
 myPaths = preproc_folders;
 
 % Add specific info: group/task/visit
-for i = 3  % :length(myPaths.group)
+for i = 1  % :length(myPaths.group)
     for j = 1 % :length(myPaths.visit)
         myPathsTmp          = myPaths;
         myPathsTmp.task     = myPaths.task;
