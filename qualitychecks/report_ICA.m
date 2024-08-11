@@ -61,7 +61,7 @@ th.TileSpacing = 'compact'; th.Padding = 'compact';
 
 for i = 1:20
     nexttile;
-    topoplot(EEG.icawinv(:,i),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,i)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map');
+    topoplot(EEG.icawinv(:,i),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,i)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
 
     thisLabel = EEG.ALSUTRECHT.ica.ICLabel.clss{EEG.ALSUTRECHT.ica.ICLabel.cvec(i)};
     if contains(thisLabel,'Brain')
@@ -93,7 +93,7 @@ close(fh);
 %
 % for i = 1:length(EEG.ALSUTRECHT.ica.ICLabel.bics)
 %     nexttile;
-%     topoplot(EEG.icawinv(:,EEG.ALSUTRECHT.ica.ICLabel.bics(i)),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,EEG.ALSUTRECHT.ica.ICLabel.bics(i))))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map');
+%     topoplot(EEG.icawinv(:,EEG.ALSUTRECHT.ica.ICLabel.bics(i)),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,EEG.ALSUTRECHT.ica.ICLabel.bics(i))))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map','shading','interp');
 %     title({['ICA' num2str(EEG.ALSUTRECHT.ica.ICLabel.bics(i))], [EEG.ALSUTRECHT.ica.ICLabel.clss{EEG.ALSUTRECHT.ica.ICLabel.cvec(EEG.ALSUTRECHT.ica.ICLabel.bics(i))} ', P = ' num2str(round(EEG.ALSUTRECHT.ica.ICLabel.pvec(EEG.ALSUTRECHT.ica.ICLabel.bics(i)),2))]});
 %     axis tight;
 % end
@@ -124,7 +124,7 @@ close(fh);
 % %         for j = 1:length(badICtypeIndx)
 % %             nexttile(maxBadIC*(i-1)+j);
 % %             thisIC = EEG.ALSUTRECHT.ica.combi.bics(badICtypeIndx(j));
-% %             topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map');
+% %             topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map','shading','interp');
 % %             title({['ICA' num2str(thisIC)], [EEG.ALSUTRECHT.ica.combi.clss{i} ', R = ' num2str(round(EEG.ALSUTRECHT.ica.combi.corr(thisIC,i),2))]});
 % %             axis tight;
 % %         end
@@ -141,7 +141,7 @@ close(fh);
 %
 %     thisIC = EEG.ALSUTRECHT.ica.extra1.bics(i);
 %     thisClass = EEG.ALSUTRECHT.ica.extra1.cvec(i);
-%     topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map');
+%     topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map','shading','interp');
 %     title({['ICA' num2str(thisIC)], [EEG.ALSUTRECHT.ica.extra1.clss{thisClass} ', R = ' num2str(round(EEG.ALSUTRECHT.ica.extra1.corr(thisIC,thisClass),2))]});
 %     axis tight;
 % end
@@ -162,7 +162,7 @@ close(fh);
 %     nexttile;
 %     thisIC = EEG.ALSUTRECHT.ica.extra2.bics(i);
 %     thisClass = EEG.ALSUTRECHT.ica.extra2.cvec(i);
-%     topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map');
+%     topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map','shading','interp');
 %     if thisClass == 1
 %         measureLabel = 'Slope';
 %         measureValue = EEG.ALSUTRECHT.ica.extra2.musleSlope(thisIC);
@@ -192,7 +192,7 @@ myCmap2 = brewermap(4,'Set1');
 for i = 1:length(EEG.ALSUTRECHT.ica.combi.bics)
     nexttile;
     thisIC = EEG.ALSUTRECHT.ica.combi.bics(i);
-    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map');
+    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
     title({['ICA' num2str(thisIC)], [EEG.ALSUTRECHT.ica.combi.lbls{i} ', ' EEG.ALSUTRECHT.ica.combi.meth{i} ' = ' num2str(round(EEG.ALSUTRECHT.ica.combi.prbs(i),2))]},'Color',myCmap2(EEG.ALSUTRECHT.ica.combi.method(i),:));
 end
 
@@ -217,7 +217,7 @@ th.TileSpacing = 'compact'; th.Padding = 'compact';
 for i = 1:length(ICsMostLikelyBlink)
     nexttile;
     thisIC = ICsMostLikelyBlink(i);
-    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map');
+    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
     title(['ICA' num2str(thisIC),', Eye']);
 end
 
@@ -236,7 +236,7 @@ th.TileSpacing = 'compact'; th.Padding = 'compact';
 for i = 1:length(ICsMostLikelyMuscle)
     nexttile;
     thisIC = ICsMostLikelyMuscle(i);
-    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map');
+    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
     title(['ICA' num2str(thisIC),', Muscle']);
 end
 

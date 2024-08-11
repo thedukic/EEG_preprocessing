@@ -74,7 +74,7 @@ switch thisMethod
         EEG = eeg_checkset(EEG);
 
         % Save
-        plotX=30; plotY=15;
+        plotX=35; plotY=20;
         set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
         set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
         print(fh,fullfile(EEG(1).ALSUTRECHT.subject.preproc,[EEG(1).ALSUTRECHT.subject.id '_linenoiseremoval_1']),'-dtiff','-r300');

@@ -91,7 +91,7 @@ for i = 1:NBLK
     % title(['Block ' num2str(i)]);
 
     nexttile((i-1)*3+1);
-    topoplot(-log10(pval{i}(chaneeg)),EEG(i).chanlocs,'maplimits',[0 -log(Ptrsh)],'headrad','rim','whitebk','on','style','map','electrodes','on','emarker2',{badelec{i},'d','k',10,1});
+    topoplot(-log10(pval{i}(chaneeg)),EEG(i).chanlocs,'maplimits',[0 -log(Ptrsh)],'headrad','rim','whitebk','on','style','map','electrodes','on','emarker2',{badelec{i},'d','k',10,1},'shading','interp');
     title(['Block ' num2str(i)]); axis tight; colormap(myCmap1);
     hcb = colorbar;
     hcb.Title.String = "-log_{10}(P)";

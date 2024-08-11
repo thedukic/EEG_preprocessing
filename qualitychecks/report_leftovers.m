@@ -180,7 +180,7 @@ if NTRL>5
     th = nexttile;
     % mask = ismember({EEG.chanlocs(:).labels},cfg.ica.blinkchans);
     chanlocs = readlocs('biosemi128_eeglab.ced'); myCmap = brewermap(128,'BuPu'); % BrBG
-    topoplot(BlinkAmplitudeRatio,chanlocs,'headrad',0.5,'colormap',myCmap,'whitebk','on','electrodes','off','style','map'); % ,'emarker2',{find(mask),'d','k',10,1}
+    topoplot(BlinkAmplitudeRatio,chanlocs,'headrad',0.5,'colormap',myCmap,'whitebk','on','electrodes','off','style','map','shading','interp'); % ,'emarker2',{find(mask),'d','k',10,1}
 
     maxBlinkRatio = max(BlinkAmplitudeRatio);
     maxBlinkRatio = max(maxBlinkRatio,1.5);

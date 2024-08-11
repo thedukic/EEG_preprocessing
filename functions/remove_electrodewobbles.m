@@ -124,7 +124,7 @@ if ~isempty(badChanICs)
     myYlabel = cell(1,NBICS);
     for i = 1:NBICS
         nexttile;
-        topoplot(EEGICA.icawinv(:,badChanICs(i)),EEGICA.chanlocs,'maplimits',max(abs(EEGICA.icawinv(:,badChanICs(i))))*[-1 1],'headrad','rim','whitebk','on','style','map','electrodes','on');
+        topoplot(EEGICA.icawinv(:,badChanICs(i)),EEGICA.chanlocs,'maplimits',max(abs(EEGICA.icawinv(:,badChanICs(i))))*[-1 1],'headrad','rim','whitebk','on','style','map','electrodes','on','shading','interp');
         myYlabel{i} = {['ICA' num2str(badChanICs(i))], [icLabels{ICLabel_cvec(badChanICs(i))} ', P = ' num2str(round(ICLabel_pvec(badChanICs(i)),2))]};
         title(myYlabel{i}); axis tight; colormap(myCmap);
     end
@@ -179,7 +179,7 @@ if ~isempty(badChanICs)
             % ICs_signal = ICs_all-ICs_noise;
             % myClim = 0.9*max(abs(ICs_signal(:)));
 
-            % nexttile; topoplot(EEGICA.icawinv(:,badChanICs(i)),EEGICA.chanlocs,'maplimits',max(abs(EEGICA.icawinv(:,badChanICs(i))))*[-1 1],'headrad','rim','whitebk','on','style','map','electrodes','on');
+            % nexttile; topoplot(EEGICA.icawinv(:,badChanICs(i)),EEGICA.chanlocs,'maplimits',max(abs(EEGICA.icawinv(:,badChanICs(i))))*[-1 1],'headrad','rim','whitebk','on','style','map','electrodes','on','shading','interp');
             % axis tight; colormap(myCmap);
             % th = nexttile; imagesc(th,ICs_all); axis off; clim(th,myClim*[-1 1]);
             % % text(th.Position(1),mean(th.Position([2 4])),myYlabel{i},'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','bottom','FontSize',10);
