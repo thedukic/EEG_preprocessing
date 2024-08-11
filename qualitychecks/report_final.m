@@ -56,7 +56,7 @@ myCmap2 = brewermap(3,'YlOrRd');
 myCmap3 = brewermap(12,'Paired');
 
 nexttile(1);
-topoplot(mean(maskelec,2),chanlocs,'maplimits',[0 0.25],'headrad','rim','colormap',myCmap1,'whitebk','on','electrodes','on','style','map');
+topoplot(mean(maskelec,2),chanlocs,'maplimits',[0 0.25],'headrad',0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','shading','interp');
 axis tight; title([myfolders.group ', N = ' num2str(NSUB)]);
 hcb = colorbar;
 hcb.Title.String = "%";
@@ -66,7 +66,7 @@ nexttile; hold on;
 plot([0 NSUB],[0.15 0.15],'LineWidth',1.2,'Color',0.6*ones(1,3));
 bar(N(:,1)/128,'FaceColor',myCmap1(end/2,:)); ylim([0 1]); box on;
 
-ylabel('Interpolated channels (%)');
+ylabel('Interp. chans (%)');
 xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
 
 % Plot 3: EMG lefovers from preprocessing but might be less after trial rejection
@@ -86,15 +86,15 @@ bh(2).FaceColor = myCmap2(2,:);
 bh(3).FaceColor = myCmap2(1,:);
 
 ylim([0 max(sum(Ntmp,2))]);
-ylabel('Number of trials');
+ylabel('# trials');
 xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
 % xlabel('Participant');
 
 % Save
-plotX=18; plotY=14;
+plotX=25; plotY=22;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myfolders.reports,['Summary_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' myfolders.proctime]),'-dtiff','-r400');
+print(fh,fullfile(myfolders.reports,['Summary1_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' myfolders.proctime]),'-dtiff','-r400');
 
 % =========================================================================
 % The following checks for participants who show outlying values for the median voltage shift within each epoch:
@@ -133,14 +133,15 @@ plot(LowerBound,'LineWidth',1.5,'Color','k');
 plot(UpperBound,'LineWidth',1.5,'Color','k');
 plot(MedianvoltageshiftwithinepochLogged,'LineWidth',1.2);
 
-ylabel('Median Voltage shift (uV)');
+ylabel('Median voltage shift (uV)');
 xticks(1:128); xticklabels({chanlocs.labels}); xlim([1 128]);
 legend('LowerBound', 'UpperBound');
 set(gca,'ColorOrder',[0 0 0; 0 0 0; brewermap(NSUB,'BuGn')]);
 
-plotX=15; plotY=10;
+plotX=35; plotY=15;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(myfolders.reports,['Summary2_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' myfolders.proctime]),'-dtiff','-r400');
 
 % 3. Visualise
 maskSubj = find(CumulativeSeverityOfAmplitudesAboveThreshold>0);
@@ -148,6 +149,9 @@ maskSubj = find(CumulativeSeverityOfAmplitudesAboveThreshold>0);
 fh = figure;
 th = tiledlayout(1,length(maskSubj));
 th.TileSpacing = 'compact'; th.Padding = 'compact';
+title(th,'Participants with high median voltage');
+
+myClim = [mean(LowerBound), mean(UpperBound)];
 
 for i = 1:length(maskSubj)
     maskChan = VoltageShiftsTooHigh(:,maskSubj(i))>0;
@@ -156,13 +160,14 @@ for i = 1:length(maskSubj)
 
     % [min(MedianvoltageshiftwithinepochLogged(:,maskSubj(i))), max(MedianvoltageshiftwithinepochLogged(:,maskSubj(i)))]
     nexttile;
-    topoplot(MedianvoltageshiftwithinepochLogged(:,maskSubj(i)),chanlocs,'maplimits',[1.2 1.9],'headrad','rim','colormap',myCmap1,'whitebk','on','electrodes','on','style','map','emarker',{'.',[.5 .5 .5],[],1},'emarker2',{find(maskChan),'o','k',4,1});
+    topoplot(MedianvoltageshiftwithinepochLogged(:,maskSubj(i)),chanlocs,'maplimits',myClim,'headrad', 0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','emarker',{'.',[.5 .5 .5],[],1},'emarker2',{find(maskChan),'o','k',4,1},'shading','interp');
     title(subjects{maskSubj(i)});
 end
 
-plotX=15; plotY=10;
+plotX=25; plotY=20;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(myfolders.reports,['Summary3_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' myfolders.proctime]),'-dtiff','-r400');
 
 % OutlierParticipantsToManuallyCheck   = table(Participant_IDs', CumulativeSeverityOfAmplitudesBelowThreshold,CumulativeSeverityOfAmplitudesAboveThreshold);
 % LoggedMedianVoltageShiftAcrossEpochs = array2table(MedianvoltageshiftwithinepochLogged);

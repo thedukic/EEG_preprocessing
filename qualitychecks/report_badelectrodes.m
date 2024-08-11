@@ -28,22 +28,22 @@ chanlocseeg = EEG.allchans(strcmp({EEG.allchans.type},'EEG'));
 
 mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.flatElectrodes));
 nexttile;
-topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map');
+topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
 title(['Flat, N = ' num2str(sum(mask))]); axis tight;
 
 mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.wica.fixed));
 nexttile;
-topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map');
+topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
 title(['wICA, N = ' num2str(sum(mask))]); axis tight;
 
 mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.PREPElectrodes));
 nexttile;
-topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map');
+topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
 title(['PREP, N = ' num2str(sum(mask))]); axis tight;
 
 mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.EMGSlope));
 nexttile;
-topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map');
+topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
 title(['EMG Slope, N = ' num2str(sum(mask))]); axis tight;
 
 % Save
