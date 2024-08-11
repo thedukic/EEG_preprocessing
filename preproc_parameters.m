@@ -53,8 +53,8 @@ cfg.bch.ransacOff                   = true;
 % RELAX: Muscle activity
 % Less stringent = -0.31, Middle Stringency = -0.59, More stringent = -0.72
 cfg.bch.muscleSlopeThreshold        = -0.31;
-cfg.bch.MuscleSlopeTime             = 0.50;
-cfg.bch.MaxProportionOfElec         = 0.15;  % that can be deleted using these settings
+cfg.bch.muscleSlopeTime             = 0.50;
+cfg.bch.maxProportionOfBadElec      = 0.15;  % that can be deleted using these settings
 
 % RELAX: Slow drifts
 % cfg.bch.DriftSeverityThreshold      = 12;  % default: 10 (MAD from the median of all electrodes)

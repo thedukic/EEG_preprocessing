@@ -51,7 +51,7 @@ for i = 1  % :length(myPaths.group)
             % Report table
             save(fullfile(myPathsTmp.reports,['Summary_' myPathsTmp.group '_' myPathsTmp.visit '_' myPathsTmp.task '_' myPathsTmp.proctime]),'summaries');
             writetable(summaries,fullfile(myPathsTmp.reports,['Summary_' myPathsTmp.group '_' myPathsTmp.visit '_' myPathsTmp.task  '_' myPathsTmp.proctime '.xlsx']),"WriteMode","overwrite");
-            clearvars summaries
+            % clearvars summaries
 
             % Report visual
             report_final(myPathsTmp,1);

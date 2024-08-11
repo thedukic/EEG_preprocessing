@@ -121,15 +121,19 @@ if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
     maskCond = [EEG.event.edftype];
     if strcmpi(myPaths.task,'SART')
         condTrig = [3 6];
-        mask = maskCond==condTrig(1) | maskCond==condTrig(2);
+        maskTrig = maskCond==condTrig(1) | maskCond==condTrig(2);
+        minClim  = [-8 8];
+        NTLS     = 3;
     elseif strcmpi(myPaths.task,'MMN')
         condTrig = [17 12];
-        mask = maskCond==condTrig(1) | maskCond==condTrig(2);
+        maskTrig = maskCond==condTrig(1) | maskCond==condTrig(2);
+        minClim  = [-3 3];
+        NTLS     = 4;
     end
 
     NTRG = length(condTrig);
-    maskCond = maskCond(mask);
-    assert(EEG.trials==sum(mask));
+    maskCond = maskCond(maskTrig);
+    assert(EEG.trials==sum(maskTrig));
     % condTrig = unique(maskCond);
 
     % Select only EEG
@@ -138,19 +142,29 @@ if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
     % dataCmap = brewermap(128,'BrBG');
 
     fh = figure;
-    th = tiledlayout(1,NTRG);
+    th = tiledlayout(1,NTLS);
     th.TileSpacing = 'compact'; th.Padding = 'compact';
 
+    dataTmp1 = mean(EEG.data(chaneeg,:,maskCond==condTrig(1)),3);
+    dataTmp2 = mean(EEG.data(chaneeg,:,maskCond==condTrig(2)),3);
+
+    % ERP 1&2
     for i = 1:NTRG
-        dataTmp = mean(EEG.data(chaneeg,:,maskCond==condTrig(i)),3);
+        if i == 1
+            dataTmp = dataTmp1;
+        else
+            dataTmp = dataTmp2;
+        end
+
+        % dataTmp = mean(EEG.data(chaneeg,:,maskCond==condTrig(i)),3);
         NumberTrials = sum(maskCond==condTrig(i));
 
         dataClim = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
         dataClim(1) = floor(dataClim(1));
         dataClim(2) = ceil(dataClim(2));
 
-        dataClim(1) = min(dataClim(1),-8);
-        dataClim(2) = max(dataClim(2),8);
+        dataClim(1) = min(dataClim(1),minClim(1));
+        dataClim(2) = max(dataClim(2),minClim(1));
 
         th = nexttile;
         hold on; box off;
@@ -163,7 +177,36 @@ if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
         pbaspect([1.618 1 1]); xlabel('Time (ms)'); ylabel('Amplitude (uV)');
     end
 
-    plotX=20; plotY=8;
+    % ERP difference
+    dataTmp = dataTmp1-dataTmp2;
+
+    dataClim = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
+    dataClim(1) = floor(dataClim(1));
+    dataClim(2) = ceil(dataClim(2));
+
+    dataClim(1) = min(dataClim(1),minClim(1));
+    dataClim(2) = max(dataClim(2),minClim(1));
+
+    th = nexttile;
+    hold on; box off;
+    plot([0 0],dataClim,'Color',0.7*ones(1,3),'LineWidth',1,'HandleVisibility','off');
+    plot(EEG.times([1 end]),[0 0],'Color',0.7*ones(1,3),'LineWidth',1,'HandleVisibility','off');
+    plot(EEG.times,dataTmp,'LineWidth',1.1);
+
+    colororder(th,dataCmap); xlim(EEG.times([1 end])); ylim(dataClim);
+    title([subject.id ', ' num2str(sum(chaneeg)) ' EEG, ERP difference (' num2str(condTrig(1)) '-' num2str(condTrig(2)) ')']);
+    pbaspect([1.618 1 1]); xlabel('Time (ms)'); ylabel('Amplitude (uV)');
+
+    % Add MMN topolot
+    if strcmpi(myPaths.task,'MMN')
+        X  = mean(dataTmp(chaneeg,EEG.times>150 & EEG.times<300),2);
+        X0 = mean(dataTmp(chaneeg,EEG.times<0),2);
+        [bl, al] = butter(2,20/(EEG.srate/2),'low'); assert(isstable(bl,al));
+        XX = filtfilt(bl,al, X-X0);
+        mytopoplot(XX,[],'Lowpass filtered MMN (<20 Hz, 150-300 ms)',nexttile,0.5*[-1 1]);
+    end
+
+    plotX=30; plotY=8;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
     set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
     print(fh,fullfile(subject.preproc,'ERP_final'),'-dtiff','-r300');
@@ -300,6 +343,7 @@ fprintf('\n%s: Saving the preprocessed data (part 2)...\n',subject.id);
 checkReport = EEG.ALSUTRECHT.issues_to_check;
 checkReport = rmfield(checkReport,{'Medianvoltageshiftwithinepoch','MedianvoltageshiftwithinepochFinal'});
 
+EEG.icaact = [];
 preprocReport = EEG.ALSUTRECHT;
 save(fullfile(subject.preproc,subject.clnfile1),'EEG','preprocReport','cfg','procTimeTags');
 

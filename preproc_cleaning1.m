@@ -199,7 +199,7 @@ EEG = pop_select(EEG,'rmchannel',chanext);
 
 % Interpolate bad electrodes
 if ~isempty(EEG.ALSUTRECHT.badchaninfo.badElectrodes)
-    EEG = pop_interp(EEG,chanlocs);
+    EEG = pop_interp(EEG,chanlocs,'spherical');
 end
 
 % Filter lowpass only
@@ -284,8 +284,11 @@ if strcmpi(myPaths.task,'SART'), EEG2.ALSUTRECHT.issues_to_check = EEG.ALSUTRECH
 fprintf('\n%s: Saving the preprocessed data (part 1)...\n',subject.id);
 preprocReport = EEG.ALSUTRECHT;
 if ~strcmpi(myPaths.task,'SART')
+    EEG.icaact = [];
     save(fullfile(subject.preproc,subject.clnfile),'EEG','preprocReport','cfg','procTimeTags');
 else
+    EEG.icaact  = [];
+    EEG2.icaact = [];
     save(fullfile(subject.preproc,subject.clnfile),'EEG','EEG2','preprocReport','cfg','procTimeTags');
 end
 
