@@ -1,7 +1,7 @@
 function EEG = report_badelectrodes(EEG)
 
 % Log
-EEG.ALSUTRECHT.badchaninfo.badElectrodes = sort([EEG.ALSUTRECHT.badchaninfo.flatElectrodes, EEG.ALSUTRECHT.badchaninfo.PREPElectrodes, EEG.ALSUTRECHT.badchaninfo.EMGSlope]);
+EEG.ALSUTRECHT.badchaninfo.badElectrodes = unique([EEG.ALSUTRECHT.badchaninfo.flatElectrodes, EEG.ALSUTRECHT.badchaninfo.PREPElectrodes, EEG.ALSUTRECHT.badchaninfo.EMGSlope]);
 
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad  electrodes\n');

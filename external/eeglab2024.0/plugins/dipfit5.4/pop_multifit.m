@@ -166,7 +166,7 @@ function [EEG, com] = pop_multifit(EEG, comps, varargin)
     % -----------------------------
     disp('Searching dipoles locations...');
     chansel =  EEG.dipfit.chansel;
-    %elc     = getelecpos(EEG.chanlocs, EEG.dipfit);
+    % elc     = getelecpos(EEG.chanlocs, EEG.dipfit);
     plotcomps = [];
     for i = comps(:)'
         if i <= length(EEG.dipfit.model) && ~isempty(EEG.dipfit.model(i).posxyz)

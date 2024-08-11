@@ -68,17 +68,17 @@ sortingOutWorstMuscleEpochs = sum(sortingOutWorstMuscleEpochs,1,'omitnan');
 
 % Threshold = 0, because all slope values have had the threshold subtracted from them (so the threshold is now 0)
 templateMarkedForMuscleArtifacts(sortingOutWorstMuscleEpochs>0) = 1;
-ProportionOfDataShowingMuscleActivityTotal = mean(templateMarkedForMuscleArtifacts,'omitnan');
+proportionOfDataShowingMuscleActivityTotal = mean(templateMarkedForMuscleArtifacts,'omitnan');
 
 % Log
-fprintf('Total amount of leftover muscle artifact: %1.2f\n', ProportionOfDataShowingMuscleActivityTotal);
+fprintf('Total amount of leftover muscle artifact: %1.2f\n', proportionOfDataShowingMuscleActivityTotal);
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Leftovers: muscle artifacts\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Muscle log(7-75Hz) slope threshold: %1.2f\n',muscleSlopeThreshold);
-fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover muscle artifact: %1.2f\n', ProportionOfDataShowingMuscleActivityTotal);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover muscle artifact: %1.2f\n', proportionOfDataShowingMuscleActivityTotal);
 
-EEG.ALSUTRECHT.leftovers.muscle = ProportionOfDataShowingMuscleActivityTotal;
+EEG.ALSUTRECHT.leftovers.muscle = proportionOfDataShowingMuscleActivityTotal;
 
 %% =========================================================================
 fprintf('\nChecking eye blink letovers...\n');

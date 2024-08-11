@@ -3,14 +3,14 @@ function [EEG, badElectrodes] = remove_flatelec(EEG,cfg)
 % Removes flat electrodes (electrodes that were taken out)
 % The code is based on the function from EEGLAB
 % EEG = clean_flatlines(EEG,cfgbch.flatdur);
-% But this code is data-driven as it estimates the recorded activity in each channel
-% And then, it estimates what could be an appropirate treshold for flat channel detection
+% But this code is data-driven as it estimates the recorded activity in each electrode
+% And then, it estimates what could be an appropirate treshold for flat electrode detection
 %
 % Checked using:
 % ALS37840 ALS T1: B2
 % ALS37793 CON T1: A32
 
-fprintf('\nChecking if there are any flat channels...\n');
+fprintf('\nChecking if there are any flat electrodes.\n\n');
 
 % Minimum "flat" duration in [s]
 if isempty(cfg.flatDuration)
@@ -20,68 +20,71 @@ end
 % Minimum "flat" duration in [samples]
 T0 = cfg.flatDuration*EEG(1).srate;
 
-% EXT/EMG channels are not checked (they should never be flat)
-otherchan = {EEG(1).chanlocs(~strcmp({EEG(1).chanlocs.type},'EEG')).labels};
-eegchan   = {EEG(1).chanlocs(strcmp({EEG(1).chanlocs.type},'EEG')).labels};
-EEGTMP    = pop_select(EEG,'nochannel',otherchan);
+% EXT/EMG electrodes are not checked (they should never be flat)
+% otherchan = {EEG(1).chanlocs(~strcmp({EEG(1).chanlocs.type},'EEG')).labels};
+% eegchan   = {EEG(1).chanlocs(strcmp({EEG(1).chanlocs.type},'EEG')).labels};
+% EEGTMP    = pop_select(EEG,'nochannel',otherchan);
+eegchan       = strcmp({EEG(1).chanlocs.type},'EEG');
+eegchanLabels = {EEG(1).chanlocs(eegchan).labels};
+
+NCHN = sum(eegchan);
+NBLK = length(EEG);
 
 % Remove possible slow drifts and strong 50 Hz noise
-% These are likley to mask if the channel is truly flat
+% These are likley to mask if the electrode is truly flat
 % Especially the 50 Hz noise present in hospitals
-fprintf('Temporary filtering for better detection of flat channels:\n');
-EEGTMP = filter_signal(EEGTMP,[20 8],[1 8],1:length(eegchan),'eeglab');
+fprintf('Temporarily filtering the EEG electrodes for better detection of flat electrodes.\n');
+EEGTMP = filter_signal(EEG,[20 8],[1 8],1:NCHN,'eeglab');
 
-NBLK = length(EEG);
-NCHN = EEGTMP(1).nbchan;
-
+fprintf('\n');
 badElectrodes = cell(NBLK,1);
 for i = 1:NBLK
-    % K = min(median(abs(diff(EEGTMP(i).data,1,2)),2));
-    % K = median(median(abs(diff(EEGTMP(i).data,1,2)),2))
-    K = prctile(median(abs(diff(EEGTMP(i).data,1,2)),2),10);
+    % This works better than the EEGLAB's manual treshold
+    dataDiff = abs(diff(EEGTMP(i).data(1:NCHN,:),1,2));
+    dataDiffMedian = median(dataDiff,2);
+    % DiffMedianTreshold = min(dataDiffMedian);
+    % DiffMedianTreshold = median(dataDiffMedian)
+    DiffMedianTreshold = prctile(dataDiffMedian,5);
+    fprintf('Block %d: The estimated treshold is %1.2f.\n', i,DiffMedianTreshold);
 
-    % EEGLAB snippet
-    removed_channels = false(1,NCHN);
+    % EEGLAB
+    badElectrodesTmp = false(1,NCHN);
     for j = 1:NCHN
-        zero_intervals = reshape(find(diff([false abs(diff(EEGTMP(i).data(j,:)))<=K false])),2,[])';
+        zero_intervals = reshape(find(diff([false dataDiff(j,:)<=DiffMedianTreshold false])),2,[])';
         if max(zero_intervals(:,2) - zero_intervals(:,1)) > T0
-            removed_channels(j) = true;
+            badElectrodesTmp(j) = true;
         end
     end
 
-    % % My code: SDukic, August 2023
-    % pow = NaN(NCHN,1);
-    % T = floor(size(EEGTMP(i).data,2)/T0)*T0;
-    % for j = 1:NCHN
-    %     % pow(j) = median(var(reshape(EEGTMP(i).data(j,1:T),T0,[])));
-    %     pow(j) = median(median(reshape(abs(EEGTMP(i).data(j,1:T)),T0,[])));
-    % end
-    % P = pow([1:64 97:NCHN]);
-    % Z = (pow - mean(P)) / std(P);
+    % Report
+    if any(badElectrodesTmp)
+        badElectrodes{i} = eegchanLabels(badElectrodesTmp);
+        fprintf('Block %d: Flat electrodes are found (N = %d)!\n', i,length(badElectrodes{i}));
 
-    if any(removed_channels)
-        badElectrodes{i} = eegchan(removed_channels);
-        fprintf('BLOCK %d: Flat channels are found (N = %d)!\n', i, length(badElectrodes{i}));
+        badElectrodesTmp = find(badElectrodesTmp);
+        for j = 1:length(badElectrodes{i})
+            fprintf('Electrode %s: Median voltage change is %1.2f.\n', badElectrodes{i}{j},dataDiffMedian(badElectrodesTmp(j)));
+        end
+        fprintf('\n');
     else
-        fprintf('BLOCK %d: Flat channels are not found.\n', i);
+        fprintf('Block %d: Flat electrodes are not found.\n\n', i);
     end
 end
 
-% Check if all blocks have the same number of detected flat channels
+% Check if all blocks have the same number of detected flat electrodes
 N = cell2mat(cellfun(@(x) length(x),badElectrodes,'UniformOutput',false));
 if range(N)~=0
-    warning('Strange, not all blocks have the same number of flat channels detected...');
-    discrepflag = true;
+    warning('Strange, not all blocks have the same number of detected flat electrodes.');
+    flagDiscrep = true;
 else
-    discrepflag = false;
+    flagDiscrep = false;
 end
 
-% Remove all flat channels
+% Remove all flat electrodes
 badElectrodes = unique(cat(2,badElectrodes{:}));
 if ~isempty(badElectrodes)
     EEG = pop_select(EEG,'nochannel',badElectrodes);
-    fprintf('The flat channels (N = %d) are removed from all data blocks (N = %d)!\n',length(badElectrodes),NBLK);
-    % disp(badElectrodes);
+    fprintf('The flat electrodes (N = %d) are removed from all data blocks (N = %d)!\n',length(badElectrodes),NBLK);
 else
     badElectrodes = {};
 end
@@ -89,7 +92,7 @@ end
 % Log info
 for i = 1:NBLK
     EEG(i).ALSUTRECHT.badchaninfo.flatElectrodes = badElectrodes;
-    if discrepflag
+    if flagDiscrep
         EEG(i).ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy = 1;
     else
         EEG(i).ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy = 0;
@@ -97,7 +100,7 @@ for i = 1:NBLK
 end
 
 % =========================================================================
-% Gel birdges???
+% Detect gel birdges ???
 % This might be inflated when lowpass filtering with low cutoff
 % [bridge_pairs, EEG] = bemobil_find_gel_bridges(EEG,cfgbch.corrmax);
 % bridge_pairs = NaN;

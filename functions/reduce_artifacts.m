@@ -71,9 +71,16 @@ EEG = mwf_eyeblinks(EEG);
 % extchan = {EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels};
 % EXT = pop_select(EEG,'channel',extchan);
 %
+% originalEEG  = EEG;
+% originalData = EEG.data;
 % EEG = pop_clean_rawdata(pop_select(EEG,'nochannel',extchan),'FlatlineCriterion','off','ChannelCriterion','off','LineNoiseCriterion','off','Highpass','off', ...
 %     'BurstCriterion',cfgbch.asr,'WindowCriterion','off','BurstRejection','off','Distance','Euclidian');
-%
+% 
+% survivedDataIdx           = find(EEG.etc.clean_sample_mask);
+% correspondingOriginalData = originalData(:,survivedDataIdx);
+% asrPowerReductionDb       = 10*log10(var(EEG.data,0,2)./var(correspondingOriginalData,0,2));
+% EEG.etc.varianceReductionInDbByAsr = asrPowerReductionDb;
+% 
 % EEG = merge_eeglabsets(EEG,EXT);
 % fprintf('Done using ASR.\n');
 

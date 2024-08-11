@@ -36,7 +36,7 @@ end
 
 % Detect noisy channels that are left in the data
 badElectrodes = mean(slopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,2,'omitnan');
-badElectrodes = {EEG.chanlocs(badElectrodes>cfgbch.MuscleSlopeTime).labels};
+badElectrodes = {EEG.chanlocs(badElectrodes>cfgbch.muscleSlopeTime).labels};
 
 % =========================================================================
 % The following replaces all values that aren't above the muscle
@@ -69,20 +69,20 @@ templateMarkedForMuscleArtifacts(sortingOutWorstMuscleEpochs>muscleSlopeThreshol
 assert(NTRL==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
 templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
 
-ProportionOfDataShowingMuscleActivityTotal = mean(templateMarkedForMuscleArtifacts,"omitnan");
+proportionOfDataShowingMuscleActivityTotal = mean(templateMarkedForMuscleArtifacts,"omitnan");
 
-fprintf('Total amount of muscle artifact: %1.2f\n', ProportionOfDataShowingMuscleActivityTotal);
+fprintf('Total amount of muscle artifact: %1.2f\n', proportionOfDataShowingMuscleActivityTotal);
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'MWF (EMG) muscle artifacts\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Muscle log(7-75Hz) slope threshold: %1.2f\n',cfgbch.muscleSlopeThreshold);
-fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of muscle artifact: %1.2f\n', ProportionOfDataShowingMuscleActivityTotal);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of muscle artifact: %1.2f\n', proportionOfDataShowingMuscleActivityTotal);
 
 % Checks the proportion of muscle artifact periods selected, and
 % reduces the threshold for marking a period if the above section marked more than the allowed threshold
 % i.e. >50% of the data
-MaxProportionOfDataCanBeMarkedAsMuscle = 0.5;
-if ProportionOfDataShowingMuscleActivityTotal > MaxProportionOfDataCanBeMarkedAsMuscle
+maxProportionOfDataCanBeMarkedAsMuscle = 0.5;
+if proportionOfDataShowingMuscleActivityTotal > maxProportionOfDataCanBeMarkedAsMuscle
     fprintf('That is too much for MWF. Limiting it to the worst 50%% ...\n');
     fprintf(EEG.ALSUTRECHT.subject.fid,'That is too much for MWF. Limiting it to worst 50%%.\n');
 
@@ -91,7 +91,7 @@ if ProportionOfDataShowingMuscleActivityTotal > MaxProportionOfDataCanBeMarkedAs
     % muscleSlopeThresholdAfterAdjustment = prctile(sortingOutWorstMuscleEpochs,100-(MaxProportionOfDataCanBeMarkedAsMuscle*100));
     % 2. Use only those epochs that are not extremly bad, as they can obscure the following estimation
     extremelyBadEpochsExcluded = sortingOutWorstMuscleEpochs(~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2);
-    muscleSlopeThresholdAfterAdjustment = prctile(extremelyBadEpochsExcluded,100-(MaxProportionOfDataCanBeMarkedAsMuscle*100));
+    muscleSlopeThresholdAfterAdjustment = prctile(extremelyBadEpochsExcluded,100-(maxProportionOfDataCanBeMarkedAsMuscle*100));
 
     templateMarkedForMuscleArtifacts(sortingOutWorstMuscleEpochs>=muscleSlopeThresholdAfterAdjustment) = 1;
     templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
@@ -139,7 +139,7 @@ end
 EEG.ALSUTRECHT.MWF.R1.badElectrodes          = badElectrodes;
 EEG.ALSUTRECHT.MWF.R1.noiseMask              = noiseMask;
 EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF = mean(noiseMask,'omitnan');
-EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal = ProportionOfDataShowingMuscleActivityTotal;
+EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal = proportionOfDataShowingMuscleActivityTotal;
 
 fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF);
@@ -153,6 +153,9 @@ if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF>0.05
     % Check if there were any problems
     if contains(lastwarn,"eigenvectors")
         warning('The MWF delay is too long?'); SER = Inf; ARR = Inf;
+    end
+    if isnan(SER) || isnan(ARR)
+        warning('MWF did not fail but the MWF quality measures (SER/ARR) are NaN. The bad data might be too short.');
     end
 
     % % Visual inspection

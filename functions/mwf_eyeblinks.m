@@ -95,6 +95,9 @@ if EEG.ALSUTRECHT.MWF.R2.proportionMarkedForMWF>0.05
     if contains(lastwarn,"eigenvectors")
         warning('The MWF delay is too long?'); SER = Inf; ARR = Inf;
     end
+    if isnan(SER) || isnan(ARR)
+        warning('MWF did not fail but the MWF quality measures (SER/ARR) are NaN. The bad data might be too short.');
+    end
 
     % % Visual inspection
     % EEG0 = EEG;
