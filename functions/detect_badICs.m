@@ -1,7 +1,7 @@
 function EEG = detect_badICs(EEG,EXT,cfg)
 
 %% ========================================================================
-% ICLabel
+% 1. ICLabel
 EEG = iclabel(EEG);
 
 % Flag artifact ICs
@@ -22,6 +22,8 @@ EEG.ALSUTRECHT.ica.ICLabel.clss = EEG.etc.ic_classification.ICLabel.classes;
 % end
 
 %% ========================================================================
+% 2. Correlation with external elecs (VEOG/HEOG/ECG)
+
 % Make sure IC activations are present
 if isempty(EEG.icaact)
     EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
@@ -74,7 +76,7 @@ EEG.ALSUTRECHT.ica.extra1.cvec = badICtype;
 EEG.ALSUTRECHT.ica.extra1.clss = extLabels;
 
 %% ========================================================================
-% 1. Detect EMG ICs using freq slopes
+% 3A. Detect EMG ICs using freq slopes
 options.muscleFreqIn    = [7, 70];
 options.Freq_to_compute = [1, 100];
 
@@ -134,7 +136,7 @@ ICsMostLikelyMuscle = muscleRatio>=cfg.bch.muscleSlopeThreshold;
 % ICsMostLikelyMuscle = muscleRatio>=-0.5;
 % ICsMostLikelyMuscle = (muscle_ICs==1);
 
-% 2. Use icablinkmetrics for eyeblinks
+% 3B. Use icablinkmetrics for eyeblinks
 if exist('icablinkmetrics','file') == 2
     try
         % icablinkmetricsout = icablinkmetrics(EEG0,'ArtifactChannel',EEG0.data(strcmp({EEG0.chanlocs.labels},'VEOG'),:),'Alpha',0.001,'VisualizeData','False');
@@ -161,7 +163,9 @@ EEG.ALSUTRECHT.ica.extra2.bics = [find(ICsMostLikelyMuscle(:)); icablinkmetricso
 EEG.ALSUTRECHT.ica.extra2.cvec = [ones(sum(ICsMostLikelyMuscle),1); 2*ones(length(icablinkmetricsout.identifiedcomponents),1)];
 EEG.ALSUTRECHT.ica.extra2.clss = {'Muscle','Eye'};
 
-%% Final eyeblink IC detection method
+%% 4. Final eyeblink IC detection method
+% Based on topoplot correlations
+
 lbls1 = EEG.etc.ic_classification.ICLabel.classes(EEG.ALSUTRECHT.ica.ICLabel.cvec(EEG.ALSUTRECHT.ica.ICLabel.bics));
 lbls2 = EEG.ALSUTRECHT.ica.extra1.clss(EEG.ALSUTRECHT.ica.extra1.cvec);
 lbls3 = EEG.ALSUTRECHT.ica.extra2.clss(EEG.ALSUTRECHT.ica.extra2.cvec);
@@ -206,11 +210,14 @@ if ~isempty(blinksICs)
     maskChanBlink = ismember({EEG.chanlocs(:).labels},cfg.ica.blinkchans);
 
     for i = 1:length(blinksICs)
-        W = abs(zscore(EEG.icawinv(:,blinksICs(i))));
+        W0 = zscore(EEG.icawinv(:,blinksICs(i)));
+        W = abs(W0);
         D = max(W(maskChanBlink))-max(W(~maskChanBlink));
-        if D>0.5
+        % W = W0; D = abs(mean(W(maskChanBlink))-mean(W(~maskChanBlink)));
+        if D>1.25
             blinksICsNew  = [blinksICsNew, blinksICs(i)];
             distBlinksICs = [distBlinksICs, D];
+            % mytopoplot(W0,maskChanBlink,[num2str(blinksICs(i)) ' ' num2str(distBlinksICs(end))],nexttile); colorbar;
         end
     end
 

@@ -210,11 +210,17 @@ ICsMostLikelyBlink  = EEG.ALSUTRECHT.ica.extra3.bics;
 ICsMostLikelyMuscle = find(EEG.ALSUTRECHT.ica.extra2.ICsMostLikelyMuscle);
 
 % Eye
+NICAtmp = length(ICsMostLikelyBlink);
+
 fh = figure;
-th = tiledlayout('flow');
+if NICAtmp<=6
+    th = tiledlayout(1,6);
+else
+    th = tiledlayout('flow');
+end
 th.TileSpacing = 'compact'; th.Padding = 'compact';
 
-for i = 1:length(ICsMostLikelyBlink)
+for i = 1:NICAtmp
     nexttile;
     thisIC = ICsMostLikelyBlink(i);
     topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
@@ -229,11 +235,17 @@ print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ba
 close(fh);
 
 % Muscle
+NICAtmp = length(ICsMostLikelyMuscle);
+
 fh = figure;
-th = tiledlayout('flow');
+if NICAtmp<=6
+    th = tiledlayout(1,6);
+else
+    th = tiledlayout('flow');
+end
 th.TileSpacing = 'compact'; th.Padding = 'compact';
 
-for i = 1:length(ICsMostLikelyMuscle)
+for i = 1:NICAtmp
     nexttile;
     thisIC = ICsMostLikelyMuscle(i);
     topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');

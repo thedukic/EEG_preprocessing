@@ -2,6 +2,7 @@ function EEG = do_reref(EEG,typeRef)
 
 chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
 NBLK = length(EEG);
+fprintf('\n%s rereferencing the data...\n',typeRef);
 
 switch typeRef
     case 'aRobust'
@@ -15,6 +16,7 @@ switch typeRef
             EEG(i).data(chaneeg,:) = EEG(i).data(chaneeg,:) - mean(EEG(i).data(chaneeg,:),1);
             EEG(i).ref = 'average';
         end
+
     case 'aRegular2'
         error('Not supported!');
         % EEG.data = EEG.data - (sum(EEG.data,1)/(EEG.nbchan+1));

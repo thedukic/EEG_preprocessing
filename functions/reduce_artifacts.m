@@ -52,7 +52,7 @@ EEG = mwf_channelemg(EEG,cfgbch);
 
 % =========================================================================
 % 2. MWF round 2: VEOG / eye blinks
-EEG = mwf_eyeblinks(EEG);
+% EEG = mwf_eyeblinks(EEG);
 
 % =========================================================================
 % 3. MWF round 3: HEOG / slow drifts - hard to properly detect

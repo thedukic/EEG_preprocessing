@@ -10,7 +10,7 @@ function [EEG, badElectrodes] = remove_flatelec(EEG,cfg)
 % ALS37840 ALS T1: B2
 % ALS37793 CON T1: A32
 
-fprintf('\nChecking if there are any flat electrodes.\n\n');
+fprintf('\nChecking if there are any flat electrodes...\n');
 
 % Minimum "flat" duration in [s]
 if isempty(cfg.flatDuration)
@@ -67,7 +67,7 @@ for i = 1:NBLK
         end
         fprintf('\n');
     else
-        fprintf('Block %d: Flat electrodes are not found.\n\n', i);
+        fprintf('Block %d: Flat electrodes are not found.\n', i);
     end
 end
 
@@ -87,6 +87,7 @@ if ~isempty(badElectrodes)
     fprintf('The flat electrodes (N = %d) are removed from all data blocks (N = %d)!\n',length(badElectrodes),NBLK);
 else
     badElectrodes = {};
+    fprintf('Flat electrodes are not found in the dataset.\n');
 end
 
 % Log info

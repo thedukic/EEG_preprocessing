@@ -46,17 +46,22 @@ if ~isempty(subject.datablocks)
 
         % Rare cases of RS datasets recorded with 168 channels
         if any([EEG(:).srate] == 2048)
+            pop_editoptions('option_parallel', 0);
             maskfs2k = [EEG(:).srate] == 2048;
             EEG(maskfs2k) = pop_biosig(subject.datablocks(maskfs2k),'channels',1:168);
             EEG(maskfs2k) = pop_select(EEG(maskfs2k),'channel',[1:128 161:168]);
+            EEG(maskfs2k) = pop_resample(EEG(maskfs2k),512);
+            pop_editoptions('option_parallel', 1);
+            assert(all([EEG(:).srate] == 512));
         end
     end
 else
     warning([subject.id ' is missing ' myPaths.task ' data!']);
-    EEG.ALSUTRECHT.subject.id   = subject.id;
-    EEG.ALSUTRECHT.subject.task = subject.task;
-    EEG = report_issues(EEG);
-    checkReport = EEG.ALSUTRECHT.issues_to_check;
+    % EEG.ALSUTRECHT.subject.id   = subject.id;
+    % EEG.ALSUTRECHT.subject.task = subject.task;
+    % EEG = report_issues(EEG);
+    % checkReport = EEG.ALSUTRECHT.issues_to_check;
+    checkReport = [];
     return;
 end
 
@@ -79,14 +84,6 @@ if strcmp(subject.id,'C50') && strcmpi(myPaths.task,'SART')
     for j = 1:NBLK
         EEG(j).data(33:96,:) = [EEG(j).data(65:96,:); EEG(j).data(33:64,:)];
     end
-elseif strcmp(subject.id,'ALS26603') && strcmpi(myPaths.task,'MMN')
-    warning([subject.id ' has MMN2 file currpted. Removing it now...']);
-    EEG(2) = []; NBLK = length(EEG);
-
-elseif strcmp(subject.id,'ALS26603') && strcmpi(myPaths.task,'SART')
-    warning([subject.id ' has SART1 and SART3 files currpted. Removing some parts now...']);
-    EEG(1) = pop_select(EEG(1),'rmtime',[0 5; 93.3 100.1]);
-    EEG(3) = pop_select(EEG(3),'rmtime',[183 201]);
 end
 EEG = eeg_checkset(EEG,'loaddata');
 
@@ -100,6 +97,9 @@ for j = 1:NBLK
     EEG(j).ALSUTRECHT.cfg = cfg;
 end
 
+% Remove CMS drop-outs (blue light flashing)
+EEG = detect_dropouts(EEG);
+
 % Demean
 EEG = pop_rmbase(EEG,[]);
 
@@ -107,16 +107,13 @@ EEG = pop_rmbase(EEG,[]);
 EEG = pop_resample(EEG,256);
 
 % Keep event info
-EEG = extract_eventinfo(EEG);
+EEG = extract_eventinfo(EEG,cfg.trg);
 
 % Detect flat channels on raw data
 EEG = remove_flatelec(EEG,cfg.bch);
 
 % Reference
 EEG = do_reref(EEG,'aRobust');
-
-% Remove the line noise here?
-% EEG = reduce_linenoise(EEG);
 
 % Filter highpass only
 EEG = do_filtering(EEG,1,cfg.flt);

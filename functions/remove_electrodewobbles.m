@@ -58,13 +58,13 @@ switch thisTask
         NICA = 80;
     case 'SART'
         % 3 or 4 *5 = 15-20min
-        NICA = 100;
+        NICA = 90;
     case 'MMN'
         % 3*7 = 20 min
-        NICA = 100;
+        NICA = 90;
     case 'MT'
         % 3*7 = 20 min
-        NICA = 100;
+        NICA = 90;
 end
 % NICA ^2*30 /256/60
 

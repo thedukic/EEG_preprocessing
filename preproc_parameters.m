@@ -64,9 +64,18 @@ cfg.bch.maxProportionOfBadElec      = 0.15;  % that can be deleted using these s
 % cfg.bch.asr                         = 20;    % recommandation: 20-30
 
 %% ICA and ICLabels
+
 % ICA algorithm
-cfg.ica.type1    = 'CUDAICA';
-cfg.ica.type2    = 'CUDAICA'; % AMICA
+gpuCount = gpuDeviceCount;
+if gpuCount > 0
+    % disp('GPU is available. The preprocessing will be quicker as CUDAICA will be used.');
+    cfg.ica.type1    = 'CUDAICA';
+    cfg.ica.type2    = 'CUDAICA'; % AMICA
+else
+    % disp('No GPU available. The preprocessing will be slower as RUNICA will be used instead of CUDAICA.');
+    cfg.ica.type1    = 'RUNICA';
+    cfg.ica.type2    = 'RUNICA'; % AMICA
+end
 
 % PCA reduction prior ICA
 cfg.ica.icMax   = 50;
@@ -89,9 +98,13 @@ cfg.trg.rs    = {2,0.75};             % 2s, 0.75 overlap
 
 %% Bad epoch rejection
 cfg.epoch.rejectAmp                            = 75;
-cfg.epoch.singleChannelImprobableDataThreshold = 5; % MAD from the median of all epochs for each electrode against itself. This could be set lower and would catch less severe pops
-cfg.epoch.allChannelImprobableDataThreshold    = 3; % SD from the mean of all epochs for each electrode against itself. This could be set lower and would catch less severe improbable data
-cfg.epoch.singleChannelKurtosisThreshold       = 5; % SD from the mean of the single electrodes. This could be set lower and would catch less severe kurtosis
-cfg.epoch.allChannelKurtosisThreshold          = 3; % SD from the mean of all electrodes. This could be set lower and would catch less severe kurtosis
+% cfg.epoch.singleChannelImprobableDataThreshold = 5; % MAD from the median of all epochs for each electrode against itself. This could be set lower and would catch less severe pops
+% cfg.epoch.allChannelImprobableDataThreshold    = 3; % SD from the mean of all epochs for each electrode against itself. This could be set lower and would catch less severe improbable data
+% cfg.epoch.singleChannelKurtosisThreshold       = 5; % SD from the mean of the single electrodes. This could be set lower and would catch less severe kurtosis
+% cfg.epoch.allChannelKurtosisThreshold          = 3; % SD from the mean of all electrodes. This could be set lower and would catch less severe kurtosis
+cfg.epoch.singleChannelImprobableDataThreshold = 8; % MAD from the median of all epochs for each electrode against itself. This could be set lower and would catch less severe pops
+cfg.epoch.allChannelImprobableDataThreshold    = 6; % SD from the mean of all epochs for each electrode against itself. This could be set lower and would catch less severe improbable data
+cfg.epoch.singleChannelKurtosisThreshold       = 8; % SD from the mean of the single electrodes. This could be set lower and would catch less severe kurtosis
+cfg.epoch.allChannelKurtosisThreshold          = 6; % SD from the mean of all electrodes. This could be set lower and would catch less severe kurtosis
 
 end

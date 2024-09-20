@@ -1,4 +1,4 @@
-function [EEG, eventinfo] = extract_eventinfo(EEG)
+function [EEG, eventinfo] = extract_eventinfo(EEG,cfg)
 
 % Keep event info
 NBLK = length(EEG);
@@ -132,11 +132,29 @@ switch EEG(1).ALSUTRECHT.subject.task
         end
     case {'RS','EO','EC'}
         fprintf('Resting-state data does not have events by default. Returning only the number of possible 1s trials in each block.\n');
-        L = 1; % length in [s]
+
+        % Epoch length
+        L0 = cfg.rs{1};       % [seconds]
+        L  = L0*EEG(1).srate; % [s] -> [samples]
+
+        % Overlap
+        O  = cfg.rs{2};       % e.g. 0.75
+
+        % Calculate step size
+        step_size = L*(1-O);
+
         for i = 1:NBLK
-            eventinfo{i,3} = floor(length(EEG(i).times)./(L.*EEG(i).srate));
+            N = length(EEG(i).times);
+            T = N./EEG(i).srate;
+            fprintf('RS%d has %ds of data.\n',i,T);
+
+            % Calculate number of trials
+            NTRL = floor((N - L) / step_size) + 1;
+
+            % eventinfo{i,3} = floor(N./(L.*EEG(i).srate));
+            eventinfo{i,3} = NTRL;
             eventinfo{i,4} = EEG(i).srate;
-            fprintf('RS%d has %d (%ds long) trials.\n',i,eventinfo{i,3},L);
+            fprintf('RS%d has %d (%ds long, %1.2f overlap) trials.\n',i,eventinfo{i,3},L0,O);
         end
 end
 

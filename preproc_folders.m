@@ -7,8 +7,8 @@ myPaths.proctime = strrep(strrep(char(datetime("now")),':','-'),' ','-');
 myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\Preprocessing';                                                        % Pipeline
 % myPaths.rootrawdata = 'L:\onderzoeksarchief\19-462_ALS-Electrode_BS\E_ResearchData\2_ResearchData\1_RAW\EEG_DATA'; % Input
 % myPaths.rootpreproc = 'L:\onderzoeksarchief\19-462_ALS-Electrode_BS\E_ResearchData\2_ResearchData\2_PREPROCESSED'; % Output
-myPaths.rootrawdata = 'D:\1_EEG_DATA';          % Input
-myPaths.rootpreproc = 'D:\3_PREPROCESSED_DATA'; % Output
+myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
+myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
 
 % Set task/group/visit
 myPaths.task  = 'RS'; % MMN/SART/RS/EO/EC/MT
@@ -49,5 +49,10 @@ end
 
 % Initialise the toolboxes
 [ALLEEG, EEG, CURRENTSET, ALLCOM] = eeglab; close all;
+
+% Double-check
+if ~(isfolder(myPaths.rootrawdata(1:3)) && isfolder(myPaths.rootpreproc(1:3)))
+    error('Data paths are not correct. The drives do not exist.');
+end
 
 end

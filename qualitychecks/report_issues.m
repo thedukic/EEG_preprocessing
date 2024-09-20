@@ -3,12 +3,15 @@ function EEG = report_issues(EEG)
 if isfield(EEG,'data')
     % ALS number
     issues_to_check.aFileName = EEG.ALSUTRECHT.subject.id;
-    issues_to_check.NumberTrials1 = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);   % Total possible
+    issues_to_check.NumberTrials1 = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);   % Total possible 
     issues_to_check.NumberTrials2 = size(EEG.data,3);                       % Left after preproc
     issues_to_check.NumberIC1 = EEG.ALSUTRECHT.badchaninfo.wica.icmax;
     issues_to_check.NumberIC2 = EEG.ALSUTRECHT.ica.icmax0;
     issues_to_check.NumberIC3 = EEG.ALSUTRECHT.ica.icmax1;
     issues_to_check.NumberIC4 = EEG.ALSUTRECHT.ica.icmax2;
+
+    % CMS dropouts
+    issues_to_check.CMSDropout = sum(EEG.ALSUTRECHT.cmsDropouts.NDropouts);
 
     % Bad electrodes
     issues_to_check.FlatElectrodesDiscrepancy = EEG.ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy;
