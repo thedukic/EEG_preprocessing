@@ -6,7 +6,11 @@ function [EEG, d] = report_mwf(EEG,EEGRAW)
 % EEGRAW = eeg_eegrej(EEGRAW, EEGRAW.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
 
 % Combine all MWF masks into one
-NoiseMaskFullLengthAll = EEG.ALSUTRECHT.MWF.R1.noiseMask + EEG.ALSUTRECHT.MWF.R2.noiseMask;
+NoiseMaskFullLengthAll = EEG.ALSUTRECHT.MWF.R1.noiseMask ;
+if isfield(EEG.ALSUTRECHT.MWF,'R2')
+    NoiseMaskFullLengthAll = NoiseMaskFullLengthAll + EEG.ALSUTRECHT.MWF.R2.noiseMask;
+end
+
 NoiseMaskFullLengthAll(NoiseMaskFullLengthAll>1) = 1;
 
 % Average re-reference

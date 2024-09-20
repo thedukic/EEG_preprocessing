@@ -27,10 +27,11 @@ if strcmpi(type,'fieldtrip') % length(EEG)==1 % iscell(EEG)
     NTRL = length(EEG.trial);
     FNYQ = EEG.fsample/2;
     NCHN = size(EEG.trial{1},1);
-    fprintf('Filtering ALL given signals across %d blocks...\n',NTRL);
+    fprintf('Filtering ALL given signals across %d trials...\n',NTRL);
+
 elseif  strcmpi(type,'eeglab')
     % EEGLAB
-    NTRL = length(EEG);
+    NBLK = length(EEG);
     FNYQ = EEG(1).srate/2;
 
     % NCHN = size(EEG(1).data,1);
@@ -39,7 +40,7 @@ elseif  strcmpi(type,'eeglab')
     % chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
     NCHN = length(chansfilt);
 
-    fprintf('Filtering signals across %d blocks...\n',NTRL);
+    fprintf('Filtering signals across %d blocks...\n',NBLK);
 end
 
 % Calculate filter coefficients
@@ -90,27 +91,49 @@ if  strcmpi(type,'fieldtrip')
     end
 else
     % EEGLAB
-    for i = 1:NTRL
+    for i = 1:NBLK
         assert(size(EEG(i).data(chansfilt,:),1)==NCHN);
 
-        % Remove DC (big offsets can cause artifacts)
-        EEG(i).data(chansfilt,:) = remove_dcsignal(double(EEG(i).data(chansfilt,:)), FNYQ);
+        if ~isempty(EEG(1).event)
+            eventLabels = {EEG(i).event(:).type};
+            eventTimes  = [EEG(i).event(:).latency];
+            mask = contains(eventLabels,'boundary');
 
-        % Bandpass
-        % First lowpass and then highpass
-        if all(filterflag)
-            EEG(i).data(chansfilt,:) = filtfilt(bl,al, EEG(i).data(chansfilt,:)')';
-            EEG(i).data(chansfilt,:) = filtfilt(bh,ah, EEG(i).data(chansfilt,:)')';
+            jumpsBad = floor([0 eventTimes(mask) size(EEG(i).data,2)]);
+            jumpsBad = unique(jumpsBad);
+        else
+            jumpsBad = [0 size(EEG(i).data,2)];
         end
-        % Lowpass
-        if filterflag(1) && ~filterflag(2)
-            EEG(i).data(chansfilt,:) = filtfilt(bl,al, EEG(i).data(chansfilt,:)')';
+
+        NChunk = length(jumpsBad)-1;
+        if NChunk>1, fprintf('Boundaries (N = %d) detected! Each chunk will be filtered separately!\n',NChunk); end
+        for j = 1:NChunk
+            dataInd = [jumpsBad(j)+1 jumpsBad(j+1)];
+            dataInd = dataInd(1):dataInd(2);
+            dataTmp = double(EEG(i).data(chansfilt,dataInd));
+
+            % Remove DC (big offsets can cause artifacts)
+            dataTmp = remove_dcsignal(dataTmp, FNYQ);
+
+            % Bandpass
+            % First lowpass and then highpass
+            if all(filterflag)
+                dataTmp = filtfilt(bl,al, dataTmp')';
+                dataTmp = filtfilt(bh,ah, dataTmp')';
+            end
+            % Lowpass
+            if filterflag(1) && ~filterflag(2)
+                dataTmp = filtfilt(bl,al, dataTmp')';
+            end
+            % Highpass
+            if ~filterflag(1) && filterflag(2)
+                dataTmp = filtfilt(bh,ah, dataTmp')';
+            end
+            % eeg(i).data = filtfilt(bs,as, eeg(i).data)';
+
+            % Place back
+            EEG(i).data(chansfilt,dataInd) = dataTmp;
         end
-        % Highpass
-        if ~filterflag(1) && filterflag(2)
-            EEG(i).data(chansfilt,:) = filtfilt(bh,ah, EEG(i).data(chansfilt,:)')';
-        end
-        % eeg(i).data = filtfilt(bs,as, eeg(i).data)';
 
         assert(size(EEG(i).data(chansfilt,:),1)==NCHN);
     end

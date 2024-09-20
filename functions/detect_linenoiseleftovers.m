@@ -160,7 +160,13 @@ for i = 1:NBLK
 end
 
 % Save
-plotX=20; plotY=15;
+if NBLK==3
+    plotX=20; plotY=15;
+elseif NBLK==4
+    plotX=20; plotY=20;
+else
+    plotX=25; plotY=30;
+end
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
 print(fh,fullfile(EEG(1).ALSUTRECHT.subject.preproc,[EEG(1).ALSUTRECHT.subject.id '_linenoiseremoval_2']),'-dtiff','-r300');

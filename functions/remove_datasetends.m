@@ -52,6 +52,7 @@ switch EEG(1).ALSUTRECHT.subject.task
             N = floor(size(EEG(i).data,2)/L);
             assert(N*L==size(EEG(i).data,2));
         end
+
     case 'MMN'
         for i = 1:NTRL
             lat = NaN(1,2);
@@ -89,6 +90,7 @@ switch EEG(1).ALSUTRECHT.subject.task
             N = floor(size(EEG(i).data,2)/L);
             assert(N*L==size(EEG(i).data,2));
         end
+
     case {'RS','EO','EC'}
         T = 2*EEG(1).srate;
         % for i = 1:NTRL
@@ -102,6 +104,7 @@ switch EEG(1).ALSUTRECHT.subject.task
             N = floor(EEG(i).pnts/EEG(i).srate)*EEG(i).srate-T;
             EEG(i) = pop_select(EEG(i),'point',[T+1 N]);
         end
+        
     case 'MT'
         for i = 1:NTRL
             lat = NaN(1,2);

@@ -48,7 +48,7 @@
 % THE POSSIBILITY OF SUCH DAMAGE.
 
 function [EEG, com] = eeg_rejsuperpose( EEG, typerej, Rmanual, Rthres, Rconst, ...
-                              Rent, Rkurt, Rfreq, Rothertype);
+                              Rent, Rkurt, Rfreq, Rothertype)
 
 if nargin < 9
 	help eeg_rejsuperpose;

@@ -14,7 +14,7 @@ function EEG = epoch_rsdata2(EEG,epochLength,epochOverlap)
 %
 % =========================================================================
 
-fprintf('\nEpoching (L = %d s, w/ overlap %1.2f) resting-state data...\n',epochLength,epochOverlap);
+fprintf('\nEpoching resting-state data (L = %d s, overlap %1.2f)...\n',epochLength,epochOverlap);
 
 % Check
 % assert(size(EEG.data,2)==length(~maskGood));

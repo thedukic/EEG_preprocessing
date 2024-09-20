@@ -1,4 +1,4 @@
-function [eyeBlinksMask, eyeBlinksEpochs, BlinkMaxLatency, dataeog, treshold]= detect_eog(EEG,winBlink)
+function [eyeBlinksMask, eyeBlinksEpochs, BlinkMaxLatency, dataeog, treshold]= detect_eog(EEG,winBlink,ignoreExtremeNoise)
 %
 % SDukic, July 2024
 %
@@ -27,7 +27,7 @@ dataeog = filtfilt(bh,ah,dataeog')';
 % dataeog = abs(dataeog);
 
 % Do this only if it is for MWF (R2)
-if ~isfield(EEG.ALSUTRECHT.MWF,'R2')
+if ignoreExtremeNoise % ~isfield(EEG.ALSUTRECHT.MWF,'R2')
     assert(length(dataeog)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1));
     dataeog(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = 0;
 end

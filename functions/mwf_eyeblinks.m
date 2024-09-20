@@ -7,7 +7,7 @@ fprintf('\nMWF (VEOG) eye blinks...\n');
 
 % =========================================================================
 % Detect eye blinks
-[noiseMask, eyeBlinksEpochs, ~, dataeog] = detect_eog(EEG,400); % 400 ms
+[noiseMask, eyeBlinksEpochs, ~, dataeog] = detect_eog(EEG,400,true); % 400 ms
 noiseMask = double(noiseMask);
 
 % Account for very bad epochs affected across all channels

@@ -7,9 +7,9 @@
 % Required Inputs:
 % data        - 2-D (channels, points) or 3-D (channels, frames, trials)
 %               data array.
-% wts_or_act  - {sphere weights} cell array containing the ICA sphere 
-%               and weights matrices. May also be a 2-D (channels, points) 
-%               or 3-D (channels, frames, trials) array of component 
+% wts_or_act  - {sphere weights} cell array containing the ICA sphere
+%               and weights matrices. May also be a 2-D (channels, points)
+%               or 3-D (channels, frames, trials) array of component
 %               activations.
 % winv        - inverse or pseudo-inverse of the product of the weights
 %               and sphere matrices returned by the ICA decompnumsition,
@@ -18,7 +18,7 @@
 %
 % Outputs:
 %  proj       - summed back-projections of the specified components
-%  pvaf       - percent variance of the data that the selected 
+%  pvaf       - percent variance of the data that the selected
 %               components account for (range: 100% to -Inf%).
 %
 % Author: Arnaud Delorme, CNL / Salk Institute, 2001
@@ -53,9 +53,9 @@
 function [ compproj, varegg ] = compvar( data, act, winv, compnums)
 
 if nargin < 4
-   help compvar;
-   return;
-end;   
+    help compvar;
+    return;
+end
 
 if iscell(act) && length(act) == 1
     act = act{1};

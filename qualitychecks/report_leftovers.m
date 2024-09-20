@@ -83,13 +83,182 @@ EEG.ALSUTRECHT.leftovers.muscle = proportionOfDataShowingMuscleActivityTotal;
 %% =========================================================================
 fprintf('\nChecking eye blink letovers...\n');
 
+fh = figure;
+th = tiledlayout(1,3);
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+
 % Select only EEG + VEOG
 chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
 dataeeg  = EEG.data(chaneeg,:);
 
+% =========================================================================
 % Detect eye blinks
-[~, eyeBlinksEpochs, BlinkMaxLatency, dataeog, treshold] = detect_eog(EXT,2000);
+blinkLenght = 500;
+[~, eyeBlinksEpochs] = detect_eog(EXT,blinkLenght,false);
 
+% Find multi-blinks
+multiBlink = detect_multiblinks(eyeBlinksEpochs);
+eyeBlinksEpochs(multiBlink,:) = [];
+NTRL = size(eyeBlinksEpochs,1);
+
+L = mode(diff(eyeBlinksEpochs'))+1;
+timeBlink0 = (0:L-1)./EEG.srate*1000;
+timeBlink1  = timeBlink0-blinkLenght;
+
+dataeegepoched = NaN(NCHANEEG,L,NTRL);
+for i = 1:NTRL
+    dataeegepoched(:,:,i) = dataeeg(:,eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
+    % dataeogepoched(:,i)   = dataeog(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
+end
+
+timesel = timeBlink0<200 | timeBlink0>800;
+dataeegepoched = dataeegepoched - mean(dataeegepoched(:,timesel,:),2);
+dataeegepoched = dataeegepoched - mean(dataeegepoched,1);
+
+% 1. Plot
+maskChanBlink = ismember({EEG.chanlocs(:).labels},cfg.ica.blinkchans);
+dataeegplot = dataeegepoched(maskChanBlink,:,:);
+dataeegplot = squeeze(mean(dataeegplot,1))';
+[h,p,ci,stats] = ttest(dataeegplot);
+dataeegplot = stats.tstat;
+% for i = 1:size(dataeegplot,2)
+%     [p(i),h,stats] = signrank(dataeegplot(:,i));
+%     statszval(i) = stats.zval;
+% end
+% dataeegplot = statszval;
+
+th = nexttile; hold on;
+plot(timeBlink1,zeros(1,length(timeBlink1)),'Color','k');
+plot(timeBlink1,dataeegplot,'LineWidth',1.2);
+maskTmp = p<0.01;
+scatter(timeBlink1(maskTmp),dataeegplot(maskTmp));
+axis tight; ylim([-10 25]); pbaspect([1.618 1 1]);
+ylabel('t-test'); title(['Frontal electrodes blink leftovers, N = ' num2str(NTRL)]);
+
+% =========================================================================
+% Detect eye blinks
+blinkLenght = 2000;
+[~, eyeBlinksEpochs, BlinkMaxLatency, dataeog, treshold] = detect_eog(EXT,blinkLenght,false);
+
+% Find multi-blinks
+multiBlink = detect_multiblinks(eyeBlinksEpochs);
+
+fprintf('Number of detected blinks is %d.\n',size(eyeBlinksEpochs,1));
+fprintf('Number of detected multiple blinks within each evalulation window is %d.\n',sum(multiBlink));
+
+eyeBlinksEpochs(multiBlink,:) = [];
+NTRL = size(eyeBlinksEpochs,1);
+
+L = mode(diff(eyeBlinksEpochs'))+1;
+timeBlink0 = (0:L-1)./EEG.srate*1000;
+timeBlink1  = timeBlink0-blinkLenght;
+
+if NTRL>5
+    dataeegepoched = NaN(NCHANEEG,L,NTRL);
+    dataeogepoched = NaN(L,NTRL);
+    for i = 1:NTRL
+        dataeegepoched(:,:,i) = dataeeg(:,eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
+        dataeogepoched(:,i)   = dataeog(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
+    end
+
+    % yrange = 1.05*[min(dataeogepoched(:)), max(dataeogepoched(:))];
+    % fh = figure;
+    % th = tiledlayout(1,3);
+    % th.TileSpacing = 'compact'; th.Padding = 'compact';
+
+    % 2. Plot
+    nexttile; hold on;
+    plot(timeBlink1,treshold*ones(size(timeBlink1)),'Color','k');
+    plot(timeBlink1,dataeogepoched,'LineWidth',1.2);
+    set(gca,'ColorOrder',[0 0 0; brewermap(NTRL,'BuGn')]);
+    title(['Detected blinks, N = ' num2str(NTRL)]);
+    pbaspect([1.618 1 1]); ylabel('EOG amplitude (/muV)');
+
+    % plot([500 500],yrange,'Color',[0 0 0]);
+    % plot([3500 3500],yrange,'Color',[0 0 0]);
+    % plot([1500 1500],yrange,'Color',[0 0 0]);
+    % plot([2500 2500],yrange,'Color',[0 0 0]);
+    % axis tight;
+
+    % RELAX code
+    % Calculate the absolute difference between the EEG.times and the timepoints we need:
+    absDiff_500ms = abs(timeBlink0 - 500);
+    % Find the minimum absolute difference
+    minDiff_500ms = min(absDiff_500ms(:));
+    % Find the indices of the closest number
+    [~, col_500ms] = find(absDiff_500ms == minDiff_500ms);
+    % 3500 ms:
+    absDiff_3500ms = abs(timeBlink0 - 3500);
+    % Find the minimum absolute difference
+    minDiff_3500ms = min(absDiff_3500ms(:));
+    % Find the indices of the closest number
+    [~, col_3500ms] = find(absDiff_3500ms == minDiff_3500ms);
+    % 1500 ms:
+    absDiff_1500ms = abs(timeBlink0 - 1500);
+    % Find the minimum absolute difference
+    minDiff_1500ms = min(absDiff_1500ms(:));
+    % Find the indices of the closest number
+    [~, col_1500ms] = find(absDiff_1500ms == minDiff_1500ms);
+    % 2500 ms:
+    absDiff_2500ms = abs(timeBlink0 - 2500);
+    % Find the minimum absolute difference
+    minDiff_2500ms = min(absDiff_2500ms(:));
+    % Find the indices of the closest number
+    [~, col_2500ms] = find(absDiff_2500ms == minDiff_2500ms);
+    % 4000 ms:
+    col_4000ms = L;
+
+    % Baseline correct data
+    dataeegepoched = dataeegepoched - mean(dataeegepoched(:,[1:col_500ms, col_3500ms:col_4000ms],:),2);
+
+    % Convert to absolute values
+    absolutevaluesblink = abs(dataeegepoched);
+
+    % Calculate
+    BlinkAmplitudeRatioAllEpochs = NaN(NCHANEEG,NTRL);
+    for i = 1:NTRL
+        BlinkAmplitudeRatioAllEpochs(:,i) = mean(absolutevaluesblink(:,col_1500ms:col_2500ms,i),2) ./ mean(absolutevaluesblink(:,[1:col_500ms, col_3500ms:col_4000ms],i),2);
+    end
+    BlinkAmplitudeRatio = mean(BlinkAmplitudeRatioAllEpochs,2);
+    BlinkAmplitudeRatioMean = (mean(BlinkAmplitudeRatio)-1)*100;
+
+    % 3. Plot
+    th = nexttile;
+    % mask = ismember({EEG.chanlocs(:).labels},cfg.ica.blinkchans);
+    chanlocs = readlocs('biosemi128_eeglab.ced'); myCmap = brewermap(128,'BuPu'); % BrBG
+    topoplot(BlinkAmplitudeRatio,chanlocs,'headrad',0.5,'colormap',myCmap,'whitebk','on','electrodes','off','style','map','shading','interp'); % ,'emarker2',{find(mask),'d','k',10,1}
+
+    % maxBlinkRatio = max(BlinkAmplitudeRatio);
+    maxBlinkRatio = prctile(BlinkAmplitudeRatio,95);
+    maxBlinkRatio = max(maxBlinkRatio,1.5); % minimum is this value
+    clim(th,[1, maxBlinkRatio]); colorbar;
+    title({'Mean blink amplitude leftover', [num2str(round(BlinkAmplitudeRatioMean)) '%']});
+
+else
+    warning('Too little data for a robust estimate...');
+    BlinkAmplitudeRatio = NaN;
+    BlinkAmplitudeRatioMean = NaN;
+end
+
+% Save
+plotX=25; plotY=10;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_leftovers']),'-dtiff','-r300');
+close(fh);
+
+% Log
+fprintf('Average amount of leftover eye blink artifact: %1.1f%%\n', BlinkAmplitudeRatioMean);
+fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
+fprintf(EEG.ALSUTRECHT.subject.fid,'Leftovers: eye blink artifacts\n');
+fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
+fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover eye blink artifact: %1.1f%%\n', BlinkAmplitudeRatioMean);
+
+EEG.ALSUTRECHT.leftovers.blinks = BlinkAmplitudeRatio;
+
+end
+
+function multiBlink = detect_multiblinks(eyeBlinksEpochs)
 % Find multi-blinks
 % Function to create the range specified by each row
 % Apply the function to each row of X
@@ -104,107 +273,5 @@ for i = 1:NTRL
     multiBlink(i) = any(ismember(rangesCell{i},[concatenatedRanges{:}]));
 end
 
-fprintf('Number of detected blinks is %d.\n',NTRL);
-fprintf('Number of detected multiple blinks within each evalulation window is %d.\n',sum(multiBlink));
-
-eyeBlinksEpochs(multiBlink,:) = [];
-NTRL = size(eyeBlinksEpochs,1);
-
-L = mode(diff(eyeBlinksEpochs'))+1;
-timeBlink = (0:L-1)./EEG.srate*1000-2000;
-
-if NTRL>5
-    dataeegepoched = NaN(NCHANEEG,L,NTRL);
-    dataeogepoched = NaN(L,NTRL);
-    for i = 1:NTRL
-        dataeegepoched(:,:,i) = dataeeg(:,eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
-        dataeogepoched(:,i)   = dataeog(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
-    end
-
-    % yrange = 1.05*[min(dataeogepoched(:)), max(dataeogepoched(:))];
-    fh = figure;
-    th = tiledlayout(1,2);
-    th.TileSpacing = 'compact'; th.Padding = 'compact';
-
-    nexttile; hold on;
-    plot(timeBlink,treshold*ones(size(timeBlink)),'Color','k');
-    plot(timeBlink,dataeogepoched,'LineWidth',1.2);
-    set(gca,'ColorOrder',[0 0 0; brewermap(NTRL,'BuGn')]);
-    title(['N = ' num2str(NTRL)]);
-
-    % plot([500 500],yrange,'Color',[0 0 0]);
-    % plot([3500 3500],yrange,'Color',[0 0 0]);
-    % plot([1500 1500],yrange,'Color',[0 0 0]);
-    % plot([2500 2500],yrange,'Color',[0 0 0]);
-    % axis tight;
-
-    % RELAX code
-    % Calculate the absolute difference between the EEG.times and the timepoints we need:
-    absDiff_500ms = abs(timeBlink - 500);
-    % Find the minimum absolute difference
-    minDiff_500ms = min(absDiff_500ms(:));
-    % Find the indices of the closest number
-    [~, col_500ms] = find(absDiff_500ms == minDiff_500ms);
-    % 3500ms:
-    absDiff_3500ms = abs(timeBlink - 3500);
-    % Find the minimum absolute difference
-    minDiff_3500ms = min(absDiff_3500ms(:));
-    % Find the indices of the closest number
-    [~, col_3500ms] = find(absDiff_3500ms == minDiff_3500ms);
-    % 1500ms:
-    absDiff_1500ms = abs(timeBlink - 1500);
-    % Find the minimum absolute difference
-    minDiff_1500ms = min(absDiff_1500ms(:));
-    % Find the indices of the closest number
-    [~, col_1500ms] = find(absDiff_1500ms == minDiff_1500ms);
-    % 2500ms:
-    absDiff_2500ms = abs(timeBlink - 2500);
-    % Find the minimum absolute difference
-    minDiff_2500ms = min(absDiff_2500ms(:));
-    % Find the indices of the closest number
-    [~, col_2500ms] = find(absDiff_2500ms == minDiff_2500ms);
-
-    % Baseline correct data
-    dataeegepoched = dataeegepoched - mean(dataeegepoched(:,[1:col_500ms,col_3500ms:L],:),2);
-
-    % Convert to absolute values
-    absolutevaluesblink = abs(dataeegepoched);
-
-    % Calculate
-    BlinkAmplitudeRatioAllEpochs = NaN(NCHANEEG,NTRL);
-    for i = 1:NTRL
-        BlinkAmplitudeRatioAllEpochs(:,i) = mean(absolutevaluesblink(:,col_1500ms:col_2500ms,i),2) ./ mean(absolutevaluesblink(:,[1:col_500ms,col_3500ms:L],i),2);
-    end
-    BlinkAmplitudeRatio = mean(BlinkAmplitudeRatioAllEpochs,2);
-
-    th = nexttile;
-    % mask = ismember({EEG.chanlocs(:).labels},cfg.ica.blinkchans);
-    chanlocs = readlocs('biosemi128_eeglab.ced'); myCmap = brewermap(128,'BuPu'); % BrBG
-    topoplot(BlinkAmplitudeRatio,chanlocs,'headrad',0.5,'colormap',myCmap,'whitebk','on','electrodes','off','style','map','shading','interp'); % ,'emarker2',{find(mask),'d','k',10,1}
-
-    maxBlinkRatio = max(BlinkAmplitudeRatio);
-    maxBlinkRatio = max(maxBlinkRatio,1.5);
-    clim(th,[1, maxBlinkRatio]); colorbar;
-
-    % Save
-    plotX=15; plotY=10;
-    set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-    set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_leftovers']),'-dtiff','-r300');
-    close(fh);
-
-else
-    warning('Too little data for a robust estimate...');
-    BlinkAmplitudeRatio = NaN;
 end
 
-% Log
-fprintf('Total amount of leftover eye blink artifact: %1.1f%%\n', (mean(BlinkAmplitudeRatio)-1)*100);
-fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
-fprintf(EEG.ALSUTRECHT.subject.fid,'Leftovers: eye blink artifacts\n');
-fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
-fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover eye blink artifact: %1.1f%%\n', (mean(BlinkAmplitudeRatio)-1)*100);
-
-EEG.ALSUTRECHT.leftovers.blinks = BlinkAmplitudeRatio;
-
-end

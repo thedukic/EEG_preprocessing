@@ -8,7 +8,7 @@ function checkReport = preproc_cleaning2(myPaths,id)
 % v1, August 2024
 % =========================================================================
 % TODO
-% 1.
+% 1. Lowpass filtering for ERPs (<30-40 Hz) and epoching to be done here
 % 2.
 %
 
@@ -37,12 +37,26 @@ disp('==================================================================');
 fprintf('\n');
 
 % 1. Load cleaned data
-fprintf('\n%s: Loading the preprocessed data...\n',subject.id);
-load(fullfile(subject.preproc,subject.clnfile),'EEG');
+fileName = fullfile(subject.preproc,subject.clnfile);
+if exist(fileName, 'file') == 2
+    fprintf('%s: Loading the preprocessed data...\n',subject.id);
+    load(fileName,'EEG');
+else
+    warning('%s: Cannot find the preprocessed data. Skipping...\n',subject.id);
+    checkReport = [];
+    return;
+end
 
-% 2. Baseline correct
+
+% 2. Common-average referening and baseline correction
+EEG = do_reref(EEG,'aRegular');
+
 % 2A.Traditional baseline correction
-EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0],[]);
+if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EO') || strcmpi(myPaths.task,'EC')
+    EEG = pop_rmbase(EEG,[],[]);
+else
+    EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0],[]);
+end
 
 % 2B. Regression based baseline correction method (recommended)
 % if strcmpi(myPaths.task,'MMN')
@@ -58,7 +72,6 @@ EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0],[]);
 %     condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0);
 %
 % end
-%
 % if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
 %     EEG = correct_baseline(EEG,[(EEG.xmin)*1000 0],'Factor_1_Level_1',condLabel);
 % else
@@ -76,13 +89,29 @@ NumberTrials(1) = size(EEG.data,3);
 % This section uses traditional amplitude, improbable voltage distributions within epochs, and kurtosis to reject epochs
 % A. EEGLAB-based rejection
 ROIidx = 1:128;
+fprintf('\n================================\n');
+fprintf('Max. amplitude\n');
+fprintf('================================\n');
 EEG = pop_eegthresh(EEG,1,ROIidx,-cfg.epoch.rejectAmp,cfg.epoch.rejectAmp,EEG.xmin,EEG.xmax,1,0);
+fprintf('\n================================\n');
+fprintf('Improbable data\n');
+fprintf('================================\n');
 EEG = pop_jointprob(EEG,1,ROIidx,cfg.epoch.singleChannelImprobableDataThreshold,cfg.epoch.allChannelImprobableDataThreshold,1,0);
+fprintf('\n================================\n');
+fprintf('Kurtosis\n');
+fprintf('================================\n');
 EEG = pop_rejkurt(EEG,1,ROIidx,cfg.epoch.singleChannelKurtosisThreshold,cfg.epoch.allChannelKurtosisThreshold,1,0);
+
+fprintf('\n================================\n');
+fprintf('Combining and rejecting\n');
+fprintf('================================\n');
 EEG = eeg_rejsuperpose(EEG, 1, 0, 1, 1, 1, 1, 1, 1);
-EEG = pop_rejepoch(EEG, EEG.reject.rejglobal ,0);
+EEG = pop_rejepoch(EEG, EEG.reject.rejglobal, 0);
 
 % B. EMG-slope-based rejection
+fprintf('\n================================\n');
+fprintf('EMG slopes\n');
+fprintf('================================\n');
 slopesChannelsxEpochs = dected_emg(EEG);
 slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
 
@@ -115,6 +144,11 @@ EEG.ALSUTRECHT.epochRejections.proportionOfEpochsRejected = (EEG.ALSUTRECHT.epoc
 EEG.ALSUTRECHT.issues_to_check.MedianvoltageshiftwithinepochFinal = median(voltageShiftWithinEpoch,3);
 EEG.ALSUTRECHT.issues_to_check.NumberTrials3 = EEG.ALSUTRECHT.epochRejections.round1Epochs;
 EEG.ALSUTRECHT.issues_to_check.NumberTrials4 = EEG.ALSUTRECHT.epochRejections.remainingEpochs;
+
+% Report
+Nremoved = [NumberTrials(1)-NumberTrials(2), NumberTrials(2)-NumberTrials(3)];
+fprintf('\n%s: Removed trials %d + %d = %d\n',subject.id,Nremoved,sum(Nremoved));
+fprintf('%s: Remaining trials %d\n',subject.id,NumberTrials(3));
 
 % 6. Plot
 if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
@@ -209,7 +243,7 @@ if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
     plotX=30; plotY=8;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
     set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(subject.preproc,'ERP_final'),'-dtiff','-r300');
+    print(fh,fullfile(subject.preproc,[subject.id '_erp_final']),'-dtiff','-r300');
     close(fh);
 
 elseif strcmpi(myPaths.task,'RS')
@@ -258,7 +292,7 @@ elseif strcmpi(myPaths.task,'RS')
     plotX=20; plotY=8;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
     set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(subject.preproc,'PSpectra_final'),'-dtiff','-r300');
+    print(fh,fullfile(subject.preproc,[subject.id '_pspectra_final']),'-dtiff','-r300');
     close(fh);
 
 elseif strcmpi(myPaths.task,'MT')
@@ -334,12 +368,12 @@ elseif strcmpi(myPaths.task,'MT')
     plotX=20; plotY=14;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
     set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(subject.preproc,'PSpectra_final'),'-dtiff','-r300');
+    print(fh,fullfile(subject.preproc,[subject.id '_pspectra_final']),'-dtiff','-r300');
     close(fh);
 end
 
 % 7. Save and return
-fprintf('\n%s: Saving the preprocessed data (part 2)...\n',subject.id);
+fprintf('%s: Saving the preprocessed data (part 2)...\n',subject.id);
 checkReport = EEG.ALSUTRECHT.issues_to_check;
 checkReport = rmfield(checkReport,{'Medianvoltageshiftwithinepoch','MedianvoltageshiftwithinepochFinal'});
 
