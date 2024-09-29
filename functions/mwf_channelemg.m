@@ -42,7 +42,6 @@ badElectrodes = {EEG.chanlocs(badElectrodes>cfgbch.muscleSlopeTime).labels};
 % The following replaces all values that aren't above the muscle
 % threshold with NaN, then sums the values that are above the threshold
 % for each epoch to allow identification of the worst epochs:
-
 sortingOutWorstMuscleEpochs = slopesChannelsxEpochs;
 sortingOutWorstMuscleEpochs(sortingOutWorstMuscleEpochs < cfgbch.muscleSlopeThreshold) = NaN;
 
@@ -145,9 +144,13 @@ fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF);
 
 if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF>0.05
-    % Use only EEG channels
+    % Parameters
+    delayNew = round((12/1000)*EEG.srate);
+    delaySpacingNew = round((2/1000)*EEG.srate);
+    params = mwf_params('delay',delayNew,'delay_spacing',delaySpacingNew);
+
+    % MWF EEG only
     chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-    params  = mwf_params('delay',12,'delay_spacing',2);
     [cleanEEG, d, W, SER, ARR] = mwf_process(EEG.data(chaneeg,:),noiseMask,params);
 
     % Check if there were any problems

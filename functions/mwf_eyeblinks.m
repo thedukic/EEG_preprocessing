@@ -86,9 +86,13 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MW
 fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R2.proportionMarkedForMWF);
 
 if EEG.ALSUTRECHT.MWF.R2.proportionMarkedForMWF>0.05
-    % Use only EEG channels
+    % Parameters
+    delayNew = round((10/1000)*EEG.srate);
+    delaySpacingNew = round((16/1000)*EEG.srate);
+    params  = mwf_params('delay',delayNew,'delay_spacing',delaySpacingNew);
+
+    % MWF EEG only
     chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-    params  = mwf_params('delay',10,'delay_spacing',16);
     [cleanEEG, d, W, SER, ARR] = mwf_process(EEG.data(chaneeg,:),noiseMask,params);
 
     % Check if there were any problems

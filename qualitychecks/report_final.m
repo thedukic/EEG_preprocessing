@@ -1,62 +1,72 @@
-function report_final(myfolders,rnum)
+function report_final(myPaths,subjects,rnum)
 %
 % Script for reporting on EEG data preprocessing
 % ALS Centre, University Medical Centre Utrecht
 %
 % =========================================================================
 % SDukic edits
-% v1, August 2024
+% v1, September 2024
 % =========================================================================
 % TODO
-% 1. 
+% 1.
 % 2.
 %
 
 fprintf('Generating a final report... This may take a while...\n');
 if isnumeric(rnum), rnum = num2str(rnum); end
 
-subjects = list_subjects(myfolders.preproc,[]);
-subjects = subjects(contains(subjects,'ALS'));
 NSUB = length(subjects);
-
 chanlocs = readlocs('biosemi128_eeglab.ced');
 chanlbls = {chanlocs.labels};
 maskelec = zeros(length(chanlocs),NSUB);
 
+% Report folder
+myPaths.reports = fullfile(myPaths.preproc,'reports');
+if exist(myPaths.reports,'dir')~=7, mkdir(myPaths.reports); end
+
 % =========================================================================
 N = NaN(NSUB,5);
-Medianvoltageshift = NaN(length(chanlbls),NSUB);
 
+NCHN = length(chanlbls);
+Medianvoltageshift = NaN(NCHN,NSUB);
+CorrelationMatrices = NaN(NCHN+2,NCHN+2,NSUB);
+
+fprintf('Loading %d datasets... Wait...\n',NSUB);
 for i = 1:NSUB
-    load(fullfile(myfolders.preproc,subjects{i},[subjects{i} '_' myfolders.visit '_' myfolders.task '_cleandata_' rnum 'b.mat']),'preprocReport');
+    load(fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' rnum 'b.mat']),'EEG');
 
-    maskelec(:,i) = double(ismember(chanlbls,preprocReport.badchaninfo.badElectrodes));
+    % Record warnings about potential issues
+    EEG = report_issues(EEG);
+
+    % Record warnings for all participants in a single table
+    if i == 1
+        tableIssues = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
+        tableIssues(2:NSUB,:) = cell2table([repmat({''},NSUB-1,1), repmat({NaN},NSUB-1,length(tableIssues.Properties.VariableNames)-1)], 'VariableNames', tableIssues.Properties.VariableNames);
+    else
+        tableIssues(i,:) = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
+    end
+
+    % Bad electrodes
+    maskelec(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
     N(i,1) = sum(maskelec(:,i));
 
-    % Total possible
-    switch myfolders.task
-        case {'RS','EO','EC'}
-            if preprocReport.issues_to_check.NumberTrials1<preprocReport.issues_to_check.NumberTrials2
-                % Assume 2s with 0.75 overlap
-                % This fixes a bug in the inital v1 code
-                N(i,2) = sum([preprocReport.eventinfo{:,3}])*4/2;
-            else
-                N(i,2) = preprocReport.issues_to_check.NumberTrials1;
-            end
-
-        otherwise
-            % N(i,2) = sum([preprocReport.eventinfo{:,3}]);
-            N(i,2) = preprocReport.issues_to_check.NumberTrials1; % equiv.
-    end
-   
-    % Left after preproc
-    N(i,3) = preprocReport.issues_to_check.NumberTrials2;
-    % Left after trial rejection
-    N(i,4) = preprocReport.issues_to_check.NumberTrials4;
+    % Epochs: Total possible
+    % N(i,2) = sum([EEG.ALSUTRECHT.eventinfo{:,3}])*4/2; % RS
+    N(i,2) = EEG.ALSUTRECHT.issues_to_check.NumberTrials1;
+    % Epochs: Left after preproc
+    N(i,3) = EEG.ALSUTRECHT.issues_to_check.NumberTrials2;
+    % Epochs: Left after trial rejection
+    N(i,4) = EEG.ALSUTRECHT.issues_to_check.NumberTrials4;
+    
     % Leftover EMG
-    N(i,5) = preprocReport.issues_to_check.MuscleLeftovers;
+    % N(i,5) = EEG.ALSUTRECHT.leftovers.muscle1;  % after proc1 
+    N(i,5) = EEG.ALSUTRECHT.leftovers.muscle2;    % after proc2
 
-    Medianvoltageshift(:,i) = preprocReport.issues_to_check.MedianvoltageshiftwithinepochFinal(1:128);
+    % Median voltage range
+    Medianvoltageshift(:,i) = EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal(1:128);
+
+    % Correlation matrix
+    CorrelationMatrices(:,:,i) = EEG.ALSUTRECHT.chanCorr;
 end
 
 % =========================================================================
@@ -72,22 +82,21 @@ myCmap3 = brewermap(12,'Paired');
 
 nexttile(1);
 topoplot(mean(maskelec,2),chanlocs,'maplimits',[0 0.25],'headrad',0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','shading','interp');
-axis tight; title([myfolders.group ', N = ' num2str(NSUB)]);
+axis tight; title([myPaths.group ', N = ' num2str(NSUB)]);
 hcb = colorbar;
 hcb.Title.String = "%";
 
 % Plot 2: Interpolated channels per person
 nexttile; hold on;
-plot([0 NSUB],[0.15 0.15],'LineWidth',1.2,'Color',0.6*ones(1,3));
+plot([0 NSUB+1],[0.15 0.15],'LineWidth',1.2,'Color',0.6*ones(1,3));
 bar(N(:,1)/128,'FaceColor',myCmap1(end/2,:)); ylim([0 1]); box on;
 
 ylabel('Interp. chans (%)');
 xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
 
 % Plot 3: EMG lefovers from preprocessing
-% (but this might be less after trial rejection in the part 2)
 nexttile; hold on;
-plot([0 NSUB],[0.25 0.25],'LineWidth',1.2,'Color',0.6*ones(1,3));
+plot([0 NSUB+1],[0.25 0.25],'LineWidth',1.2,'Color',0.6*ones(1,3));
 bar(N(:,5),'FaceColor',myCmap3(12,:)); ylim([0 1]); box on;
 
 xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
@@ -110,7 +119,7 @@ xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
 plotX=25; plotY=22;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myfolders.reports,['Summary1_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' myfolders.proctime]),'-dtiff','-r400');
+print(fh,fullfile(myPaths.reports,['Summary1_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
 
 % =========================================================================
 % The following checks for participants who show outlying values for the median voltage shift within each epoch:
@@ -157,7 +166,7 @@ set(gca,'ColorOrder',[0 0 0; 0 0 0; brewermap(NSUB,'BuGn')]);
 plotX=35; plotY=15;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myfolders.reports,['Summary2_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' myfolders.proctime]),'-dtiff','-r400');
+print(fh,fullfile(myPaths.reports,['Summary2_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
 
 % 3. Visualise
 maskSubj = find(CumulativeSeverityOfAmplitudesAboveThreshold>0);
@@ -188,7 +197,7 @@ if ~isempty(maskSubj)
     plotX=25; plotY=20;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
     set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(myfolders.reports,['Summary3_' myfolders.group '_' myfolders.visit '_' myfolders.task  '_' myfolders.proctime]),'-dtiff','-r400');
+    print(fh,fullfile(myPaths.reports,['Summary3_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
 
 else
     fprintf('None of the participants in this group have an unusually high voltage.\n');
@@ -196,5 +205,45 @@ end
 
 % OutlierParticipantsToManuallyCheck   = table(Participant_IDs', CumulativeSeverityOfAmplitudesBelowThreshold,CumulativeSeverityOfAmplitudesAboveThreshold);
 % LoggedMedianVoltageShiftAcrossEpochs = array2table(MedianvoltageshiftwithinepochLogged);
+
+% =========================================================================
+% CorrelationMatricesMean = mean(CorrelationMatrices,3);
+% 
+% NCHN = size(CorrelationMatricesMean,1);
+% CorrelationMatricesZ = 0*CorrelationMatrices;
+% 
+% for i = 1:NCHN
+%     for j = 1:NCHN
+%         CorrelationMatricesZ(i,j,:) = zscore(squeeze(CorrelationMatrices(i,j,:)));
+%     end
+% end
+% 
+% maskDiff = squeeze(any(abs(CorrelationMatricesZ)>6,[1 2]));
+% maskDiff = find(maskDiff);
+% 
+% maskDiff = [1; 2; 3; maskDiff]
+% 
+% NSUBdv = length(maskDiff);
+% 
+% fh = figure;
+% th = tiledlayout(1,NSUBdv+1);
+% th.TileSpacing = 'compact'; th.Padding = 'compact';
+% 
+% for i = 1:NSUBdv+1
+%     nexttile;
+%     if i == 1
+%         imagesc(CorrelationMatricesMean);
+%         title('Group average');
+%     else
+%         imagesc(CorrelationMatricesZ(:,:,maskDiff(i-1)));
+%         title(subjects{maskDiff(i-1)});
+%     end
+%     axis square;
+% end
+
+% =========================================================================
+% Report table
+save(fullfile(myPaths.reports,['Summary_' myPaths.group '_' myPaths.visit '_' myPaths.task '_' myPaths.proctime]),'tableIssues');
+writetable(tableIssues,fullfile(myPaths.reports,['Summary_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime '.xlsx']),"WriteMode","overwrite");
 
 end

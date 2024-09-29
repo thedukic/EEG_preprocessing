@@ -2,31 +2,31 @@ function EEG = report_ICA(EEG)
 %
 % IC topoplots
 %
-% SDukic, August 2024
 
-% Separate EEG
-chanext = {EEG.chanlocs(strcmp({EEG.chanlocs.type},'EXT')).labels};
-if ~isempty(chanext)
-    EXT = pop_select(EEG,'channel',chanext);
-    EEG = pop_select(EEG,'rmchannel',chanext);
-end
-
+% =========================================================================
+% Should I recomopute the variances here??? Not sure.
+% % Double-check
+% EEG = eeg_checkset(EEG,'ica');
+% 
 % % Make sure IC activations are present
-% % But also this is necessary if wICA was done!
 % EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
 % EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
 
-% Evaluate only the first K = 20 ICs, they carry the most power and thus relevance
-K = 20;
-NICA = length(EEG.reject.gcompreject);
+% Normalised variance of all ICs
 varICs = EEG.ALSUTRECHT.ica.varICs;
-
-% Normalised var of all ICs
 varAICsNorm = varICs./sum(varICs);
-% Total var of the first K ICs
-varKICs = sum(varAICsNorm(1:K));
+
+% Evaluate only the first K ICs,
+% They carry the most power and thus relevance
+NICA = length(EEG.reject.gcompreject);
+NICArel = 20;
+
+% Total variance of the first K ICs
+varKICs = sum(varAICsNorm(1:NICArel));
 
 % =========================================================================
+% Check if the data was enough for ICA
+
 % EEG available:
 % MMN  3*7     ~ 21 min
 % SART 3*5     ~ 15 min
@@ -48,22 +48,45 @@ if 30*(NICA^2)>prod(size(EEG.data,[2 3]))
     fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data might be too short for the ICA!\n');
 else
     EEG.ALSUTRECHT.ica.DataLengthForValidICA = 'OK';
-    fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data seems to be long enough for the ICA.\n');
+    fprintf('\nEEG data is long enough for the ICA.\n');
+    fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data is long enough for the ICA.\n');
 end
 
 % =========================================================================
-% Plot the first 20 ICs
+% Plot the first 20 ICs + bad ICs
 myCmap1 = brewermap(128,'*RdBu');
+myCmap2 = brewermap(4,'Set1');
+
+% Extract bad ICs for plotting
+ICsforwICA           = find(EEG.ALSUTRECHT.ica.ICsforwICA);
+ICsMostLikelyBlink   = find(EEG.ALSUTRECHT.ica.ICsMostLikelyBlink);
+ICsMostLikelyMuscle  = find(EEG.ALSUTRECHT.ica.ICsMostLikelyMuscle);
+ICsMostLikelyComplex = find(EEG.ALSUTRECHT.ica.ICsMostLikelyComplex);
+
+NICAtmp = length([ICsforwICA; ICsMostLikelyMuscle; ICsMostLikelyComplex]);
+
+% How many rows are needed for bad ICs
+% We plot the first 24 ICs
+NCOL = 8;
+NROW1 = 3;
+NICAgood = NCOL*NROW1;
+
+NROW2 = ceil(NICAtmp/NCOL);
+
+% Total rows plus 1 for the gap
+NROW = NROW1 + NROW2 + 1;
 
 fh = figure;
-th = tiledlayout(4,5);
+th = tiledlayout(NROW,NCOL);
 th.TileSpacing = 'compact'; th.Padding = 'compact';
 
-for i = 1:20
+% 1. Plot the first N ICs
+for i = 1:NICAgood
     nexttile;
     topoplot(EEG.icawinv(:,i),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,i)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
 
     thisLabel = EEG.ALSUTRECHT.ica.ICLabel.clss{EEG.ALSUTRECHT.ica.ICLabel.cvec(i)};
+    thisPval  = round(EEG.ALSUTRECHT.ica.ICLabel.pvec(i),2);
     if contains(thisLabel,'Brain')
         thisTitleColor = [0.1 0.8 0.2];
     elseif contains(thisLabel,'Other')
@@ -73,16 +96,104 @@ for i = 1:20
     end
 
     % title({['ICA' num2str(i) ', Var = ' num2str(round(varAICsNorm(i),2))], [EEG.ALSUTRECHT.ica.ICLabel.clss{EEG.ALSUTRECHT.ica.ICLabel.cvec(i)} ', P = ' num2str(round(EEG.ALSUTRECHT.ica.ICLabel.pvec(i),2))]});
-    title({['ICA' num2str(i) ', Var = ' num2str(round(varAICsNorm(i)*100)) '%'], [thisLabel ', P = ' num2str(round(EEG.ALSUTRECHT.ica.ICLabel.pvec(i),2))]},'Color',thisTitleColor);
+    title({['ICA' num2str(i) ', Var = ' num2str(round(varAICsNorm(i)*100)) '%'], [thisLabel ', P = ' num2str(thisPval)]},'Color',thisTitleColor);
     axis tight;
+end
+
+% 2. Plot bad ICs
+NSTART = NICAgood + NCOL;
+cnt = 0;
+for i = 1:3
+    switch i
+        case 1
+            theseICs  = ICsforwICA;
+            thisLabel = 'wICA';
+        case 2
+            theseICs  = ICsMostLikelyMuscle;
+            thisLabel = 'Muscle';
+        case 3
+            theseICs = ICsMostLikelyComplex;
+            thisLabel = 'Complex';
+    end
+    for j = 1:length(theseICs)
+        cnt = cnt+1;
+        nexttile(NSTART+cnt);
+
+        thisIC = theseICs(j);
+        switch i
+            case 1
+                thisLabelTmp = EEG.ALSUTRECHT.ica.combi.lbls(EEG.ALSUTRECHT.ica.combi.bics==thisIC);
+                if length(thisLabelTmp)>1, thisLabelTmp = {strjoin(thisLabelTmp,'/')}; end
+            case {2,3}
+                thisLabelTmp = {thisLabel};
+        end
+
+        topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
+        title(['ICA' num2str(thisIC) ', ' thisLabelTmp{1}],'Color',myCmap2(i,:));
+    end
+end
+
+% Save
+plotX=40; plotY=25;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_overviewICs']),'-dtiff','-r300');
+close(fh);
+
+% =========================================================================
+% Plot all artifact ICs
+
+fh = figure;
+th = tiledlayout('flow');
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+
+for i = 1:length(EEG.ALSUTRECHT.ica.combi.bics)
+    nexttile;
+    thisIC = EEG.ALSUTRECHT.ica.combi.bics(i);
+    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
+    title({['ICA' num2str(thisIC)], [EEG.ALSUTRECHT.ica.combi.lbls{i} ', ' EEG.ALSUTRECHT.ica.combi.meth{i} ' = ' num2str(round(EEG.ALSUTRECHT.ica.combi.prbs(i),2))]},'Color',myCmap2(EEG.ALSUTRECHT.ica.combi.method(i),:));
 end
 
 % Save
 plotX=25; plotY=15;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ICs']),'-dtiff','-r300');
+print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_allbadICs']),'-dtiff','-r300');
 close(fh);
+
+% =========================================================================
+% % Plot the first 20 ICs
+% myCmap1 = brewermap(128,'*RdBu');
+%
+% fh = figure;
+% th = tiledlayout(4,5);
+% th.TileSpacing = 'compact'; th.Padding = 'compact';
+%
+% for i = 1:20
+%     nexttile;
+%     topoplot(EEG.icawinv(:,i),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,i)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
+%
+%     thisLabel = EEG.ALSUTRECHT.ica.ICLabel.clss{EEG.ALSUTRECHT.ica.ICLabel.cvec(i)};
+%     thisPval  = round(EEG.ALSUTRECHT.ica.ICLabel.pvec(i),2);
+%     if contains(thisLabel,'Brain')
+%         thisTitleColor = [0.1 0.8 0.2];
+%     elseif contains(thisLabel,'Other')
+%         thisTitleColor = [0 0 0];
+%     else
+%         thisTitleColor = [0.8 0.1 0.2];
+%     end
+%
+%     % title({['ICA' num2str(i) ', Var = ' num2str(round(varAICsNorm(i),2))], [EEG.ALSUTRECHT.ica.ICLabel.clss{EEG.ALSUTRECHT.ica.ICLabel.cvec(i)} ', P = ' num2str(round(EEG.ALSUTRECHT.ica.ICLabel.pvec(i),2))]});
+%     title({['ICA' num2str(i) ', Var = ' num2str(round(varAICsNorm(i)*100)) '%'], [thisLabel ', P = ' num2str(thisPval)]},'Color',thisTitleColor);
+%     axis tight;
+% end
+%
+% % Save
+% plotX=25; plotY=15;
+% set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+% set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+% print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ICs']),'-dtiff','-r300');
+% close(fh);
 
 % =========================================================================
 % % Plot IClabel artifact ICs
@@ -104,160 +215,63 @@ close(fh);
 % set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
 % print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ICLabel_badICs']),'-dtiff','-r400');
 % close(fh);
+
+% =========================================================================
+% % Plot wICs
+% ICsforwICA           = EEG.ALSUTRECHT.ica.ICsforwICA;
+% ICsMostLikelyBlink   = EEG.ALSUTRECHT.ica.ICsMostLikelyBlink;
+% ICsMostLikelyMuscle  = EEG.ALSUTRECHT.ica.ICsMostLikelyMuscle;
+% ICsMostLikelyComplex = EEG.ALSUTRECHT.ica.ICsMostLikelyComplex;
 %
-% % =========================================================================
-% % Plot extra artifact ICs
+% NICAtmp = sum(ICsforwICA|ICsMostLikelyBlink|ICsMostLikelyMuscle|ICsMostLikelyComplex);
 %
-% % % Maximum number of bad ICs per each type
-% % NLBL = length(EEG.ALSUTRECHT.ica.combi.clss);
-% % maxBadIC = max(arrayfun(@(i) sum(EEG.ALSUTRECHT.ica.combi.cvec==i),1:NLBL));
-% %
-% % % Plot
-% % fh = figure;
-% % th = tiledlayout(NLBL,maxBadIC);
-% % th.TileSpacing = 'compact'; th.Padding = 'compact';
-% %
-% % for i = 1:NLBL
-% %     badICtypeIndx = find(EEG.ALSUTRECHT.ica.combi.cvec==i);
-% %
-% %     if ~isempty(badICtypeIndx)
-% %         for j = 1:length(badICtypeIndx)
-% %             nexttile(maxBadIC*(i-1)+j);
-% %             thisIC = EEG.ALSUTRECHT.ica.combi.bics(badICtypeIndx(j));
-% %             topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map','shading','interp');
-% %             title({['ICA' num2str(thisIC)], [EEG.ALSUTRECHT.ica.combi.clss{i} ', R = ' num2str(round(EEG.ALSUTRECHT.ica.combi.corr(thisIC,i),2))]});
-% %             axis tight;
-% %         end
-% %     end
-% % end
+% ICsforwICA           = find(ICsforwICA);
+% ICsMostLikelyMuscle  = find(ICsMostLikelyMuscle);
+% ICsMostLikelyComplex = find(ICsMostLikelyComplex);
 %
-% % Extra 1
 % fh = figure;
-% th = tiledlayout('flow');
-% th.TileSpacing = 'compact'; th.Padding = 'compact';
-%
-% for i = 1:length(EEG.ALSUTRECHT.ica.extra1.bics)
-%     nexttile;
-%
-%     thisIC = EEG.ALSUTRECHT.ica.extra1.bics(i);
-%     thisClass = EEG.ALSUTRECHT.ica.extra1.cvec(i);
-%     topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map','shading','interp');
-%     title({['ICA' num2str(thisIC)], [EEG.ALSUTRECHT.ica.extra1.clss{thisClass} ', R = ' num2str(round(EEG.ALSUTRECHT.ica.extra1.corr(thisIC,thisClass),2))]});
-%     axis tight;
+% if NICAtmp<=5
+%     th = tiledlayout(1,5);
+% else
+%     th = tiledlayout('flow');
 % end
-%
-% % Save
-% plotX=35; plotY=20;
-% set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-% set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-% print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_extra1_badICs']),'-dtiff','-r400');
-% close(fh);
-%
-% % Extra 2
-% fh = figure;
-% th = tiledlayout('flow');
 % th.TileSpacing = 'compact'; th.Padding = 'compact';
 %
-% for i = 1:length(EEG.ALSUTRECHT.ica.extra2.bics)
-%     nexttile;
-%     thisIC = EEG.ALSUTRECHT.ica.extra2.bics(i);
-%     thisClass = EEG.ALSUTRECHT.ica.extra2.cvec(i);
-%     topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap,'whitebk','on','style','map','shading','interp');
-%     if thisClass == 1
-%         measureLabel = 'Slope';
-%         measureValue = EEG.ALSUTRECHT.ica.extra2.musleSlope(thisIC);
-%     else
-%         measureLabel = 'Pval';
-%         measureValue = mean(EEG.ALSUTRECHT.ica.extra2.blinkPvals(thisIC,:));
+% for i = 1:3
+%     switch i
+%         case 1
+%             theseICs  = ICsforwICA;
+%             thisLabel = 'wICA';
+%         case 2
+%             theseICs  = ICsMostLikelyMuscle;
+%             thisLabel = 'Muscle';
+%         case 3
+%             theseICs = ICsMostLikelyComplex;
+%             thisLabel = 'Complex';
 %     end
-%     title({['ICA' num2str(thisIC)], [EEG.ALSUTRECHT.ica.extra2.clss{thisClass} ', ' measureLabel ' = ' num2str(round(measureValue,2))]});
-%     axis tight;
+%     for j = 1:length(theseICs)
+%         nexttile;
+%         thisIC = theseICs(j);
+%
+%         switch i
+%             case 1
+%                 thisLabelTmp = EEG.ALSUTRECHT.ica.combi.lbls(EEG.ALSUTRECHT.ica.combi.bics==thisIC);
+%                 if length(thisLabelTmp)>1, thisLabelTmp = {strjoin(thisLabelTmp,'/')}; end
+%             case {2,3}
+%                 thisLabelTmp = {thisLabel};
+%         end
+%
+%         topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
+%         title(['ICA' num2str(thisIC) ', ' thisLabelTmp{1}],'Color',myCmap2(i,:));
+%     end
 % end
 %
 % % Save
-% plotX=35; plotY=20;
+% plotX=25; plotY=15;
 % set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 % set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-% print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_extra2_badICs']),'-dtiff','-r400');
+% print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_badwICs']),'-dtiff','-r300');
 % close(fh);
-
-% =========================================================================
-% Plot all artifact ICs
-
-fh = figure;
-th = tiledlayout('flow');
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-
-myCmap2 = brewermap(4,'Set1');
-for i = 1:length(EEG.ALSUTRECHT.ica.combi.bics)
-    nexttile;
-    thisIC = EEG.ALSUTRECHT.ica.combi.bics(i);
-    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
-    title({['ICA' num2str(thisIC)], [EEG.ALSUTRECHT.ica.combi.lbls{i} ', ' EEG.ALSUTRECHT.ica.combi.meth{i} ' = ' num2str(round(EEG.ALSUTRECHT.ica.combi.prbs(i),2))]},'Color',myCmap2(EEG.ALSUTRECHT.ica.combi.method(i),:));
-end
-
-% Save
-plotX=25; plotY=15;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_badICs']),'-dtiff','-r300');
-close(fh);
-
-% =========================================================================
-% Plot wICA eye and muscle
-
-ICsMostLikelyBlink  = EEG.ALSUTRECHT.ica.extra3.bics;
-ICsMostLikelyMuscle = find(EEG.ALSUTRECHT.ica.extra2.ICsMostLikelyMuscle);
-
-% Eye
-NICAtmp = length(ICsMostLikelyBlink);
-
-fh = figure;
-if NICAtmp<=6
-    th = tiledlayout(1,6);
-else
-    th = tiledlayout('flow');
-end
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-
-for i = 1:NICAtmp
-    nexttile;
-    thisIC = ICsMostLikelyBlink(i);
-    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
-    title(['ICA' num2str(thisIC),', Eye']);
-end
-
-% Save
-plotX=20; plotY=10;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_badICsEye']),'-dtiff','-r300');
-close(fh);
-
-% Muscle
-NICAtmp = length(ICsMostLikelyMuscle);
-
-fh = figure;
-if NICAtmp<=6
-    th = tiledlayout(1,6);
-else
-    th = tiledlayout('flow');
-end
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-
-for i = 1:NICAtmp
-    nexttile;
-    thisIC = ICsMostLikelyMuscle(i);
-    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
-    title(['ICA' num2str(thisIC),', Muscle']);
-end
-
-% Save
-plotX=20; plotY=10;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_badICsMuscle']),'-dtiff','-r300');
-close(fh);
 
 % =========================================================================
 % Estimates of "good/successful" ICA:
@@ -273,23 +287,23 @@ close(fh);
 % show 50-55 of Brain class rate regardless of the number of channels.
 % (see also: eeglablist Digest, Vol 220, Issue 21)
 
-fprintf(EEG.ALSUTRECHT.subject.fid,'Within the first %d ICs (power = %1.2f):\n', K,varKICs);
-fprintf(EEG.ALSUTRECHT.subject.fid,'Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==1)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==2)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==3)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Heart   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==4)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Line    components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==5)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Channel components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==6)*100));
-fprintf(EEG.ALSUTRECHT.subject.fid,'Other   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==7)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Within the first %d ICs (power = %1.2f):\n', NICArel,varKICs);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==1)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==2)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==3)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Heart   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==4)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Line    components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==5)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Channel components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==6)*100));
+fprintf(EEG.ALSUTRECHT.subject.fid,'Other   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==7)*100));
 
-fprintf('Within the first %d ICs (power = %1.2f):\n', K,varKICs);
-fprintf('Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==1)*100));
-fprintf('Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==2)*100));
-fprintf('Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==3)*100));
-fprintf('Heart   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==4)*100));
-fprintf('Line    components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==5)*100));
-fprintf('Channel components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==6)*100));
-fprintf('Other   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:K)==7)*100));
+fprintf('Within the first %d ICs (power = %1.2f):\n', NICArel,varKICs);
+fprintf('Brain   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==1)*100));
+fprintf('Muscle  components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==2)*100));
+fprintf('Eye     components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==3)*100));
+fprintf('Heart   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==4)*100));
+fprintf('Line    components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==5)*100));
+fprintf('Channel components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==6)*100));
+fprintf('Other   components: %2.0f%%\n', round(mean(EEG.ALSUTRECHT.ica.combi.report(1:NICArel)==7)*100));
 
 % RELAX reporting:
 I = EEG.ALSUTRECHT.ica.combi.report;
@@ -319,10 +333,5 @@ EEG.ALSUTRECHT.ica.ProportionVariance_was_HeartICs        = HeartVariance/TotalV
 EEG.ALSUTRECHT.ica.ProportionVariance_was_LineNoiseICs    = LineNoiseVariance/TotalVariance;
 EEG.ALSUTRECHT.ica.ProportionVariance_was_ChannelNoiseICs = ChannelNoiseVariance/TotalVariance;
 EEG.ALSUTRECHT.ica.ProportionVariance_was_OtherICs        = OtherVariance/TotalVariance;
-
-% Merge
-if ~isempty(chanext)
-    EEG = merge_eeglabsets(EEG,EXT);
-end
 
 end

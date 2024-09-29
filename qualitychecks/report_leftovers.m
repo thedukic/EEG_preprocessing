@@ -9,66 +9,33 @@ fprintf('\nChecking muscle activity leftovers...\n');
 muscleSlopeThreshold = cfg.bch.muscleSlopeThreshold;
 muscleSlopeDuration  = 0.5;
 
-% Select only EEG
-chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-% dataeeg = EEG.data(chaneeg,:,:);
-dataeeg = EEG.data(chaneeg,:);
-
-NCHANEEG = sum(chaneeg);
-
-% Epoch into 1s (or maybe better into 1s with 0.5 overlap, but OK)
-L = EEG.srate;
-N = floor(size(dataeeg,2)/L);
-dataeeg = reshape(dataeeg(:,1:N*L),NCHANEEG,L,N);
-
-% Compute (log) power spectra (7-75 Hz)
-[NCHN,NPTS,NTRL] = size(dataeeg);
-
-psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
-for i = 1:NTRL
-    [psdspectra(:,:,i),freq] = pwelch(dataeeg(:,:,i)',NPTS,0,NPTS,EEG.srate);
-end
-
-foi = [7 75];
-frqmsk = freq>=foi(1) & freq<=foi(2);
-psdspectra = permute(psdspectra,[1 3 2]);
-logpow = log10(psdspectra(frqmsk,:,:));
-logfoi = log10(freq(frqmsk));
-
-% Fit linear regression to log-log data, and store the slope
-slopesEpochsxChannels = NaN(NCHN,NTRL);
-for i = 1:NCHN
-    for j = 1:NTRL
-        p = polyfit(logfoi,logpow(:,j,i),1);
-        slopesEpochsxChannels(i,j) = p(1);
-    end
-end
+% Estimate log-log power spectra
+slopesChannelsxEpochs = dected_emg(EEG);
+[NCHANEEG, NTRL] = size(slopesChannelsxEpochs);
 
 % Strong slow drifts are reflected as very steep negative slopes of the power spectrum
-badchn = sum(slopesEpochsxChannels>muscleSlopeThreshold,2);
+badchn = sum(slopesChannelsxEpochs>muscleSlopeThreshold,2);
 badchn = badchn./NTRL;
 badElectrodes = {EEG.chanlocs(find(badchn>muscleSlopeDuration)).labels};
 
 % The following replaces all values that aren't above the muscle
 % threshold with NaN, then sums the values that are above the threshold
 % for each epoch to allow identification of the worst epochs:
-sortingOutWorstMuscleEpochs = slopesEpochsxChannels;
-sortingOutWorstMuscleEpochs(sortingOutWorstMuscleEpochs < muscleSlopeThreshold) = NaN;
+slopesChannelsxEpochs(slopesChannelsxEpochs < muscleSlopeThreshold) = NaN;
 
 % Shift the baseline of the values to the muscleSlopeThreshold, so that all
 % muscle artifacts can be ranked in severity of EMG starting from 0 (least
 % severe) and moving more positive as more severe:
-sortingOutWorstMuscleEpochs = sortingOutWorstMuscleEpochs-muscleSlopeThreshold;
+slopesChannelsxEpochs = slopesChannelsxEpochs-muscleSlopeThreshold;
 
 % Sum muscle slopes across all channels that show slopes above the
 % threshold. This gives an indication of how badly each epoch is
 % affected by muscle activity, with more affected electrodes within
 % the epoch providing higher values:
-sortingOutWorstMuscleEpochs = sum(sortingOutWorstMuscleEpochs,1,'omitnan');
+slopesEpochs = sum(slopesChannelsxEpochs,1,'omitnan');
 
 % Threshold = 0, because all slope values have had the threshold subtracted from them (so the threshold is now 0)
-templateMarkedForMuscleArtifacts(sortingOutWorstMuscleEpochs>0) = 1;
-proportionOfDataShowingMuscleActivityTotal = mean(templateMarkedForMuscleArtifacts,'omitnan');
+proportionOfDataShowingMuscleActivityTotal = mean(slopesEpochs>0);
 
 % Log
 fprintf('Total amount of leftover muscle artifact: %1.2f\n', proportionOfDataShowingMuscleActivityTotal);
@@ -78,7 +45,7 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'--------------------------------------------
 fprintf(EEG.ALSUTRECHT.subject.fid,'Muscle log(7-75Hz) slope threshold: %1.2f\n',muscleSlopeThreshold);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover muscle artifact: %1.2f\n', proportionOfDataShowingMuscleActivityTotal);
 
-EEG.ALSUTRECHT.leftovers.muscle = proportionOfDataShowingMuscleActivityTotal;
+EEG.ALSUTRECHT.leftovers.muscle1 = proportionOfDataShowingMuscleActivityTotal;
 
 %% =========================================================================
 fprintf('\nChecking eye blink letovers...\n');
@@ -137,6 +104,7 @@ ylabel('t-test'); title(['Frontal electrodes blink leftovers, N = ' num2str(NTRL
 
 % =========================================================================
 % Detect eye blinks
+% Not ideal, the code does not care about boundary events
 blinkLenght = 2000;
 [~, eyeBlinksEpochs, BlinkMaxLatency, dataeog, treshold] = detect_eog(EXT,blinkLenght,false);
 
@@ -153,7 +121,7 @@ L = mode(diff(eyeBlinksEpochs'))+1;
 timeBlink0 = (0:L-1)./EEG.srate*1000;
 timeBlink1  = timeBlink0-blinkLenght;
 
-if NTRL>5
+if NTRL>0
     dataeegepoched = NaN(NCHANEEG,L,NTRL);
     dataeogepoched = NaN(L,NTRL);
     for i = 1:NTRL
@@ -170,7 +138,8 @@ if NTRL>5
     nexttile; hold on;
     plot(timeBlink1,treshold*ones(size(timeBlink1)),'Color','k');
     plot(timeBlink1,dataeogepoched,'LineWidth',1.2);
-    set(gca,'ColorOrder',[0 0 0; brewermap(NTRL,'BuGn')]);
+    dataCmapTmp = brewermap(NTRL,'Spectral'); % BuGn
+    set(gca,'ColorOrder',[0 0 0; dataCmapTmp]);
     title(['Detected blinks, N = ' num2str(NTRL)]);
     pbaspect([1.618 1 1]); ylabel('EOG amplitude (/muV)');
 
@@ -208,6 +177,8 @@ if NTRL>5
     % 4000 ms:
     col_4000ms = L;
 
+    % disp(([1 col_500ms col_1500ms col_2500ms col_3500ms col_4000ms]-1)/EEG.srate);
+
     % Baseline correct data
     dataeegepoched = dataeegepoched - mean(dataeegepoched(:,[1:col_500ms, col_3500ms:col_4000ms],:),2);
 
@@ -235,7 +206,7 @@ if NTRL>5
     title({'Mean blink amplitude leftover', [num2str(round(BlinkAmplitudeRatioMean)) '%']});
 
 else
-    warning('Too little data for a robust estimate...');
+    warning('No data to make an estimate of blink leftovers...');
     BlinkAmplitudeRatio = NaN;
     BlinkAmplitudeRatioMean = NaN;
 end
@@ -248,11 +219,11 @@ print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_le
 close(fh);
 
 % Log
-fprintf('Average amount of leftover eye blink artifact: %1.1f%%\n', BlinkAmplitudeRatioMean);
+fprintf('Average amount of leftover eye blink artifact: %1.0f%%\n', BlinkAmplitudeRatioMean);
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Leftovers: eye blink artifacts\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
-fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover eye blink artifact: %1.1f%%\n', BlinkAmplitudeRatioMean);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover eye blink artifact: %1.0f%%\n', BlinkAmplitudeRatioMean);
 
 EEG.ALSUTRECHT.leftovers.blinks = BlinkAmplitudeRatio;
 
@@ -262,6 +233,12 @@ function multiBlink = detect_multiblinks(eyeBlinksEpochs)
 % Find multi-blinks
 % Function to create the range specified by each row
 % Apply the function to each row of X
+
+% Narrow down the epoch to get more of them
+% It is okay if they overlap 1s (256 samples)
+eyeBlinksEpochs(:,1) = eyeBlinksEpochs(:,1)+256;
+eyeBlinksEpochs(:,2) = eyeBlinksEpochs(:,2)-256;
+
 createRange = @(row) row(1):row(2);
 rangesCell = arrayfun(@(i) createRange(eyeBlinksEpochs(i,:)), 1:size(eyeBlinksEpochs,1), 'UniformOutput', false);
 
@@ -274,4 +251,3 @@ for i = 1:NTRL
 end
 
 end
-

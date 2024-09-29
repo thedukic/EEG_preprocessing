@@ -5,11 +5,10 @@ rankData = get_rank(EEG.data(:,:));
 rankICA  = cfg.ica.icMax;
 
 if rankICA>rankData
-    warning('Many electrodes were already excluded.. Probably low quality data.');
+    warning('Many electrodes were already excluded... Probably low quality data.');
     printf('Data rank %d < %d\n',rankData,cfg.ica.icMax);
     rankICA = rankData;
 end
-% assert(get_rank(EEG.data(:,:))>cfg.ica.icMax);
 
 % Check variance explained
 [~,~,~,~,explained] = pca(EEG.data(:,:)');
@@ -66,6 +65,9 @@ else
     EEG = pop_runica(EEG,'icatype',lower(cfg.ica.type2),'extended',1,'pca',rankICA,'lrate',1e-4,'maxsteps',2000);
 end
 
+% Double-check
+EEG = eeg_checkset(EEG,'ica');
+
 % Make sure IC activations are present
 EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
 EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
@@ -76,9 +78,6 @@ varICs = NaN(NICA,1);
 for i = 1:NICA
     [~, varICs(i)] = compvar(EEG.data,EEG.icaact,EEG.icawinv,i);
 end
-
-% Double-check
-EEG = eeg_checkset(EEG,'ica');
 
 % Log
 EEG.ALSUTRECHT.ica.icmax0 = cfg.ica.icMax;

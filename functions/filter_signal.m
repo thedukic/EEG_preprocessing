@@ -106,33 +106,40 @@ else
         end
 
         NChunk = length(jumpsBad)-1;
-        if NChunk>1, fprintf('Boundaries (N = %d) detected! Each chunk will be filtered separately!\n',NChunk); end
+        if NChunk>1, fprintf('Boundaries detected. Each chunk (N = %d) will be filtered separately!\n',NChunk); end
         for j = 1:NChunk
+            % Indices
             dataInd = [jumpsBad(j)+1 jumpsBad(j+1)];
             dataInd = dataInd(1):dataInd(2);
-            dataTmp = double(EEG(i).data(chansfilt,dataInd));
 
-            % Remove DC (big offsets can cause artifacts)
-            dataTmp = remove_dcsignal(dataTmp, FNYQ);
+            if length(dataInd)>FNYQ*2
+                dataTmp = double(EEG(i).data(chansfilt,dataInd));
 
-            % Bandpass
-            % First lowpass and then highpass
-            if all(filterflag)
-                dataTmp = filtfilt(bl,al, dataTmp')';
-                dataTmp = filtfilt(bh,ah, dataTmp')';
-            end
-            % Lowpass
-            if filterflag(1) && ~filterflag(2)
-                dataTmp = filtfilt(bl,al, dataTmp')';
-            end
-            % Highpass
-            if ~filterflag(1) && filterflag(2)
-                dataTmp = filtfilt(bh,ah, dataTmp')';
-            end
-            % eeg(i).data = filtfilt(bs,as, eeg(i).data)';
+                % Remove DC (big offsets can cause artifacts)
+                dataTmp = remove_dcsignal(dataTmp, FNYQ);
 
-            % Place back
-            EEG(i).data(chansfilt,dataInd) = dataTmp;
+                % Bandpass
+                % First lowpass and then highpass
+                if all(filterflag)
+                    dataTmp = filtfilt(bl,al, dataTmp')';
+                    dataTmp = filtfilt(bh,ah, dataTmp')';
+                end
+                % Lowpass
+                if filterflag(1) && ~filterflag(2)
+                    dataTmp = filtfilt(bl,al, dataTmp')';
+                end
+                % Highpass
+                if ~filterflag(1) && filterflag(2)
+                    dataTmp = filtfilt(bh,ah, dataTmp')';
+                end
+                % eeg(i).data = filtfilt(bs,as, eeg(i).data)';
+
+                % Place back
+                EEG(i).data(chansfilt,dataInd) = dataTmp;
+            else
+                warning('Chunk %d: Data too small (<=%d) for filtering (L = %d samples)!',j,FNYQ*2,length(dataInd));
+            end
+
         end
 
         assert(size(EEG(i).data(chansfilt,:),1)==NCHN);
@@ -142,31 +149,4 @@ end
 fprintf('Done!\n');
 % disp('==================================================================');
 
-%%
-% =========================================================================
-%                              HELPER FUNCTIONS
-% =========================================================================
-
-function data = remove_dcsignal(data,windowsam,chanArray)
-% ERPLAB toolbox function
-% Removes mean of data (DC offset)
-% Input data dimensions have to be channels x samples
-
-if nargin<3
-    chanArray = 1:size(data,1);
 end
-if nargin<2
-    windowsam = [1 size(data,2)];
-end
-if length(windowsam)~=2
-    windowsam = [1 windowsam(1)];
-end
-
-% Control point
-if diff(windowsam)>size(data,2)
-    windowsam = [1 size(data,2)];
-end
-
-% Offset
-meanvalue = mean(data(chanArray,windowsam(1):windowsam(2)),2);
-data = data - meanvalue;

@@ -8,7 +8,6 @@ function [eyeBlinksMask, eyeBlinksEpochs, BlinkMaxLatency, dataeog, treshold]= d
 
 % =========================================================================
 % Apporach 1 (RELAX)
-
 mspersmpl = 1000/EEG.srate;
 winBlinksmpl = round(winBlink/mspersmpl);
 fprintf('VEOG evaluation window is +-%d ms around the detected peaks.\n',winBlink);
@@ -18,13 +17,14 @@ dataeog = EEG.data(chaneog,:);
 
 % Temporarily filter for better detection
 % It is fine that it will be now double-filtered
-[bl, al] = butter(2,25/(EEG.srate/2),'low');
-[bh, ah] = butter(2,1/(EEG.srate/2),'high');
-assert(isstable(bl,al));
-assert(isstable(bh,ah));
-dataeog = filtfilt(bl,al,dataeog')';
-dataeog = filtfilt(bh,ah,dataeog')';
-% dataeog = abs(dataeog);
+[bl, al] = butter(2,30/(EEG.srate/2),'low');
+[bh, ah] = butter(2,0.5/(EEG.srate/2),'high');
+% dataeog = filtfilt(bl,al,dataeog')';
+% dataeog = filtfilt(bh,ah,dataeog')';
+dataeog = do_filteringcore(bl,al,dataeog,EEG.event,EEG.srate);
+dataeog = do_filteringcore(bh,ah,dataeog,EEG.event,EEG.srate);
+
+dataeog = abs(dataeog);
 
 % Do this only if it is for MWF (R2)
 if ignoreExtremeNoise % ~isfield(EEG.ALSUTRECHT.MWF,'R2')

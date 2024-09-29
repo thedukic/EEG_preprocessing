@@ -18,8 +18,8 @@ dataeeg  = EEG.data(chaneeg,:);
 dataeog  = EEG.data(chaneog,:);
 
 %% Absolute threshold to identify absolute amplitude extreme values:
-% More than +- 500 uV
-extremeMask = any(abs(dataeeg)>500);
+% More than +- 350-500 uV
+extremeMask = any(abs(dataeeg)>350);
 
 if any(extremeMask)
     mspersamp = 1000/EEG.srate;
@@ -41,97 +41,67 @@ EEG.ALSUTRECHT.extremeNoise.absoluteAmplitudeExceededThreshold = extremeMask;
 
 %% Strong EMG
 
-% 1. EOG: Temporarily filter, lowpass 6 Hz
+% 1. EOG: Temporarily lowpass filter
 [bl, al] = butter(2,15/(EEG.srate/2),'low');
-assert(isstable(bl,al));
-dataeog = filtfilt(bl,al,dataeog')';
+% dataeog = filtfilt(bl,al,dataeog')';
+dataeog = do_filteringcore(bl,al,dataeog,EEG.event,EEG.srate);
 
 treshold = prctile(dataeog,75,2) + 3*iqr(dataeog,2);
 mask = dataeog>treshold;
 
 data2 = dataeog;
-data2(~mask)  = 0;
-data2(mask) = 20;
+data2(~mask) = 0;
+data2(mask)  = 20;
 
 data2 = conv(data2,ones(1,8),'same');
 data2 = movmean(data2',16)';
 
-% % EOG mask looks like it is lagging wrt EEG mask by ~d samples
-% d = 20;
-% data2(1:d) = [];
-% data2 = [data2, data2(end)*ones(1,d)];
-% assert(length(data2)==length(dataeog));
-
-% 2. EEG: Temporarily filter, highpass 25 Hz
-[bl, al] = butter(5,70/(EEG.srate/2),'high');
-assert(isstable(bl,al));
-dataeeg = filtfilt(bl,al,dataeeg')';
-% dataeeg = [zeros(sum(chaneeg),1), diff(dataeeg')'];
-dataeeg = abs(dataeeg);
+% 2. EEG: Temporarily highpass filter
+[bh, ah] = butter(4,70/(EEG.srate/2),'high');
+% dataeeg = filtfilt(bl,al,dataeeg')';
+dataeeg = do_filteringcore(bh,ah,dataeeg,EEG.event,EEG.srate);
+dataeeg = 10*abs(dataeeg);
 
 % Zero out parts around EOG
 dataeeg(:,data2>0) = 0;
-% dataeeg = movmean(dataeeg',64)';
 
 % % Check
 % EEG0 = EEG;
 % EEG0.data(chaneeg,:) = dataeeg;
 % vis_artifacts(EEG,EEG0);
 
+% =========================================================================
+% Try to find clusters of higher numbers?
 dataTmp = dataeeg(:,data2==0);
-dataTmp(dataTmp==0) = [];
-treshold = prctile(dataTmp(:),50);
-dataeeg(dataeeg<treshold) = 0;
-
-dataTmp = dataeeg(:,data2==0);
-dataTmp(dataTmp==0) = [];
-treshold = prctile(dataTmp(:),75) + 3*iqr(dataTmp(:));
+treshold = prctile(dataTmp(:),99);
 mask = dataeeg>treshold;
+
+% % Check
+% EEG0 = EEG;
+% EEG0.data(chaneeg,:) = data1;
+% vis_artifacts(EEG,EEG0);
+
+% dataTmp = dataeeg(:,data2==0);
+% dataTmp(dataTmp==0) = [];
+% treshold = prctile(dataTmp(:),75) + 3*iqr(dataTmp(:));
+% mask = dataeeg>treshold;
 
 data1 = dataeeg;
 data1(~mask) = 0;
 data1(mask)  = 1;
 
-% for i = 1:size(data1,1)
-%     data1(i,:) = conv(data1(i,:),ones(1,10),'same');
-% end
 data1 = movmean(data1',64)';
 
-% Mask
-% extremeMask = data1>0;
-% extremeMask = 100*mean(extremeMask,1);
-% extremeMask(extremeMask<25) = 0;
-
+% =========================================================================
 % At least 25% of electrodes must be affected
 dataTmp = data1(:,data2==0);
 dataTmp(dataTmp==0) = [];
-treshold = prctile(dataTmp,50);
-
-% h = histogram(dataTmp);
-% % Retrieve some properties from the histogram
-% V = h.Values;
-% E = h.BinEdges;
-% % Use islocalmax
-% L = islocalmax(V);
-% % Find the centers of the bins that islocalmax identified as peaks
-% left = E(L);
-% right = E([false L]);
-% center = (left + right)/2;
-% % Plot markers on those bins
-% figure; plot(V);
-% figure; plot(center, V(L), 'o');
-% % figure; histogram(dataTmp);
+treshold = prctile(dataTmp,90);
 
 extremeMask = data1>treshold;
-% extremeMask = data1>0.1*max(data1(:,~data2),[],"all");
 extremeMask = 100*mean(extremeMask,1);
 extremeMask(extremeMask<20) = 0;
 extremeMask = movmean(extremeMask,64)>0;
-
-% extremeMask = sum(data1,1);
-% treshold = prctile(extremeMask,75,2) + 2*iqr(extremeMask,2);
-% extremeMask(extremeMask<treshold) = 0;
-% extremeMask(extremeMask>=treshold) = 1;
 
 % % Check
 % EEG0 = EEG;
@@ -141,6 +111,7 @@ extremeMask = movmean(extremeMask,64)>0;
 % EEG0.data(end,:)     = 500*extremeMask;
 % vis_artifacts(EEG,EEG0);
 
+% =========================================================================
 % Log
 EEG.ALSUTRECHT.extremeNoise.muscleExceededThreshold = extremeMask;
 
@@ -154,18 +125,19 @@ EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections = ...
 extremeMask0 = EEG.ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections;
 
 if any(extremeMask0)
-    % Make sure good epochs have minimal length
-    % too short good data is likely a miss in between two bad epochs
-    jump = find(diff([false, ~extremeMask0, false])~=0);
-    goodEpochs = [jump(1:2:end); jump(2:2:end)-1]';
-    goodEpochsDur = diff(goodEpochs')+1;
-    mindur = EEG.srate; % 1s
-    goodEpochs(goodEpochsDur<mindur,:) = [];
+    % Find start/stop of good periods
+    jumpsGood = find(diff([false, ~extremeMask0, false])~=0);
+    jumpsGood = reshape(jumpsGood,2,[]);
 
-    % New noise mask
+    nMax = length(extremeMask0);
+    jumpsGood(jumpsGood>nMax) = nMax;
+
+    maskDur = diff(jumpsGood) < 2*EEG.srate;
+    jumpsGood(:,maskDur) = [];
+
     extremeMask = true(size(extremeMask0));
-    for i = 1:size(goodEpochs,1)
-        extremeMask(goodEpochs(i,1):goodEpochs(i,2)) = false;
+    for i = 1:size(jumpsGood,2)
+        extremeMask(jumpsGood(1,i):jumpsGood(2,i)) = false;
     end
 
     % % Check

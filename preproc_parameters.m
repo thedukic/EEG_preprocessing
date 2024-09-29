@@ -15,12 +15,16 @@ cfg.rnum = '1';
 % lp: lowpass
 
 % MMN/SART (ERP) filter
-cfg.flt.erp.hp = [0.5, 4];
+cfg.flt.erp.hp = [0.3, 4];
 cfg.flt.erp.lp = [80, 4];
 
-% RS/MT filter
-cfg.flt.rsmt.hp = [0.5, 4];
-cfg.flt.rsmt.lp = [80, 4];
+% MT filter
+cfg.flt.mt.hp = [0.5, 4];
+cfg.flt.mt.lp = [80, 4];
+
+% RS filter
+cfg.flt.rs.hp = [0.5, 4];
+cfg.flt.rs.lp = [80, 4];
 
 % EXT filter
 cfg.flt.ext.hp = [0.15, 4];
@@ -80,9 +84,15 @@ end
 % PCA reduction prior ICA
 cfg.ica.icMax   = 50;
 
-% {'Brain' 'Muscle' 'Eye' 'Heart' 'Line Noise' 'Channel Noise' 'Other'}
-cfg.ica.iclabel = ....
-    [NaN NaN; 0.5 1; 0.5 1; NaN NaN; NaN NaN; 0.5 1; NaN NaN];
+% ICLabel likelihoods
+cfg.ica.iclabel = ...
+    [NaN NaN;  % Brain
+    0.5 1;     % Muscle
+    0.5 1;     % Eye (VEOG+HEOG)
+    0.5 1;     % Heart
+    NaN NaN;   % Line noise - not needed
+    0.5 1;     % Channel noise
+    NaN NaN];  % Other
 
 % cfg.ica.blinkchans = {'C8','C9','C10','C14','C15','C16','C17','C18','C19','C27','C28','C29','C30','C31','C32','C26','C20','C13','C21'};
 cfg.ica.blinkchans = {'C8','C9','C10','C14','C15','C16','C17','C18','C19','C27','C28','C29','C30','C31','C32'};
@@ -97,7 +107,7 @@ cfg.trg.mt    = {[21 31 51],[-5 10]};
 cfg.trg.rs    = {2,0.75};             % 2s, 0.75 overlap
 
 %% Bad epoch rejection
-cfg.epoch.rejectAmp                            = 75;
+cfg.epoch.rejectAmp                            = 75;  % even >75 is too low for ALS30344 
 % cfg.epoch.singleChannelImprobableDataThreshold = 5; % MAD from the median of all epochs for each electrode against itself. This could be set lower and would catch less severe pops
 % cfg.epoch.allChannelImprobableDataThreshold    = 3; % SD from the mean of all epochs for each electrode against itself. This could be set lower and would catch less severe improbable data
 % cfg.epoch.singleChannelKurtosisThreshold       = 5; % SD from the mean of the single electrodes. This could be set lower and would catch less severe kurtosis

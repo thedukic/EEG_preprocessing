@@ -1,14 +1,14 @@
-function checkReport = preproc_cleaning1(myPaths,id)
+function preproc_cleaning1(myPaths,id)
 %
 % Script for EEG data preprocessing
 % ALS Centre, University Medical Centre Utrecht
 %
 % =========================================================================
 % SDukic edits
-% v1, August 2024
+% v1, September 2024
 % =========================================================================
 % TODO
-% 1. Targeted ECG cleaning
+% 1.
 % 2.
 %
 
@@ -57,11 +57,6 @@ if ~isempty(subject.datablocks)
     end
 else
     warning([subject.id ' is missing ' myPaths.task ' data!']);
-    % EEG.ALSUTRECHT.subject.id   = subject.id;
-    % EEG.ALSUTRECHT.subject.task = subject.task;
-    % EEG = report_issues(EEG);
-    % checkReport = EEG.ALSUTRECHT.issues_to_check;
-    checkReport = [];
     return;
 end
 
@@ -77,12 +72,12 @@ fprintf(subject.fid,'%s | %s | %s dataset\n\n',myPaths.group,subject.id,myPaths.
 fprintf(subject.fid,'Code version %s\n',cfg.rnum);
 fprintf(subject.fid,'Started: %s\n',t0);
 
-% Manually fix datasets in some rare cases
+% Manually fix datasets
+% C48 is very strage - low quality data?
 if strcmp(subject.id,'C50') && strcmpi(myPaths.task,'SART')
-    % C48 is very strage - low quality data?
     warning([subject.id 'has swapped C- and B- set. Fixing that now...']);
-    for j = 1:NBLK
-        EEG(j).data(33:96,:) = [EEG(j).data(65:96,:); EEG(j).data(33:64,:)];
+    for i = 1:NBLK
+        EEG(i).data(33:96,:) = [EEG(i).data(65:96,:); EEG(i).data(33:64,:)];
     end
 end
 EEG = eeg_checkset(EEG,'loaddata');
@@ -92,9 +87,9 @@ chanlocs = readlocs('biosemi128_eeglab.ced');
 EEG = fix_chanlocs(EEG,chanlocs);
 
 % Add subject info
-for j = 1:NBLK
-    EEG(j).ALSUTRECHT.subject = subject;
-    EEG(j).ALSUTRECHT.cfg = cfg;
+for i = 1:NBLK
+    EEG(i).ALSUTRECHT.subject = subject;
+    EEG(i).ALSUTRECHT.cfg = cfg;
 end
 
 % Remove CMS drop-outs (blue light flashing)
@@ -109,14 +104,14 @@ EEG = pop_resample(EEG,256);
 % Keep event info
 EEG = extract_eventinfo(EEG,cfg.trg);
 
-% Detect flat channels on raw data
+% Detect flat channels
 EEG = remove_flatelec(EEG,cfg.bch);
 
 % Reference
 EEG = do_reref(EEG,'aRobust');
 
 % Filter highpass only
-EEG = do_filtering(EEG,1,cfg.flt);
+EEG = do_filtering(EEG,'highpass',cfg.flt);
 
 % Remove line noise
 EEG = reduce_linenoise(EEG);
@@ -165,7 +160,7 @@ EEG = report_badelectrodes(EEG);
 % Detect extremely bad epochs
 EEG = detect_extremelybadepochs2(EEG);
 
-% Check if EC has eye blinks; Too sensitive?
+% Check if EC has eye blinks; Currently too sensitive?
 % if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EC')
 %     EEG = check_eyesclosedeyeblinks(EEG);
 % end
@@ -182,6 +177,7 @@ clearvars EEGRAW
 
 % Remove extremely bad epochs
 if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
+    fprintf('\nRemoving extremely bad chunks of data...\n');
     EEG = eeg_eegrej(EEG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
 
     if strcmpi(myPaths.task,'MT')
@@ -198,9 +194,6 @@ EEG = pop_select(EEG,'rmchannel',chanext);
 if ~isempty(EEG.ALSUTRECHT.badchaninfo.badElectrodes)
     EEG = pop_interp(EEG,chanlocs,'spherical');
 end
-
-% Filter lowpass only
-EEG = do_filtering(EEG,2,cfg.flt);
 
 % Common-average before ICA
 EEG = do_reref(EEG,'aRegular');
@@ -223,75 +216,20 @@ EEG = do_wICA(EEG,EXT,cfg);
 % Report ICA
 EEG = report_ICA(EEG);
 
+% Remove IC signals
+EEG.icaact = [];
+
 % Report artifact leftovers
 EEG = report_leftovers(EEG,EXT,cfg);
 
-% Epoch
-if strcmpi(myPaths.task,'MMN')
-    condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0);
-    EEG = pop_epoch(EEG,condLabel,cfg.trg.mmn{2},'epochinfo','yes');
-    EXT = pop_epoch(EXT,condLabel,cfg.trg.mmn{2},'epochinfo','yes');
-
-elseif strcmpi(myPaths.task,'SART')
-    EEG0 = EEG; EXT0 = EXT;
-
-    % SART wrt visual stimuli
-    condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart1{1},'Uniformoutput',0);
-    EEG  = pop_epoch(EEG0,condLabel,cfg.trg.sart1{2},'epochinfo','yes');
-    EXT  = pop_epoch(EXT0,condLabel,cfg.trg.sart1{2},'epochinfo','yes');
-
-    % SART wrt response times
-    condLabel2 = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.sart2{1},'Uniformoutput',0);
-    EEG2 = pop_epoch(EEG0,condLabel2,cfg.trg.sart2{2},'epochinfo','yes');
-    EXT2 = pop_epoch(EXT0,condLabel2,cfg.trg.sart2{2},'epochinfo','yes');
-
-    EEG.ALSUTRECHT.SART.type  = 'StimulusLocked';
-    EXT.ALSUTRECHT.SART.type  = 'StimulusLocked';
-    EEG2.ALSUTRECHT.SART.type = 'ResponseLocked';
-    EXT2.ALSUTRECHT.SART.type = 'ResponseLocked';
-
-    clearvars EEG0 EXT0
-
-elseif strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EO') || strcmpi(myPaths.task,'EC')
-    % 2s w/ 0.75 overlap
-    % EEG = epoch_rsdata3(EEG,cfg.trg.rs{1},cfg.trg.rs{2}); % OK if proc EO/EC only
-    % EXT = epoch_rsdata3(EXT,cfg.trg.rs{1},cfg.trg.rs{2});
-    EEG = epoch_rsdata2(EEG,cfg.trg.rs{1},cfg.trg.rs{2});   % OK if proc EO+EC together
-    EXT = epoch_rsdata2(EXT,cfg.trg.rs{1},cfg.trg.rs{2});
-
-elseif strcmpi(myPaths.task,'MT')
-    % Maybe before ICA, as there is often a lot of noise before/after the contrations
-    condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mt{1},'Uniformoutput',0);
-    EEG = pop_epoch(EEG,condLabel,cfg.trg.mt{2},'epochinfo','yes');
-    EXT = pop_epoch(EXT,condLabel,cfg.trg.mt{2},'epochinfo','yes');
-    EMG = pop_epoch(EMG,condLabel,cfg.trg.mt{2},'epochinfo','yes');
-end
-
-% Merge
+% Merge channels
 EEG = merge_eeglabsets(EEG,EXT);
-if strcmpi(myPaths.task,'SART'), EEG2 = merge_eeglabsets(EEG2,EXT2); end
-if strcmpi(myPaths.task,'MT'),   EEG = merge_eeglabsets(EEG,EMG); end
-clearvars EXT EXT2 EMG
-
-% Record warnings about potential issues
-EEG = report_issues(EEG);
-if strcmpi(myPaths.task,'SART'), EEG2.ALSUTRECHT.issues_to_check = EEG.ALSUTRECHT.issues_to_check; end
+if strcmpi(myPaths.task,'MT'), EEG = merge_eeglabsets(EEG,EMG); end
+clearvars EXT EMG
 
 % Save cleaned data
 fprintf('\n%s: Saving the preprocessed data (part 1)...\n',subject.id);
-preprocReport = EEG.ALSUTRECHT;
-if ~strcmpi(myPaths.task,'SART')
-    EEG.icaact = [];
-    save(fullfile(subject.preproc,subject.clnfile),'EEG','preprocReport','cfg','procTimeTags');
-else
-    EEG.icaact  = [];
-    EEG2.icaact = [];
-    save(fullfile(subject.preproc,subject.clnfile),'EEG','EEG2','preprocReport','cfg','procTimeTags');
-end
-
-% Return
-checkReport = EEG.ALSUTRECHT.issues_to_check;
-checkReport = rmfield(checkReport,'Medianvoltageshiftwithinepoch');
+save(fullfile(subject.preproc,subject.clnfile),'EEG','cfg','procTimeTags');
 
 % Close the report
 t1 = datetime("now");

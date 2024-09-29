@@ -2,8 +2,8 @@ function mytopoplot(data,mask,myTitle,ah,myClim)
 
 % chanlocs = readlocs('biosemi128_eeglab.ced');
 load('biosemi128_eeglab.mat','chanlocs');
-% fcap = 0.5;
-fcap = 'rim';
+fcap = 0.5;
+% fcap = 'rim';
 
 if iscell(myTitle)
     myTitlePlot      = myTitle{1};
