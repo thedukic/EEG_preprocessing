@@ -14,26 +14,39 @@ NBLK = length(EEG);
 jumpsBadAll = cell(NBLK,1);
 
 for i = 1:NBLK
-    tmp = EEGTMP(i).data(1:NCHN,:);
+    tmpData1 = EEGTMP(i).data(1:NCHN,:);
     smoothFactor = round(2*EEG(i).srate);
     % figure; histogram(tmp(:));
 
-    % 1. Extreme voltage
-    maskBadVoltage = abs(tmp)>350;
+    % 1. Extreme voltage: CMS out of range
+    maskBadVoltage = abs(tmpData1)>350;
     maskBadVoltage = sum(maskBadVoltage,1);
     maskBadVoltage = movmean(maskBadVoltage,smoothFactor);
     maskBadVoltage = maskBadVoltage>10;
 
-    % 2. No signal
-    dataDiff = abs(diff(tmp,1,2));
-    dataDiffMedian = median(dataDiff,2);
+    % 2. No signal: unsuccessful data recovery
+    dataDiff = abs(diff(tmpData1,1,2));
+
+    % This accounts for long dropouts, which leads to the treshold being 0!
+    % dataDiffMedian = median(dataDiff,2);
+    dataDiffMedian = NaN(NCHN,1);
+    for j = 1:NCHN
+        tmpData2 = dataDiff(j,:);
+        dataDiffMedian(j) = median(tmpData2(tmpData2~=0));
+    end
+
     DiffMedianTreshold = prctile(dataDiffMedian,2);
     maskBadZero = dataDiff <= DiffMedianTreshold;
     maskBadZero = sum(maskBadZero,1);
     maskBadZero = movmean(maskBadZero,smoothFactor);
     % figure; plot(maskBadZero);
-    ZIQR = iqr(maskBadZero);
-    Z75P = prctile(maskBadZero,75);
+
+    % The same as above, solves the problem of long dropouts, when trashold becomes 128
+    maskBadZeroTmp = maskBadZero(maskBadZero<NCHN);
+
+    % Treshold
+    ZIQR = iqr(maskBadZeroTmp);
+    Z75P = prctile(maskBadZeroTmp,75);
     treshold = Z75P + 10*ZIQR;
     maskBadZero = maskBadZero>treshold;
 
@@ -64,7 +77,7 @@ for i = 1:NBLK
         jumpsBad(:,1) = jumpsBad(:,1)-smoothFactor;
         jumpsBad(:,2) = jumpsBad(:,2)+smoothFactor;
         jumpsBad(jumpsBad<1) = 1;
-        nMax = size(tmp,2);
+        nMax = size(tmpData1,2);
         jumpsBad(jumpsBad>nMax) = nMax;
 
         % maskNew = false(1,nMax);

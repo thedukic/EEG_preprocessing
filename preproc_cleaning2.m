@@ -1,14 +1,14 @@
-function checkReport = preproc_cleaning2(myPaths,id)
+function preproc_cleaning2(myPaths,id)
 %
 % Script for basic postprocessing of the preprocessed EEG data
 % ALS Centre, University Medical Centre Utrecht
 %
 % =========================================================================
 % SDukic edits
-% v1, August 2024
+% v1, September 2024
 % =========================================================================
 % TODO
-% 1. Lowpass filtering for ERPs (<30-40 Hz) and epoching to be done here
+% 1.
 % 2.
 %
 
@@ -43,22 +43,28 @@ if exist(fileName, 'file') == 2
     load(fileName,'EEG');
 else
     warning('%s: Cannot find the preprocessed data. Skipping...\n',subject.id);
-    checkReport = [];
     return;
 end
 
+% 2. Filter lowpass
+fprintf('\nLowpass filtering...\n');
+EEG = do_filtering(EEG,'lowpass',cfg.flt);
 
-% 2. Common-average referening and baseline correction
+% 3. Epoch
+fprintf('\nEpoching data...\n');
+EEG = epoch_data(EEG,cfg.trg);
+
+% 4. Common-average referening
 EEG = do_reref(EEG,'aRegular');
 
-% 2A.Traditional baseline correction
+% 5A.Traditional baseline correction
 if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EO') || strcmpi(myPaths.task,'EC')
     EEG = pop_rmbase(EEG,[],[]);
 else
     EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0],[]);
 end
 
-% 2B. Regression based baseline correction method (recommended)
+% 5B. Regression based baseline correction method (recommended?)
 % if strcmpi(myPaths.task,'MMN')
 %     condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0);
 %
@@ -81,22 +87,25 @@ end
 %     % EEG = correct_baseline(EEG,[(EEG.xmin)*1000 0]); % if only 1 stimulus condition present
 % end
 
-% 3. Reject epochs that are likely still noisy
+% 6. Reject epochs that are likely still noisy
+% Note the number of trials
 NumberTrials = NaN(3,1);
 NumberTrials(1) = size(EEG.data,3);
 
+% A. EEGLAB-based rejection
 % Any one of these functions can be commented out to ignore those artifacts when creating the mask
 % This section uses traditional amplitude, improbable voltage distributions within epochs, and kurtosis to reject epochs
-% A. EEGLAB-based rejection
 ROIidx = 1:128;
 fprintf('\n================================\n');
 fprintf('Max. amplitude\n');
 fprintf('================================\n');
 EEG = pop_eegthresh(EEG,1,ROIidx,-cfg.epoch.rejectAmp,cfg.epoch.rejectAmp,EEG.xmin,EEG.xmax,1,0);
+
 fprintf('\n================================\n');
 fprintf('Improbable data\n');
 fprintf('================================\n');
 EEG = pop_jointprob(EEG,1,ROIidx,cfg.epoch.singleChannelImprobableDataThreshold,cfg.epoch.allChannelImprobableDataThreshold,1,0);
+
 fprintf('\n================================\n');
 fprintf('Kurtosis\n');
 fprintf('================================\n');
@@ -108,49 +117,63 @@ fprintf('================================\n');
 EEG = eeg_rejsuperpose(EEG, 1, 0, 1, 1, 1, 1, 1, 1);
 EEG = pop_rejepoch(EEG, EEG.reject.rejglobal, 0);
 
-% B. EMG-slope-based rejection
+% Note the number of trials
+NumberTrials(2) = EEG.trials;
+
+% B. EMG-slope-based rejection (ONLY IF LOWPASS >70Hz)
 fprintf('\n================================\n');
 fprintf('EMG slopes\n');
 fprintf('================================\n');
 slopesChannelsxEpochs = dected_emg(EEG);
 slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
 
-% How many channels are affected in each epoch
 BadEpochs = sum(slopesChannelsxEpochs, 1);
 badTrialMuscleTreshhold = 0;
 badTrialMuscle = BadEpochs>badTrialMuscleTreshhold;
 
-NumberTrials(2) = EEG.trials;
 while sum(badTrialMuscle) > 0.5*EEG.trials
     warning('Increasing the minimum number of allowed EMG-contaminated channels: %d -> %d!',badTrialMuscleTreshhold,badTrialMuscleTreshhold+1);
     badTrialMuscleTreshhold = badTrialMuscleTreshhold+1;
     badTrialMuscle = BadEpochs>badTrialMuscleTreshhold;
 end
 
-EEG = pop_rejepoch(EEG,badTrialMuscle,0);
+if any(badTrialMuscle)
+    EEG = pop_rejepoch(EEG,badTrialMuscle,0);
+else
+    fprintf('No EMG-contaminated epochs are found. \n');
+end
+
+% Note the number of trials
 NumberTrials(3) = EEG.trials;
 
-% 4. Check the median voltahe shift
-% The following measures the median size of the voltage shift in each epoch for each participant.
-% This is used in 'report_final' to provide advice on which participants to manually check
+% 7. Median voltage shift
 voltageShiftWithinEpoch = range(EEG.data(:,:,:),2);
 
-% 5. Log
+% 8. Channel correlation matrix
+EEG.ALSUTRECHT.chanCorr = estimate_channelcov(EEG);
+
+% 9. EMG leftovers
+slopesChannelsxEpochs = dected_emg(EEG);
+slopesChannelsxEpochs(slopesChannelsxEpochs < cfg.bch.muscleSlopeThreshold) = NaN;
+slopesChannelsxEpochs = slopesChannelsxEpochs-cfg.bch.muscleSlopeThreshold;
+BadEpochs = sum(slopesChannelsxEpochs,1,'omitnan');
+
+% 10. Log
 EEG.ALSUTRECHT.epochRejections.initialEpochs   = NumberTrials(1);
 EEG.ALSUTRECHT.epochRejections.round1Epochs    = NumberTrials(2);
 EEG.ALSUTRECHT.epochRejections.remainingEpochs = NumberTrials(3);
 EEG.ALSUTRECHT.epochRejections.proportionOfEpochsRejected = (EEG.ALSUTRECHT.epochRejections.initialEpochs-EEG.ALSUTRECHT.epochRejections.remainingEpochs)/EEG.ALSUTRECHT.epochRejections.initialEpochs;
+EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal = median(voltageShiftWithinEpoch,3);
 
-EEG.ALSUTRECHT.issues_to_check.MedianvoltageshiftwithinepochFinal = median(voltageShiftWithinEpoch,3);
-EEG.ALSUTRECHT.issues_to_check.NumberTrials3 = EEG.ALSUTRECHT.epochRejections.round1Epochs;
-EEG.ALSUTRECHT.issues_to_check.NumberTrials4 = EEG.ALSUTRECHT.epochRejections.remainingEpochs;
+EEG.ALSUTRECHT.epochRejections.muscle2 = mean(BadEpochs>0);
+EEG.ALSUTRECHT.leftovers.muscle2 = EEG.ALSUTRECHT.epochRejections.muscle2;
 
-% Report
+% 11. Report
 Nremoved = [NumberTrials(1)-NumberTrials(2), NumberTrials(2)-NumberTrials(3)];
 fprintf('\n%s: Removed trials %d + %d = %d\n',subject.id,Nremoved,sum(Nremoved));
 fprintf('%s: Remaining trials %d\n',subject.id,NumberTrials(3));
 
-% 6. Plot
+% 12. Plot
 if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
     maskCond = [EEG.event.edftype];
     if strcmpi(myPaths.task,'SART')
@@ -372,13 +395,11 @@ elseif strcmpi(myPaths.task,'MT')
     close(fh);
 end
 
-% 7. Save and return
-fprintf('%s: Saving the preprocessed data (part 2)...\n',subject.id);
-checkReport = EEG.ALSUTRECHT.issues_to_check;
-checkReport = rmfield(checkReport,{'Medianvoltageshiftwithinepoch','MedianvoltageshiftwithinepochFinal'});
-
+% Remove IC signals
 EEG.icaact = [];
-preprocReport = EEG.ALSUTRECHT;
-save(fullfile(subject.preproc,subject.clnfile1),'EEG','preprocReport','cfg','procTimeTags');
+
+% 13. Save and return
+fprintf('%s: Saving the preprocessed data (part 2)...\n',subject.id);
+save(fullfile(subject.preproc,subject.clnfile1),'EEG','cfg','procTimeTags');
 
 end

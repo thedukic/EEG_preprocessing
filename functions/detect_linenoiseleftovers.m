@@ -98,13 +98,14 @@ for i = 1:NBLK
 
     if ~isempty(badelec{i})
         NCHN = length(badelec{i});
-        fprintf('Leftover line noise found in %d electrodes. Fixing them now...\n',NCHN);
+        fprintf('Block %d: Leftover line noise found in %d electrode(s). Fixing them now...\n',i,NCHN);
         % disp(pval{i});
 
         % % Notch filter
         % [z1, p1] = butter(2,[47 53]./(EEG(i).srate/2),'stop');
         % for j = 1:NCHN
-        %     EEG(i).data(badelec{i}(j),:) = filtfilt(z1,p1,EEG(i).data(badelec{i}(j),:));
+        %     % Pay attention to boundary events!
+        %     EEG(i).data(badelec{i}(j),:) = filtfilt(z1,p1,EEG(i).data(badelec{i}(j),:)); 
         % end
 
         % Spectrum interpolation
@@ -124,7 +125,7 @@ for i = 1:NBLK
         psdspectra2b = 10*log10(psdspectra2b);
 
     else
-        fprintf('Block %d: Nice! No leftover 50 Hz noise is found.\n',i);
+        fprintf('Block %d: Nice! No leftover line noise is found.\n',i);
         NCHN = 0;
     end
 

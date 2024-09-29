@@ -11,18 +11,17 @@ myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
 myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
 
 % Set task/group/visit
-myPaths.task  = 'RS'; % MMN/SART/RS/EO/EC/MT
+myPaths.task  = 'MMN'; % MMN/SART/RS/EO/EC/MT
 myPaths.group = {'ALS','CONTROL','AFM','PLS','PMA'};
 myPaths.visit = {'T1','T2','T3','T4','T5'};
 
-% drivedata = 'E:';
-% myPaths.excpath = fullfile(drivedata,'2_OTHER_DATA\Excel\Utrecht\');
-% myPaths.gendata = [myPaths.excpath 'C9STATUS.xlsx'];
-% myPaths.peddata = [myPaths.excpath 'EEGPED.xlsx'];
-% myPaths.cogdata = [myPaths.excpath 'ECAS.xlsx'];
+drivedata = 'E:';
+myPaths.excpath = fullfile(drivedata,'2_OTHER_DATA\Excel\Utrecht\');
+myPaths.gendata = [myPaths.excpath 'C9STATUS.xlsx'];
+myPaths.peddata = [myPaths.excpath 'EEGPED.xlsx'];
+myPaths.cogdata = [myPaths.excpath 'ECAS.txt'];
 % myPaths.nexdata = [myPaths.excpath 'NE.xlsx'];
-% myPaths.dmdata1 = [myPaths.excpath 'Table1_LME.txt'];
-% addpath('C:\DATA\MATLAB\myCodes\RS\common');
+myPaths.dmdata1 = [myPaths.excpath 'Table1_LME.txt'];
 
 % Navigate the main folder
 cd(myPaths.mycodes);

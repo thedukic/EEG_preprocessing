@@ -13,45 +13,41 @@ NBLK = length(EEG);
 
 switch thisMethod
     case 'Zapline'
-        fh = figure('visible','off');
-        th = tiledlayout(NBLK,2);
-        th.TileSpacing = 'compact'; th.Padding = 'compact';
-
-        % Normalised line frequnecy
-        fline = 50/EEG(1).srate;
-
-        % Remove line noise only from EEG channels (?)
-        % eegchan = strcmp({EEG(1).chanlocs.type},'EEG');
-        eegchan = 1:EEG(1).nbchan;
-
-        % if length(eegchan)==EEG(1).nbchan
-        %     fprintf('Make sure that none of the channels are bipolar!\n');
+        % fh = figure('visible','off');
+        % th = tiledlayout(NBLK,2);
+        % th.TileSpacing = 'compact'; th.Padding = 'compact';
+        % 
+        % % Normalised line frequnecy
+        % freqLine = 50/EEG(1).srate;
+        % 
+        % % Remove line noise only from EEG channels (?)
+        % % eegchan = strcmp({EEG(1).chanlocs.type},'EEG');
+        % eegchan = 1:EEG(1).nbchan;
+        % 
+        % % Function parameters
+        % params = [];
+        % params.nfft        = 4*EEG(1).srate; % default: 1024
+        % params.nkeep       = [];             % [] == use all PCs
+        % params.niterations = 1;
+        % 
+        % % Remove line noise
+        % % Improve: Check automaticaly how many components should be removed
+        % for i = 1:NBLK
+        %     fprintf('Cleaning block: %1d\n', i);
+        % 
+        %     params.fig1 = nexttile(2*i-1);
+        %     params.fig2 = nexttile(2*i);
+        % 
+        %     % nt_zapline(EEG(i).data',fline);
+        %     EEG(i).data(eegchan,:) = nt_zapline(EEG(i).data(eegchan,:)',freqLine,2,params,true)';
         % end
-
-        % Function parameters
-        p = [];
-        p.nfft        = 4*EEG(1).srate; % default: 1024
-        p.nkeep       = [];             % [] == use all PCs
-        p.niterations = 1;
-
-        % Remove line noise
-        % Improve: Check automaticaly how many components should be removed
-        for i = 1:NBLK
-            fprintf('Cleaning block: %1d\n', i);
-
-            p.fig1 = nexttile(2*i-1);
-            p.fig2 = nexttile(2*i);
-
-            % nt_zapline(EEG(i).data',fline);
-            EEG(i).data(eegchan,:) = nt_zapline(EEG(i).data(eegchan,:)',fline,2,p,true)';
-        end
-
-        % Save
-        plotX=25; plotY=25;
-        set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-        set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-        print(fh,fullfile(EEG(1).ALSUTRECHT.subject.preproc,[EEG(1).ALSUTRECHT.subject.id '_linenoiseremoval']),'-dtiff','-r400');
-        close(fh);
+        % 
+        % % Save
+        % plotX=25; plotY=25;
+        % set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+        % set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+        % print(fh,fullfile(EEG(1).ALSUTRECHT.subject.preproc,[EEG(1).ALSUTRECHT.subject.id '_linenoiseremoval']),'-dtiff','-r400');
+        % close(fh);
 
     case 'Zaplineplus'
         % Is it better to merge block and do it in one go?
@@ -69,8 +65,6 @@ switch thisMethod
             EEG(i).data = dataeeg(:,EEG2(i).ALSUTRECHT.blockinfo.rs_mask(i,:));
             assert(size(EEG(i).data,2)==EEG(i).pnts);
         end
-
-        % Check
         EEG = eeg_checkset(EEG);
 
         % Save

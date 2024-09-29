@@ -31,7 +31,8 @@ function EEG = remove_electrodewobbles(EEG,ICAtype)
 % 2nd - when ICLabel is unsure (P<0.5) that the it is a bad electrode IC
 % Maybe good to be even more strict, to preserve more brain signals
 % But this might mean that we put back some noise
-K = [1.5 2.5];
+% K = [1.5 2.5];
+K = [1 1];
 W ='coif5';
 L = 5;
 
@@ -51,6 +52,7 @@ assert(get_rank(EEGICA.data)==EEGICA.nbchan);
 % NICA = find(explained>0.99,1);
 % % NICA = min(NICA,100);
 % NICA = max(NICA,75);
+
 thisTask = EEG(1).ALSUTRECHT.subject.task;
 switch thisTask
     case {'RS','EO','EC'}
@@ -69,7 +71,11 @@ end
 % NICA ^2*30 /256/60
 
 % ICA
-EEGICA = pop_runica(EEGICA,'icatype',ICAtype,'extended',1,'pca',NICA,'lrate',1e-4,'maxsteps',2000);
+if NICA == EEGICA.nbchan
+    EEGICA = pop_runica(EEGICA,'icatype',ICAtype,'extended',1,'lrate',1e-4,'maxsteps',2000);
+else
+    EEGICA = pop_runica(EEGICA,'icatype',ICAtype,'extended',1,'pca',NICA,'lrate',1e-4,'maxsteps',2000);
+end
 EEGICA = eeg_checkset(EEGICA,'ica');
 
 % Make sure ICA activations are estimated
@@ -95,8 +101,8 @@ EEGICA = iclabel(EEGICA);
 [ICLabel_pvec, ICLabel_cvec] = max(EEGICA.etc.ic_classification.ICLabel.classifications,[],2);
 
 % Find bad electrode ICs: ICLabel 6 is channel noise
-% badChanICs = find(ICLabel_cvec==6);
-badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.2);
+badChanICs = find(ICLabel_cvec==6);
+% badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.2);
 % badChanICs = unique([badChanICs; find(EEGICA.etc.ic_classification.ICLabel.classifications(:,6)>=0.2)]); % BETTER DO NOT DO THIS
 % badChanICs = setdiff(badChanICs,find(EEGICA.etc.ic_classification.ICLabel.classifications(:,1)>=0.2));
 
@@ -133,7 +139,7 @@ if ~isempty(badChanICs)
     plotX=35; plotY=20;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
     set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ICwobbles1']),'-dtiff','-r200');
+    print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_wobbleIC1']),'-dtiff','-r200');
     close(fh);
 
     % fh = figure;
@@ -143,74 +149,72 @@ if ~isempty(badChanICs)
     % NEpoch = floor(size(IC,2)/LEpoch);
 
     % Get the weights and determine the channel that is problematic
-    if ~isempty(badChanICs)
-        wIC = zeros(size(IC));
-        for i = 1:NBICS
-            [thresh,sorh,~] = ddencmp('den','wv',IC(badChanICs(i),:));
+    wIC = zeros(size(IC));
+    for i = 1:NBICS
+        [thresh,sorh,~] = ddencmp('den','wv',IC(badChanICs(i),:));
 
-            % Adjusting the treshold
-            % Bad electrode ICs are mostly with low power/variance, e.g. > 20th IC
-            % So even if the trheshold is too low
-            % (i.e. higher trheshold excludes less data, by keeping higher freq)
-            % then we wont lose too much brain/good data
-            if ICLabel_pvec(badChanICs(i))>0.5
-                % Playing safe and trying to avoid losing too much good/brain data
-                thresh = thresh.*K(1);
-            else
-                % If ICLabel is less certain, probably there is more
-                % brain/good data here, so further increase the treshold
-                thresh = thresh.*K(2);
-            end
-            % thresh = thresh.*K(1);
-            swc = swt(IC(badChanICs(i),:),L,W);
-            Y   = wthresh(swc,sorh,thresh);
-            wIC(badChanICs(i),:) = iswt(Y,W);
+        % Adjusting the treshold
+        % Bad electrode ICs are mostly with low power/variance, e.g. > 20th IC
+        % So even if the trheshold is too low
+        % (i.e. higher trheshold excludes less data, by keeping higher freq)
+        % then we wont lose too much brain/good data
+        % if ICLabel_pvec(badChanICs(i))>0.5
+        %     % Playing safe and trying to avoid losing too much good/brain data
+        %     thresh = thresh.*K(1);
+        % else
+        %     % If ICLabel is less certain, probably there is more
+        %     % brain/good data here, so further increase the treshold
+        %     thresh = thresh.*K(2);
+        % end
+        % thresh = thresh.*K(1);
+        swc = swt(IC(badChanICs(i),:),L,W);
+        Y   = wthresh(swc,sorh,thresh);
+        wIC(badChanICs(i),:) = iswt(Y,W);
 
-            % tmp = [];
-            % tmp.data  = wIC(badChanICs(i),:);
-            % tmp.srate = EEG.srate;
-            % [pow, freq] = checkpowerspectrum(tmp,1,[]);
+        % tmp = [];
+        % tmp.data  = wIC(badChanICs(i),:);
+        % tmp.srate = EEG.srate;
+        % [pow, freq] = checkpowerspectrum(tmp,1,[]);
 
-            % % Apply only on targeted segments?
-            % ICsz = abs(robust_zscore(IC(badChanICs(i),:)))<3;
-            % ICsz = reshape(ICsz,LEpoch,NEpoch)';
-            % ICs_all    = reshape(IC(badChanICs(i),:),LEpoch,NEpoch)';
-            % ICs_noise  = reshape(wIC(badChanICs(i),:),LEpoch,NEpoch)';
-            % ICs_signal = ICs_all-ICs_noise;
-            % myClim = 0.9*max(abs(ICs_signal(:)));
+        % % Apply only on targeted segments?
+        % ICsz = abs(robust_zscore(IC(badChanICs(i),:)))<3;
+        % ICsz = reshape(ICsz,LEpoch,NEpoch)';
+        % ICs_all    = reshape(IC(badChanICs(i),:),LEpoch,NEpoch)';
+        % ICs_noise  = reshape(wIC(badChanICs(i),:),LEpoch,NEpoch)';
+        % ICs_signal = ICs_all-ICs_noise;
+        % myClim = 0.9*max(abs(ICs_signal(:)));
 
-            % nexttile; topoplot(EEGICA.icawinv(:,badChanICs(i)),EEGICA.chanlocs,'maplimits',max(abs(EEGICA.icawinv(:,badChanICs(i))))*[-1 1],'headrad','rim','whitebk','on','style','map','electrodes','on','shading','interp');
-            % axis tight; colormap(myCmap);
-            % th = nexttile; imagesc(th,ICs_all); axis off; clim(th,myClim*[-1 1]);
-            % % text(th.Position(1),mean(th.Position([2 4])),myYlabel{i},'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','bottom','FontSize',10);
-            % ICs_noise(ICsz) = 0;
-            % th = nexttile; imagesc(th,ICs_noise); axis off; clim(th,myClim*[-1 1]);
-            % th = nexttile; imagesc(th,ICs_signal); axis off; clim(th,myClim*[-1 1]);
-        end
-
-        % figure; hold on; plot(ICs0(2,:)); plot(ICs1(2,:));
-
-        % Remove extra padding
-        if ~isempty(extra)
-            wIC = wIC(:,1:end-numel(extra));
-        end
-
-        % Channel-level artifacts
-        artifacts = EEGICA.icawinv*wIC;
-
-        % Subtract out wavelet artifact signal from EEG signal
-        EEG.data(chaneeg,:,:) = EEG.data(chaneeg,:,:)-artifacts;
-
-        % EEGNEW = EEG;
-        % EEGNEW.data(chaneeg,:,:) = EEG.data(chaneeg,:,:)-artifacts;
-        % vis_artifacts(EEGNEW,EEG);
+        % nexttile; topoplot(EEGICA.icawinv(:,badChanICs(i)),EEGICA.chanlocs,'maplimits',max(abs(EEGICA.icawinv(:,badChanICs(i))))*[-1 1],'headrad','rim','whitebk','on','style','map','electrodes','on','shading','interp');
+        % axis tight; colormap(myCmap);
+        % th = nexttile; imagesc(th,ICs_all); axis off; clim(th,myClim*[-1 1]);
+        % % text(th.Position(1),mean(th.Position([2 4])),myYlabel{i},'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','bottom','FontSize',10);
+        % ICs_noise(ICsz) = 0;
+        % th = nexttile; imagesc(th,ICs_noise); axis off; clim(th,myClim*[-1 1]);
+        % th = nexttile; imagesc(th,ICs_signal); axis off; clim(th,myClim*[-1 1]);
     end
+
+    % figure; hold on; plot(ICs0(2,:)); plot(ICs1(2,:));
+
+    % Remove extra padding
+    if ~isempty(extra)
+        wIC = wIC(:,1:end-numel(extra));
+    end
+
+    % Channel-level artifacts
+    artifacts = EEGICA.icawinv*wIC;
+
+    % EEGNEW = EEG;
+    % EEGNEW.data(chaneeg,:,:) = EEG.data(chaneeg,:,:)-artifacts;
+    % vis_artifacts(EEGNEW,EEG);
+
+    % Subtract out wavelet artifact signal from EEG signal
+    EEG.data(chaneeg,:,:) = EEG.data(chaneeg,:,:)-artifacts;
 
     % % Save
     % plotX=35; plotY=55;
     % set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
     % set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    % print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ICwobbles2']),'-dtiff','-r300');
+    % print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_wobbleIC2']),'-dtiff','-r300');
     % close(fh);
 else
     NBICS = 0;
@@ -220,6 +224,9 @@ end
 % % Visual check
 % EEGNEW = pop_select(EEG,'channel',{EEG.chanlocs(chaneeg).labels});
 % vis_artifacts(EEGNEW,EEGICA);
+
+% Remove IC signals
+EEG.icaact = [];
 
 % Log
 EEG.ALSUTRECHT.badchaninfo.wica.icmax = NICA;

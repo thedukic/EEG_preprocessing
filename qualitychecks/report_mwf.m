@@ -1,6 +1,7 @@
 function [EEG, d] = report_mwf(EEG,EEGRAW)
 % This function uses all artifact templates from the MWF cleaning steps
 % to compute the SER and ARR cleaning efficacy metrics
+fprintf('Estimating the final quality measures of MWF...\n');
 
 % % Remove the same periods in the raw EEG as have been removed
 % EEGRAW = eeg_eegrej(EEGRAW, EEGRAW.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);

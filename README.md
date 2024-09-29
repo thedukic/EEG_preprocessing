@@ -11,9 +11,9 @@ EEG preprocessing pipeline v1, ALS Centre UMC Utrecht.
 	```MATLAB
 	pop_editoptions('option_parallel',1,'option_single',0);
 	```
-		- option_parallel = 1; % this might be problematic if you have very large files
-		- option_single   = 0; % do not change this
-		
+	- option_parallel = 1; % this might be problematic if you have very large files
+	- option_single   = 0; % do not change this
+
 3. MATLAB version R2023b or later, on eariler versions the pipeline could fail.
 
 4. By default, CUDAICA is used as it is much faster than other implementations of ICA. This is possible only if an (good, usually nonintegrated) NVIDIA graphics card is available. If this is not possible, the code will automatically switch to RUNICA, which is slower.
