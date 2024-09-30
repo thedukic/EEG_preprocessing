@@ -34,7 +34,7 @@ for i = 3     % :length(myPaths.group)
         fprintf('Processing %d %s participants....\n',NSUB,myPathsTmp.group);
 
         if NSUB>0
-            for k = 46:NSUB
+            for k = 1:NSUB
                 fprintf('\n');
                 disp('==================================================================');
                 disp([myPathsTmp.task ' | ' myPathsTmp.visit ' | ' myPathsTmp.group ' | [' num2str(k) '/' num2str(NSUB) '] ' subjects{k} ' has started.']);
