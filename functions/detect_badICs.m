@@ -88,11 +88,12 @@ corrTreshold = [0.3 0.6 0.6];
 % xticks([1 2 3]); xticklabels(extLabels); colormap(brewermap(128,'PuRd'));
 % EEG = pop_saveset(EEG,'filename',['TMP.set'],'filepath',EEG.ALSUTRECHT.subject.preproc);
 
-% Prvent false positive HEOG
+% Prevent false positive HEOG
 % Here, HEOG ICs are easily confused by broad L-R dipolar (brain) ICs
 % Remove HEOG detections if they are likely brain ICs
-maskHEOGIC = badIC(badICtype==3);
-falseHEOGIC = EEG.ALSUTRECHT.ica.ICLabel.cvec(maskHEOGIC) == 1 & EEG.ALSUTRECHT.ica.ICLabel.pvec(maskHEOGIC) > 0.6;
+maskHEOG = find(badICtype==3);
+falseHEOGIC = EEG.ALSUTRECHT.ica.ICLabel.cvec(badIC(maskHEOG)) == 1 & EEG.ALSUTRECHT.ica.ICLabel.pvec(badIC(maskHEOG)) > 0.6;
+falseHEOGIC = maskHEOG(falseHEOGIC);
 
 badIC(falseHEOGIC) = [];
 badICtype(falseHEOGIC) = [];

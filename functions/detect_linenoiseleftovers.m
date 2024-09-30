@@ -61,11 +61,11 @@ for i = 1:NBLK
     %%
     % Frequency masks
     freqsel50 = false(size(freq));
-    freqsel50(freq>49 & freq<51) = true;
+    freqsel50(freq>=49 & freq<=51) = true;
 
     freqselrest = false(size(freq));
-    freqselrest(freq>=45 & freq<=49) = true;
-    freqselrest(freq>=51 & freq<=55) = true;
+    freqselrest(freq>=45 & freq<=48) = true;
+    freqselrest(freq>=52 & freq<=55) = true;
 
     % X = mean(psdspectra2(:,freqsel50),2);
     % Y = mean(psdspectra2(:,freqselrest),2);
