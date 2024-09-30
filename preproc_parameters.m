@@ -15,11 +15,11 @@ cfg.rnum = '1';
 % lp: lowpass
 
 % MMN/SART (ERP) filter
-cfg.flt.erp.hp = [0.3, 4];
+cfg.flt.erp.hp = [0.5, 4];
 cfg.flt.erp.lp = [80, 4];
 
 % MT filter
-cfg.flt.mt.hp = [0.5, 4];
+cfg.flt.mt.hp = [1, 4];
 cfg.flt.mt.lp = [80, 4];
 
 % RS filter

@@ -11,7 +11,7 @@ myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
 myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
 
 % Set task/group/visit
-myPaths.task  = 'MMN'; % MMN/SART/RS/EO/EC/MT
+myPaths.task  = 'RS'; % MMN/SART/RS/EO/EC/MT
 myPaths.group = {'ALS','CONTROL','AFM','PLS','PMA'};
 myPaths.visit = {'T1','T2','T3','T4','T5'};
 
@@ -49,9 +49,23 @@ end
 % Initialise the toolboxes
 [ALLEEG, EEG, CURRENTSET, ALLCOM] = eeglab; close all;
 
-% Double-check
-if ~(isfolder(myPaths.rootrawdata(1:3)) && isfolder(myPaths.rootpreproc(1:3)))
-    error('Data paths are not correct. The drives do not exist.');
+% Double-check drives
+drive1 = myPaths.rootrawdata(1:3);
+drive2 = myPaths.rootpreproc(1:3);
+if ~(isfolder(drive1) && isfolder(drive2))
+    error('Data paths are not correct. These local/online drives (%s or %s) do not exist.',drive1,drive2);
 end
+
+% Set EEGLAB options
+if strcmpi(myPaths.task,'MT')
+    % Motor task data are large, and the current implementation of parallel processing in EEGLAB would require a large amount of RAM
+    flagParallel = 0;
+else
+    flagParallel = 1;
+end
+pop_editoptions('option_parallel',flagParallel,'option_single',0,'option_computeica',0);
+
+% Start parallel processes
+delete(gcp("nocreate")); parpool("Processes");
 
 end
