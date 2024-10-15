@@ -1,6 +1,6 @@
-function [eyeBlinksMask, eyeBlinksEpochs, BlinkMaxLatency, dataeog, treshold]= detect_eog(EEG,winBlink,ignoreExtremeNoise)
+function [eyeBlinksMask, eyeBlinksEpochs, BlinkMaxLatency, eyeBlinkData, treshold]= detect_veog(EEG,winBlink,ignoreExtremeNoise)
 %
-% SDukic, July 2024
+% SDukic, October 2024
 %
 % EOGfocus = +- time window around the max point of the blink [ms]
 % EOGfocus = 400;  % ms for left/right eyeblink base
@@ -13,32 +13,40 @@ winBlinksmpl = round(winBlink/mspersmpl);
 fprintf('VEOG evaluation window is +-%d ms around the detected peaks.\n',winBlink);
 
 chaneog = strcmp({EEG.chanlocs.labels},'VEOG');
-dataeog = EEG.data(chaneog,:);
+eyeBlinkData = EEG.data(chaneog,:);
 
 % Temporarily filter for better detection
 % It is fine that it will be now double-filtered
-[bl, al] = butter(2,30/(EEG.srate/2),'low');
-[bh, ah] = butter(2,0.5/(EEG.srate/2),'high');
-% dataeog = filtfilt(bl,al,dataeog')';
-% dataeog = filtfilt(bh,ah,dataeog')';
-dataeog = do_filteringcore(bl,al,dataeog,EEG.event,EEG.srate);
-dataeog = do_filteringcore(bh,ah,dataeog,EEG.event,EEG.srate);
+[bl, al] = butter(4,15/(EEG.srate/2),'low');
+[bh, ah] = butter(4,1/(EEG.srate/2),'high');
 
-dataeog = abs(dataeog);
+eyeBlinkData = do_filteringcore(bl,al,eyeBlinkData,EEG.event,EEG.srate);
+eyeBlinkData = do_filteringcore(bh,ah,eyeBlinkData,EEG.event,EEG.srate);
 
-% Do this only if it is for MWF (R2)
-if ignoreExtremeNoise % ~isfield(EEG.ALSUTRECHT.MWF,'R2')
-    assert(length(dataeog)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1));
-    dataeog(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = 0;
+% Is this a good idea tho?
+% eyeBlinkData = abs(eyeBlinkData);
+
+% Do this only if doing the MWF step
+if ignoreExtremeNoise
+    assert(length(eyeBlinkData)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1));
+    eyeBlinkData(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = 0;
 end
 
 % VEOG
-EOGIQR = iqr(dataeog);
-EOG75P = prctile(dataeog,75);
-treshold = EOG75P + 3*EOGIQR;
+% figure; histogram(eyeBlinkData);
+EOGIQR = iqr(eyeBlinkData);
+EOG75P = prctile(eyeBlinkData,75);
+if EOGIQR>100
+    % If eyeblinks are too frequent and small?
+    treshold = EOG75P + EOGIQR;
+    fprintf('Eye blinks were detected using a treshold of 75PRC+IQR = %1.0fuV.\n',treshold);
+else
+    treshold = EOG75P + 2*EOGIQR;
+    fprintf('Eye blinks were detected using a treshold of 75PRC+2IQR = %1.0fuV.\n',treshold);
+end
 
 % Treshold the EOG signal
-BlinkIndexMetric = double(dataeog>treshold);
+BlinkIndexMetric = double(eyeBlinkData>treshold);
 
 % figure; hold on;
 % plot(EEG.times(1:40*256),dataeog(1:40*256));
@@ -64,7 +72,7 @@ if ~isempty(ix_blinkstart)
         for x=1:size(BlinkRunIndex,2)
             o=ix_blinkstart(BlinkRunIndex(x));
             c=ix_blinkend(BlinkRunIndex(x));
-            [~,I] = max(dataeog(1,o:c),[],2);
+            [~,I] = max(eyeBlinkData(1,o:c),[],2);
             BlinkMaxLatency(1,x) = o+I;
         end
     end
@@ -137,7 +145,7 @@ end
 
 % =========================================================================
 
-eyeBlinksMask = false(size(dataeog));
+eyeBlinksMask = false(size(eyeBlinkData));
 for i = 1:size(eyeBlinksEpochs,1)
     eyeBlinksMask(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2)) = true;
 end

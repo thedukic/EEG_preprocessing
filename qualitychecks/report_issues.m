@@ -7,7 +7,9 @@ if isfield(EEG,'data')
     issues_to_check.NumberTrials2 = size(EEG.data,3);                                % Left after preproc
     issues_to_check.NumberTrials3 = EEG.ALSUTRECHT.epochRejections.round1Epochs;     % After EEGLAB exclusions
     issues_to_check.NumberTrials4 = EEG.ALSUTRECHT.epochRejections.remainingEpochs;  % Final number
-    issues_to_check.NumberIC1 = EEG.ALSUTRECHT.badchaninfo.wica.icmax;               % ICs estiamted for wobbles
+    if isfield(EEG.ALSUTRECHT.badchaninfo,'wica')
+        issues_to_check.NumberIC1 = EEG.ALSUTRECHT.badchaninfo.wica.icmax;           % ICs estiamted for wobbles
+    end
     issues_to_check.NumberIC2 = EEG.ALSUTRECHT.ica.icmax0;                           % ICs estimated for main ICA (set)
     issues_to_check.NumberIC3 = EEG.ALSUTRECHT.ica.icmax1;                           % ICs estimated for main ICA (done)
     issues_to_check.NumberIC4 = EEG.ALSUTRECHT.ica.icmax2;                           % ICs containing 95% of the power

@@ -1,4 +1,4 @@
-function EEG = detect_badICs(EEG,EXT,cfg)
+function EEG = detect_badcomponents(EEG,EXT,cfg)
 
 fprintf('\nDetecting bad ICs...\n\n');
 
@@ -6,10 +6,13 @@ fprintf('\nDetecting bad ICs...\n\n');
 EEG = eeg_checkset(EEG,'ica');
 
 % Make sure IC activations are present
-EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
-EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
+% EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
+% EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
+EEG.icaact = [];
+ICAdata = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
+ICAdata = ICAdata(:,:);
 
-NICA = size(EEG.icaact,1);
+NICA = size(ICAdata,1);
 
 %% ========================================================================
 % 1. ICLabel
@@ -28,60 +31,123 @@ EEG.ALSUTRECHT.ica.ICLabel.clss = EEG.etc.ic_classification.ICLabel.classes;
 chanecg  = find(strcmp({EXT.chanlocs.labels},'ECG')); % if it was recorded!
 chanveog = find(strcmp({EXT.chanlocs.labels},'VEOG'));
 chanheog = find(strcmp({EXT.chanlocs.labels},'HEOG'));
-maskExt  = [chanecg, chanveog, chanheog];
+% maskExt  = [chanecg, chanveog, chanheog];
 
-dataExt  = EXT.data(maskExt,:);
-extLabels = {'ECG','VEOG','HEOG'};
-NEXT = length(extLabels);
+% If the signal is not recorded, try to estimate it using
+% an approximate reconstruciton (ICA-like) weights
+if isempty(chanecg)
+    warning('ECG signals was not recorded, but we can try to estimate it from the EEG data...'); % disp(extLabels);
+    load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','ECGsignalweights'),'ECGweights');
+
+    % chaneeg = strcmp({EEG.chanlocs.type},'EEG');
+    % ECGdata = ECGweights*EEG.data(chaneeg,:);
+    EXTdataECG = ECGweights'*EEG.data(:,:);
+
+    EXTTMP = EXT;
+    NCHNECG = EXT.nbchan+1;
+    EXTTMP.data(NCHNECG,:)          = EXTdataECG;
+    EXTTMP.chanlocs(NCHNECG).labels = 'ECG';
+    EXTTMP.chanlocs(NCHNECG).type   = 'EXT';
+
+    ECGsignalLabel = 'Estimated';
+else
+    EXTdataECG = EXT.data(chanecg,:);
+    EXTTMP = EXT;
+    ECGsignalLabel = 'Recorded';
+end
+
+EXTdataEOG = EXT.data([chanveog chanheog],:);
+extLabels  = {'ECG','VEOG','HEOG'};
 % extLabels = {EXT.chanlocs(maskExt).labels};
 % disp(extLabels);
 
 % Temporarily filter for better detection
-% It is fine that it will be now double-filtered
-[bl, al] = butter(4,30/(EEG.srate/2),'low');
-[bh, ah] = butter(4,2/(EEG.srate/2),'high');
-assert(isstable(bl,al));
-assert(isstable(bh,ah));
+% It is fine that it will be double-filtered
+% EOG: 1-10 Hz
+% ECG: 8-16 Hz / 10-20 Hz
+[blEOG, alEOG] = butter(4,10/(EEG.srate/2),'low');
+[blECG, alECG] = butter(4,35/(EEG.srate/2),'low');
+[bhEOG, ahEOG] = butter(4,1/(EEG.srate/2),'high');
+[bhECG, ahECG] = butter(4,1/(EEG.srate/2),'high');
 
-ICAdata = filtfilt(bl,al,EEG.icaact');
-ICAdata = filtfilt(bh,ah,ICAdata);
-EXTdata = filtfilt(bl,al,dataExt');
-EXTdata = filtfilt(bh,ah,EXTdata);
+assert(isstable(blEOG,alEOG));
+assert(isstable(blECG,alECG));
+assert(isstable(bhEOG,ahEOG));
+assert(isstable(bhECG,ahECG));
 
-% ICAdata = robust_zscore(ICAdata);
-% EXTdata = robust_zscore(EXTdata);
-% ICAdata = zscore(ICAdata);
-% EXTdata = zscore(EXTdata);
+% Filter ICA EOG
+ICAdataEOG = do_filteringcore(blEOG,alEOG,ICAdata,EEG.event,EEG.srate);
+ICAdataEOG = do_filteringcore(bhEOG,ahEOG,ICAdataEOG,EEG.event,EEG.srate);
 
-% ECG was not recorded
-fprintf('\n');
-if isempty(chanecg)
-    warning('ECG was not recorded!'); % disp(extLabels);
-    EXTdata = [NaN*EXTdata(:,1), EXTdata];
-else
-    % wt = modwt(EXTdata(:,1),5);
-    % wtrec = zeros(size(wt));
-    % wtrec(4:5,:) = wt(4:5,:);
-    % ECG = imodwt(wtrec,'sym4');
-    %
-    % wt = modwt(ICAdata,5);
-    % wtrec = zeros(size(wt));
-    % wtrec(4:5,:,:) = wt(4:5,:,:);
-    % ICAECG = imodwt(wtrec,'sym4');
-    %
-    % ECG = abs(ECG).^2;
-    % ICAECG = abs(ICAECG).^2;
-    %
-    % corrECG = abs(corr(ECG',ICAECG));
-end
+% Filter ICA ECG
+ICAdataECG = do_filteringcore(blECG,alECG,ICAdata,EEG.event,EEG.srate);
+ICAdataECG = do_filteringcore(bhECG,ahECG,ICAdataECG,EEG.event,EEG.srate);
+
+% Transpose
+ICAdataEOG = ICAdataEOG';
+ICAdataECG = ICAdataECG';
+
+% Filter EXT EOG
+EXTdataEOG = do_filteringcore(blEOG,alEOG,EXTdataEOG,EEG.event,EEG.srate);
+EXTdataEOG = do_filteringcore(bhEOG,ahEOG,EXTdataEOG,EEG.event,EEG.srate);
+
+% Filter EXT ECG
+EXTdataECG = do_filteringcore(blECG,alECG,EXTdataECG,EEG.event,EEG.srate);
+EXTdataECG = do_filteringcore(bhECG,ahECG,EXTdataECG,EEG.event,EEG.srate);
+
+% Combine: ECG / VEOG / HEOG
+EXTdata = [EXTdataECG; EXTdataEOG]';
 
 % Correlation
-corrECG = abs(corr(ICAdata.^2,abs(EXTdata(:,1))));
-corrMat = abs(corr(ICAdata,EXTdata));
-corrMat(:,1) = corrECG;
+% 1. ECG
+[ECGmask, ECGbadEpoch] = detect_ecg(EXTTMP,200,ECGsignalLabel);
 
-% Tresholds: ECG / VEOG / HEOG
-corrTreshold = [0.3 0.6 0.6];
+Nhbeats = size(ECGbadEpoch,1);
+corrECG = NaN(NICA,Nhbeats);
+
+for i = 1:Nhbeats
+    thisChunk = ECGbadEpoch(i,1):ECGbadEpoch(i,2);
+    corrECG(:,i) = corr(ICAdataECG(thisChunk,:).^2,abs(EXTdata(thisChunk,1)));
+    % corrECG(:,i) = corr(ICAdataECG(thisChunk,:),EXTdata(thisChunk,1));
+end
+% figure; imagesc(corrECG);
+corrECG = abs(zscore(mean(corrECG,2)));
+% figure; plot(corrECG);
+
+% % Cross-trial phase statistics
+% % https://mne.tools/stable/generated/mne.preprocessing.ICA.html#mne.preprocessing.ICA.find_bads_ecg
+% % https://sci-hub.st/https://ieeexplore.ieee.org/document/4536072
+% [blECG, alECG] = butter(4,16/(EEG.srate/2),'low');
+% [bhECG, ahECG] = butter(4,8/(EEG.srate/2),'high');
+% ICAdataECG = do_filteringcore(blECG,alECG,ICAdata,EEG.event,EEG.srate);
+% ICAdataECG = do_filteringcore(bhECG,ahECG,ICAdataECG,EEG.event,EEG.srate);
+%
+% V = my_ctps(ICAdataECG, ECGbadEpoch);
+% % figure; plot(zscore(V));
+
+% 2. VEOG
+[noiseMask, eyeBlinksEpochs] = detect_veog(EXT,200,false);
+
+Nblinks = size(eyeBlinksEpochs,1);
+corrVEOG = NaN(NICA,Nblinks);
+
+for i = 1:Nblinks
+    thisChunk = eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2);
+    corrVEOG(:,i) = corr(ICAdataEOG(thisChunk,:),EXTdata(thisChunk,2));
+end
+% figure; imagesc(corrVEOG);
+corrVEOG = abs(zscore(mean(corrVEOG,2)));
+
+% 3. HEOG
+% [saccadesMask, saccadesEpochs] = detect_heog(EXT,200);
+corrHEOG = abs(zscore(corr(ICAdataEOG,EXTdata(:,3))));
+
+% Combine: ECG / VEOG / HEOG
+corrMat = [corrECG, corrVEOG, corrHEOG];
+
+% Tresholds: ECG / VEOG / HEOG (R or Zscore)
+% corrTreshold = [0.6 0.6 0.6];
+corrTreshold = [3 3 3];
 [badIC, badICtype] = find(corrMat>corrTreshold);
 
 % figure; imagesc(corrMat); clim([0 1]); colorbar;
@@ -99,6 +165,7 @@ badIC(falseHEOGIC) = [];
 badICtype(falseHEOGIC) = [];
 
 % Report
+NEXT = length(extLabels);
 for i = 1:NEXT
     if any(badICtype==i)
         fprintf('%s ICs (N = %d) were idetified using EXT channel correlation (R>%1.1f).\n',extLabels{i},sum(badICtype==i),corrTreshold(i));
@@ -121,14 +188,13 @@ ICsMostLikelyHeart(EEG.ALSUTRECHT.ica.extra1.bics(EEG.ALSUTRECHT.ica.extra1.cvec
 
 %% ========================================================================
 % 3A. Detect EMG ICs using freq slopes
-options.muscleFreqIn    = [7, 70];
+% options.muscleFreqIn    = [7, 70];
+options.muscleFreqIn = cfg.bch.muscleSlopeFreq;
 options.Freq_to_compute = [1, 100];
 
 % Calculate pwelch to enable detection of log-freq log-power slopes,
 % indicative of muscle activity
-eegData = EEG.icaact(:,:);
-
-[pxx,fp] = pwelch(eegData',size(eegData,2),[],size(eegData,2),EEG.srate);
+[pxx,fp] = pwelch(ICAdata',size(ICAdata,2),[],size(ICAdata,2),EEG.srate);
 FFTout = pxx';
 fp = fp';
 
@@ -189,9 +255,13 @@ else
 end
 
 % 3B. Use icablinkmetrics for eyeblinks
+% EOGdata = mean(EEG.data(ismember({EEG.chanlocs.labels},cfg.ica.blinkchans),:),1);
+EOGdata = EXTdata(:,2)';
+
+% Put bandpassed ICA data
+EEG.icaact = ICAdataEOG';
+
 try
-    % EOGdata = mean(EEG.data(ismember({EEG.chanlocs.labels},cfg.ica.blinkchans),:),1);
-    EOGdata = dataExt(2,:);
     icablinkmetricsout = icablinkmetrics(EEG,'ArtifactChannel',EOGdata,'Alpha',0.001,'VisualizeData','False');
     if any(icablinkmetricsout.identifiedcomponents>0)
         fprintf('icablinkmetrics has identified %d eye IC(s).\n',length(icablinkmetricsout.identifiedcomponents));
@@ -211,6 +281,9 @@ catch
     icablinkmetricsout.metrics.conv_Pvalue  = [];
     icablinkmetricsout.metrics.perc_Pvalue  = [];
 end
+
+% Put back
+EEG.icaact = [];
 
 % Log
 EEG.ALSUTRECHT.ica.extra2.musleSlope = single(muscleRatio(:));
@@ -368,17 +441,17 @@ ICsMostLikelyComplex = ICsMostLikelyMuscle&ICsMostLikelyBlink;
 
 % TMP = EEG.etc.ic_classification.ICLabel.classifications(ICsMostLikelyBlink,2);
 % for i = 1:20
-%     pdN = fitdist(EEG.icaact(i,:)','normal');
-%     pdT = fitdist(EEG.icaact(i,:)','tLocationScale'); % tLocationScale / Stable
+%     pdN = fitdist(ICAdata(i,:)','normal');
+%     pdT = fitdist(ICAdata(i,:)','tLocationScale'); % tLocationScale / Stable
 %
 %     % figure; hold on;
-%     % hdata = histogram(EEG.icaact(i,:),'binwidth',0.1,'Normalization','pdf');
-%     [n,edges,bin] = histcounts(EEG.icaact(i,:),'binwidth',0.5,'Normalization','pdf');
+%     % hdata = histogram(ICAdata(i,:),'binwidth',0.1,'Normalization','pdf');
+%     [n,edges,bin] = histcounts(ICAdata(i,:),'binwidth',0.5,'Normalization','pdf');
 %     hdata = [];
 %     hdata.Values = n;
 %     hdata.BinLimits = edges([1 end]);
 %
-%     % myLim = round([min(EEG.icaact(1,:))-5, max(EEG.icaact(1,:))+5]);
+%     % myLim = round([min(ICAdata(1,:))-5, max(ICAdata(1,:))+5]);
 %     xgrid = linspace(hdata.BinLimits(1),hdata.BinLimits(2),length(hdata.Values));
 %     pdfEstN = pdf(pdN,xgrid);
 %     pdfEstT = pdf(pdT,xgrid);

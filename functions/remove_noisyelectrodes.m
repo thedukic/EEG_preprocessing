@@ -1,4 +1,4 @@
-function [EEG, badElectrodes1] = remove_noisyelec(EEG,cfgbch)
+function [EEG, badElectrodes1] = remove_noisyelectrodes(EEG,cfgbch)
 %
 % In this function, however, instead "findNoisyChannels" is called (from PREP pipeline)
 % Note: "findNoisyChannels" must be edited so that it is undeterministic!
@@ -67,7 +67,7 @@ end
 
 % 2. Detect EMG-contaminated channels
 % Estimate log-log power spectra
-slopesChannelsxEpochs = dected_emg(EEGTMP);
+slopesChannelsxEpochs = dected_emg(EEGTMP,cfgbch);
 
 % Detect noisy channels
 muscleSlopeTimeAvg = mean(slopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,2);

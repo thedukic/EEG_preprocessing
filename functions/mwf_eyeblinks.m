@@ -1,4 +1,4 @@
-function [EEG, noiseMask] = mwf_eyeblinks(EEG)
+function [EEG, noiseMask] = mwf_eyeblinks(EEG,EXT)
 %
 % Test whether only eye blinks are present using bipolar VEOG
 % SDukic, March 2023
@@ -7,24 +7,25 @@ fprintf('\nMWF (VEOG) eye blinks...\n');
 
 % =========================================================================
 % Detect eye blinks
-[noiseMask, eyeBlinksEpochs, ~, dataeog] = detect_eog(EEG,400,true); % 400 ms
+[noiseMask, eyeBlinksEpochs, ~, dataeog] = detect_veog(EXT,300,false); % 400 ms
 noiseMask = double(noiseMask);
 
-% Account for very bad epochs affected across all channels
-if any(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)
-    assert(length(noiseMask)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1));
-    noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
-end
+% % Account for very bad epochs affected across all channels
+% if any(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)
+%     assert(length(noiseMask)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1));
+%     noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
+% end
 
 % =========================================================================
 if ~isempty(eyeBlinksEpochs)
-
     NEOG = size(eyeBlinksEpochs,1);
-    badIndx = find(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1);
+    % badIndx = find(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1);
+    badIndx = [];
+
+    fh = figure; hold on;
     T = linspace(-0.4,0.4,length(eyeBlinksEpochs(1,1):eyeBlinksEpochs(1,2)));
     cnt = 0;
 
-    fh = figure; hold on;
     for i = 1:NEOG
         if ~any(ismember(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2),badIndx))
             y = dataeog(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
@@ -89,7 +90,7 @@ if EEG.ALSUTRECHT.MWF.R2.proportionMarkedForMWF>0.05
     % Parameters
     delayNew = round((10/1000)*EEG.srate);
     delaySpacingNew = round((16/1000)*EEG.srate);
-    params  = mwf_params('delay',delayNew,'delay_spacing',delaySpacingNew);
+    params = mwf_params('delay',delayNew,'delay_spacing',delaySpacingNew);
 
     % MWF EEG only
     chaneeg = strcmp({EEG.chanlocs.type},'EEG');

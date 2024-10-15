@@ -1,6 +1,6 @@
 function EEG = do_reref(EEG,typeRef)
 
-fprintf('\n%s rereferencing the data...\n',typeRef);
+fprintf('\nRereferencing the data (%s)...\n',typeRef);
 
 chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
 NBLK = length(EEG);

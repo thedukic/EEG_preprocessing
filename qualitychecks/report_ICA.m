@@ -7,7 +7,7 @@ function EEG = report_ICA(EEG)
 % Should I recomopute the variances here??? Not sure.
 % % Double-check
 % EEG = eeg_checkset(EEG,'ica');
-% 
+%
 % % Make sure IC activations are present
 % EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
 % EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
@@ -58,10 +58,13 @@ myCmap1 = brewermap(128,'*RdBu');
 myCmap2 = brewermap(4,'Set1');
 
 % Extract bad ICs for plotting
-ICsforwICA           = find(EEG.ALSUTRECHT.ica.ICsforwICA);
-ICsMostLikelyBlink   = find(EEG.ALSUTRECHT.ica.ICsMostLikelyBlink);
 ICsMostLikelyMuscle  = find(EEG.ALSUTRECHT.ica.ICsMostLikelyMuscle);
 ICsMostLikelyComplex = find(EEG.ALSUTRECHT.ica.ICsMostLikelyComplex);
+
+ICsforwICA           = find(EEG.ALSUTRECHT.ica.ICsforwICA);
+% ICsMostLikelyEye     = find(EEG.ALSUTRECHT.ica.ICsMostLikelyBlink);
+% ICsMostLikelyHeart   = find(EEG.ALSUTRECHT.ica.ICsMostLikelyHeart);
+% ICsMostLikelyChannel = find(EEG.ALSUTRECHT.ica.ICsMostLikelyChannel);
 
 NICAtmp = length([ICsforwICA; ICsMostLikelyMuscle; ICsMostLikelyComplex]);
 
@@ -78,7 +81,7 @@ NROW = NROW1 + NROW2 + 1;
 
 fh = figure;
 th = tiledlayout(NROW,NCOL);
-th.TileSpacing = 'compact'; th.Padding = 'compact';
+th.TileSpacing = 'tight'; th.Padding = 'tight';
 
 % 1. Plot the first N ICs
 for i = 1:NICAgood
@@ -122,14 +125,16 @@ for i = 1:3
         thisIC = theseICs(j);
         switch i
             case 1
-                thisLabelTmp = EEG.ALSUTRECHT.ica.combi.lbls(EEG.ALSUTRECHT.ica.combi.bics==thisIC);
-                if length(thisLabelTmp)>1, thisLabelTmp = {strjoin(thisLabelTmp,'/')}; end
+                % thisLabelTmp = EEG.ALSUTRECHT.ica.combi.lbls(EEG.ALSUTRECHT.ica.combi.bics==thisIC);
+                % if length(thisLabelTmp)>1, thisLabelTmp = {strjoin(thisLabelTmp,'/')}; end
+
+                thisLabelTmp = EEG.ALSUTRECHT.ica.ICLabel.clss{EEG.ALSUTRECHT.ica.combi.report(thisIC)};
             case {2,3}
-                thisLabelTmp = {thisLabel};
+                thisLabelTmp = thisLabel;
         end
 
         topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
-        title(['ICA' num2str(thisIC) ', ' thisLabelTmp{1}],'Color',myCmap2(i,:));
+        title(['ICA' num2str(thisIC) ', ' thisLabelTmp],'Color',myCmap2(i,:));
     end
 end
 
@@ -143,23 +148,23 @@ close(fh);
 % =========================================================================
 % Plot all artifact ICs
 
-fh = figure;
-th = tiledlayout('flow');
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-
-for i = 1:length(EEG.ALSUTRECHT.ica.combi.bics)
-    nexttile;
-    thisIC = EEG.ALSUTRECHT.ica.combi.bics(i);
-    topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
-    title({['ICA' num2str(thisIC)], [EEG.ALSUTRECHT.ica.combi.lbls{i} ', ' EEG.ALSUTRECHT.ica.combi.meth{i} ' = ' num2str(round(EEG.ALSUTRECHT.ica.combi.prbs(i),2))]},'Color',myCmap2(EEG.ALSUTRECHT.ica.combi.method(i),:));
-end
-
-% Save
-plotX=25; plotY=15;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_allbadICs']),'-dtiff','-r300');
-close(fh);
+% fh = figure;
+% th = tiledlayout('flow');
+% th.TileSpacing = 'tight'; th.Padding = 'tight';
+%
+% for i = 1:length(EEG.ALSUTRECHT.ica.combi.bics)
+%     nexttile;
+%     thisIC = EEG.ALSUTRECHT.ica.combi.bics(i);
+%     topoplot(EEG.icawinv(:,thisIC),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,thisIC)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
+%     title({['ICA' num2str(thisIC)], [EEG.ALSUTRECHT.ica.combi.lbls{i} ', ' EEG.ALSUTRECHT.ica.combi.meth{i} ' = ' num2str(round(EEG.ALSUTRECHT.ica.combi.prbs(i),2))]},'Color',myCmap2(EEG.ALSUTRECHT.ica.combi.method(i),:));
+% end
+%
+% % Save
+% plotX=25; plotY=15;
+% set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+% set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+% print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_allbadICs']),'-dtiff','-r300');
+% close(fh);
 
 % =========================================================================
 % % Plot the first 20 ICs
@@ -167,7 +172,7 @@ close(fh);
 %
 % fh = figure;
 % th = tiledlayout(4,5);
-% th.TileSpacing = 'compact'; th.Padding = 'compact';
+% th.TileSpacing = 'tight'; th.Padding = 'tight';
 %
 % for i = 1:20
 %     nexttile;
@@ -200,7 +205,7 @@ close(fh);
 %
 % fh = figure;
 % th = tiledlayout('flow');
-% th.TileSpacing = 'compact'; th.Padding = 'compact';
+% th.TileSpacing = 'tight'; th.Padding = 'tight';
 %
 % for i = 1:length(EEG.ALSUTRECHT.ica.ICLabel.bics)
 %     nexttile;
@@ -235,7 +240,7 @@ close(fh);
 % else
 %     th = tiledlayout('flow');
 % end
-% th.TileSpacing = 'compact'; th.Padding = 'compact';
+% th.TileSpacing = 'tight'; th.Padding = 'tight';
 %
 % for i = 1:3
 %     switch i
@@ -333,5 +338,8 @@ EEG.ALSUTRECHT.ica.ProportionVariance_was_HeartICs        = HeartVariance/TotalV
 EEG.ALSUTRECHT.ica.ProportionVariance_was_LineNoiseICs    = LineNoiseVariance/TotalVariance;
 EEG.ALSUTRECHT.ica.ProportionVariance_was_ChannelNoiseICs = ChannelNoiseVariance/TotalVariance;
 EEG.ALSUTRECHT.ica.ProportionVariance_was_OtherICs        = OtherVariance/TotalVariance;
+
+% Not needed
+EEG.icaact = [];
 
 end

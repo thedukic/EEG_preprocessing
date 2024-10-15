@@ -1,4 +1,4 @@
-function [slopesChannelsxEpochs, other] = dected_emg(EEG)
+function [slopesChannelsxEpochs, other] = dected_emg(EEG,cfg)
 
 % Select only EEG
 chaneeg = strcmp({EEG.chanlocs.type},'EEG');
@@ -29,7 +29,11 @@ for i = 1:NTRL
     [psdspectra(:,:,i),freq] = pwelch(dataeeg(:,:,i)',NWIN,0,NWIN,EEG.srate);
 end
 
-foi = [7 75];
+% The original reference uses 75 Hz and the RELAX toolbox as well
+% But MNE toolbox suggests 45 Hz and says that this is a better value in practice
+% https://mne.tools/dev/generated/mne.preprocessing.ICA.html#mne.preprocessing.ICA.find_bads_muscle
+% foi = [7 45]; % 45 or 75
+foi = cfg.muscleSlopeFreq;
 frqmsk = freq>=foi(1) & freq<=foi(2);
 psdspectra = permute(psdspectra,[1 3 2]);
 logpow = log10(psdspectra(frqmsk,:,:));

@@ -23,7 +23,7 @@ function EEG = remove_electrodewobbles(EEG,ICAtype)
 % 2. Focuses on low amplitudes of the IC,
 %    so it is good for eye and channel artifacts
 %
-% SDukic, March 2024
+% SDukic, October 2024
 % =========================================================================
 
 % We use 2 values:
@@ -32,7 +32,6 @@ function EEG = remove_electrodewobbles(EEG,ICAtype)
 % Maybe good to be even more strict, to preserve more brain signals
 % But this might mean that we put back some noise
 % K = [1.5 2.5];
-K = [1 1];
 W ='coif5';
 L = 5;
 
@@ -46,29 +45,32 @@ EEGICA = do_reref(EEGICA,'aRobust');
 % Data rank
 assert(get_rank(EEGICA.data)==EEGICA.nbchan);
 
-% % No need to estimate all 128 ICs (?)
-% [~,~,~,~,explained] = pca(EEGICA.data');
-% explained = cumsum(explained./sum(explained)); % figure; bar(explained);
-% NICA = find(explained>0.99,1);
-% % NICA = min(NICA,100);
-% NICA = max(NICA,75);
-
+% No need to estimate all 128 ICs (?)
 thisTask = EEG(1).ALSUTRECHT.subject.task;
 switch thisTask
     case {'RS','EO','EC'}
         % 6 or 12 min
-        NICA = 80;
+        NICA = 70;
     case 'SART'
         % 3 or 4 *5 = 15-20min
-        NICA = 90;
+        NICA = 80;
     case 'MMN'
         % 3*7 = 20 min
-        NICA = 90;
+        NICA = 80;
     case 'MT'
         % 3*7 = 20 min
-        NICA = 90;
+        NICA = 80;
 end
 % NICA ^2*30 /256/60
+
+% Check variance explained
+if NICA ~= EEGICA.nbchan
+    [~,~,~,~,explained] = pca(EEGICA.data(:,:)');
+    explained = explained./sum(explained);
+    VarRank = sum(explained(1:NICA));
+else
+    VarRank = 1;
+end
 
 % ICA
 if NICA == EEGICA.nbchan
@@ -100,11 +102,20 @@ EEGICA = iclabel(EEGICA);
 % Get the cassification labels
 [ICLabel_pvec, ICLabel_cvec] = max(EEGICA.etc.ic_classification.ICLabel.classifications,[],2);
 
-% Find bad electrode ICs: ICLabel 6 is channel noise
-badChanICs = find(ICLabel_cvec==6);
-% badChanICs = find(ICLabel_cvec==6 & ICLabel_pvec>0.2);
-% badChanICs = unique([badChanICs; find(EEGICA.etc.ic_classification.ICLabel.classifications(:,6)>=0.2)]); % BETTER DO NOT DO THIS
-% badChanICs = setdiff(badChanICs,find(EEGICA.etc.ic_classification.ICLabel.classifications(:,1)>=0.2));
+% Bad electrode ICs:
+% 1. ICLabel
+% badIC1 = find(ICLabel_cvec==6);
+badIC1 = find(ICLabel_cvec==6 & ICLabel_pvec>0.5);
+% badIC1 = unique([badIC1; find(EEGICA.etc.ic_classification.ICLabel.classifications(:,6)>=0.2)]); % BETTER DO NOT DO THIS
+% badIC1 = setdiff(badIC1, find(EEGICA.etc.ic_classification.ICLabel.classifications(:,1)>=0.2));
+
+% 2. Spatial smoothnes estimates
+[spatialSmoothness, badIC2] = estimate_spatialsmoothnes(EEGICA);
+muscleIC = find(ICLabel_cvec==2 & ICLabel_pvec>0.5);
+badIC2 = setdiff(badIC2(:),muscleIC(:));
+
+% Combine
+badChanICs = unique([badIC1(:); badIC2(:)]);
 
 if ~isempty(badChanICs)
     % Estimate bad electrodes in these ICs
@@ -166,7 +177,8 @@ if ~isempty(badChanICs)
         %     % brain/good data here, so further increase the treshold
         %     thresh = thresh.*K(2);
         % end
-        % thresh = thresh.*K(1);
+        % thresh = 0.9*thresh;
+
         swc = swt(IC(badChanICs(i),:),L,W);
         Y   = wthresh(swc,sorh,thresh);
         wIC(badChanICs(i),:) = iswt(Y,W);
@@ -229,15 +241,17 @@ end
 EEG.icaact = [];
 
 % Log
-EEG.ALSUTRECHT.badchaninfo.wica.icmax = NICA;
-EEG.ALSUTRECHT.badchaninfo.wica.ics   = badChanICs;
-EEG.ALSUTRECHT.badchaninfo.wica.pvec  = ICLabel_pvec;
-EEG.ALSUTRECHT.badchaninfo.wica.cvec  = ICLabel_cvec;
-EEG.ALSUTRECHT.badchaninfo.wica.fixed = badChans;
+EEG.ALSUTRECHT.badchaninfo.wica.icmax   = NICA;
+EEG.ALSUTRECHT.badchaninfo.wica.VarRank = VarRank;
+EEG.ALSUTRECHT.badchaninfo.wica.ics     = badChanICs;
+EEG.ALSUTRECHT.badchaninfo.wica.pvec    = ICLabel_pvec;
+EEG.ALSUTRECHT.badchaninfo.wica.cvec    = ICLabel_cvec;
+EEG.ALSUTRECHT.badchaninfo.wica.fixed   = badChans;
 
 % Report
 fprintf('\nwICA was just now used to fix electrode wobbles and jumps...\n');
-fprintf('Total number of estimated ICs: %d\n', NICA);
+fprintf('Number of estimated ICs: %d\n', NICA);
+fprintf('Used varaince: %1.2f\n', VarRank);
 fprintf('Detected number of bad-electrode ICs: %d\n', NBICS);
 str = arrayfun(@(x) num2str(x,'%1.1f'),ICLabel_pvec(badChanICs),'uni',0);
 str = strjoin(str,', ');
