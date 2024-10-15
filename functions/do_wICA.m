@@ -1,4 +1,4 @@
-function EEG = do_wICA(EEG,EXT,cfg)
+function EEG = do_wICA(EEG,EXT,flagEyeIC)
 %
 % Function is still in the development
 % Based on: RELAX_wICA_on_ICLabel_artifacts
@@ -24,10 +24,8 @@ function EEG = do_wICA(EEG,EXT,cfg)
 % 2. Focuses on low amplitudes of the IC,
 %    so it is good for eye and channel artifacts
 %
-% SDukic, September 2024
+% SDukic, October 2024
 % =========================================================================
-
-flagEyeIC = 'target';
 
 % Double-check
 EEG = eeg_checkset(EEG,'ica');
@@ -38,15 +36,14 @@ EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
 
 %% Extract bad ICs
 ICsMostLikelyBlink   = EEG.ALSUTRECHT.ica.ICsMostLikelyBlink;
-ICsMostLikelyEye     = false(size(ICsMostLikelyBlink));
 ICsMostLikelyMuscle  = EEG.ALSUTRECHT.ica.ICsMostLikelyMuscle;
 ICsMostLikelyComplex = EEG.ALSUTRECHT.ica.ICsMostLikelyComplex;
 ICsforwICA           = EEG.ALSUTRECHT.ica.ICsforwICA;
 
 % Report
 fprintf('\nwICA ICs,    N = %d.\n',sum(ICsforwICA));
-fprintf('Blink ICs,   N = %d (targeted-wavelet tresholding).\n',sum(ICsMostLikelyBlink)); % change based on flagEyeIC
-fprintf('Muscle ICs,  N = %d (simple >20 Hz filtering).\n',sum(ICsMostLikelyMuscle));
+fprintf('Blink ICs,   N = %d (targeted-wavelet tresholding).\n',sum(ICsMostLikelyBlink));
+fprintf('Muscle ICs,  N = %d (simple >15 Hz filtering).\n',sum(ICsMostLikelyMuscle));
 fprintf('Complex ICs, N = %d (removed completely).\n',sum(ICsMostLikelyComplex));
 % fprintf('Other ICs (HEOG, ECG, channel noise), N = %d (wavelet tresholding).\n',sum(~)); % change based on flagEyeIC
 
@@ -71,18 +68,14 @@ artifact_comp = zeros(NICA,NTPT+length(padding));
 cnt = 0;
 for i = 1:NICA
     % Do this step on nonmuscle and noncomplex ICs only.
-    % 1. EMG ICs are filtered out >20Hz
+    % 1. EMG ICs are filtered out >15Hz
     % 2. Complex ICs are completely removed
 
-    if ICsforwICA(i) % && ~ICsMostLikelyMuscle(i) && ~ICsMostLikelyComplex(i)
+    % -> Eye / Heart / Channel
+    if ICsforwICA(i)
         cnt = cnt+1;
-        labelIC = EEG.ALSUTRECHT.ica.combi.lbls(EEG.ALSUTRECHT.ica.combi.bics==i);
-        if length(labelIC)>1, labelIC = {strjoin(labelIC,'/')}; end
-        fprintf('%d) IC%d: %s... ',cnt,i,labelIC{1});
-
-        if contains(labelIC,'Eye')
-            ICsMostLikelyEye(i) = true;
-        end
+        thisLabel = EEG.ALSUTRECHT.ica.ICLabel.clss{EEG.ALSUTRECHT.ica.combi.report(i)};
+        fprintf('%d) IC%d: %s... ',cnt,i,thisLabel);
 
         % Pad the component with zeros if required
         if ~isempty(padding)
@@ -92,12 +85,15 @@ for i = 1:NICA
         end
 
         [wavelet_threshold,threshold_type,~] = ddencmp('den','wv',padded_comp); % automatically obtain wavelet enhancement threshold
-        % Increase threshold for blink components based on optimal results in our informal testing
-        if ICsMostLikelyBlink(i)
-            wavelet_threshold = wavelet_threshold*1.5; % originally 2
-        else
-            wavelet_threshold = wavelet_threshold*1;
-        end
+
+        % % Increase threshold for blink components based on optimal results in our informal testing
+        % if ICsMostLikelyBlink(i)
+        %     wavelet_threshold = 2*wavelet_threshold;
+        % else
+        %     wavelet_threshold = wavelet_threshold;
+        % end
+        wavelet_threshold = 0.8*wavelet_threshold;
+
         wavelet_transform = swt(padded_comp,5,'coif5'); % apply stationary wavelet transform to each component to reduce neural contribution to component
         thresholded_wavelet_transform = wthresh(wavelet_transform,threshold_type,wavelet_threshold); % remove negligible values by applying thresholding
         artifact_comp(i,:) = iswt(thresholded_wavelet_transform,'coif5'); % use inverse wavelet transform to obtained the wavelet transformed component
@@ -114,8 +110,8 @@ end
 
 %% Obtain muscle artifact for subtraction by highpass filtering data instead of wICA:
 if any(ICsMostLikelyMuscle)
-    fprintf('Adjusting the musle components (N = %d) by keeping only >20 Hz...\n',sum(ICsMostLikelyMuscle));
-    [bh, ah] = butter(2, 20/(EEG.srate/2), 'high');
+    fprintf('\nAdjusting the musle components (N = %d) by keeping only >15 Hz...\n',sum(ICsMostLikelyMuscle));
+    [bh, ah] = butter(2, 15/(EEG.srate/2), 'high');
     % artifact_comp(ICsMostLikelyMuscle,:) = filtfilt(bh,ah,dataICs(ICsMostLikelyMuscle,:)')';
     artifact_comp(ICsMostLikelyMuscle,:) = do_filteringcore(bh,ah,dataICs(ICsMostLikelyMuscle,:),EEG.event,EEG.srate);
 
@@ -127,17 +123,17 @@ end
 if any(ICsMostLikelyBlink)
     switch flagEyeIC
         case 'remove'
-            fprintf('Removing the eye components (N = %d) completely...\n',sum(ICsMostLikelyEye));
-            artifact_comp(ICsMostLikelyEye,:) = dataICs(ICsMostLikelyEye,:);
+            fprintf('\nRemoving the eye components (N = %d) completely...\n',sum(ICsMostLikelyBlink));
+            artifact_comp(ICsMostLikelyBlink,:) = dataICs(ICsMostLikelyBlink,:);
 
         case 'target'
-            fprintf('Adjusting the eye components (N = %d) by targeting only the eye artifacts...\n',sum(ICsMostLikelyBlink));
+            fprintf('\nAdjusting the eye components (N = %d) by targeting only the eye artifacts...\n',sum(ICsMostLikelyBlink));
 
             moving_mean_length     = round(200/(1000/EEG.srate));
             blink_length_threshold = round(100/(1000/EEG.srate));
 
             assert(size(EEG.data,2)==size(EXT.data,2));
-            maskEyeBlinks = detect_eog(EXT,400,false); % 400 ms
+            maskEyeBlinks = detect_veog(EXT,400,false); % 400 ms
 
             [z1, p1] = butter(2, [0.5 25]./(EEG.srate/2), 'bandpass');
             maskBlinksICA = zeros(NICA,NTPT);
@@ -185,20 +181,25 @@ if any(ICsMostLikelyBlink)
                     end
                     maskBlinksICA(i,:) = movmean(padded_blink_periods,[moving_mean_length moving_mean_length]);
                     artifact_comp(i,:) = artifact_comp(i,:).*maskBlinksICA(i,:);
+
+                    % figure; hold on;
+                    % plot(EXT.data(2,1:20*256));
+                    % plot(200*maskBlinksICA(i,1:20*256));
+                    % plot(EXT.data(3,1:20*256));
                 end
             end
 
         case 'nontarget'
-            fprintf('Non-targeted apporach is used for eye components.\n');
+            fprintf('\nNon-targeted apporach is used for eye components.\n');
     end
 end
 
 %% Remove complex ones completely
 if any(ICsMostLikelyComplex)
-    fprintf('Removing the complex components (N = %d) completely...\n',sum(ICsMostLikelyComplex));
+    fprintf('\nRemoving the complex components (N = %d) completely...\n',sum(ICsMostLikelyComplex));
     artifact_comp(ICsMostLikelyComplex,:) = dataICs(ICsMostLikelyComplex,:);
 else
-    fprintf('No complex components were found...\n');
+    fprintf('\nNo complex components were found.\n');
 end
 
 %% Remove artifact and reconstruct data:
@@ -214,18 +215,7 @@ chaneeg = strcmp({EEG.chanlocs.type},'EEG');
 EEG.data(chaneeg,:,:) = EEG.data(chaneeg,:,:)-artifacts;
 
 %% Log
-% % wICA
-% eyeICs    = find(ICsMostLikelyEye(:));
-% muscleICs = find(ICsMostLikelyMuscle(:));
-% EEG.ALSUTRECHT.ica.wica.bics = [eyeICs; muscleICs];
-%
-% % Final
-% EEG.ALSUTRECHT.ica.final.bics = [EEG.ALSUTRECHT.ica.combi.bics(:); EEG.ALSUTRECHT.ica.wica.bics(:)];
-% EEG.ALSUTRECHT.ica.final.lbls = [EEG.ALSUTRECHT.ica.combi.lbls; repmat({'Eye2'},length(eyeICs),1); repmat({'Muscle2'},length(muscleICs),1)];
-% assert(length(EEG.ALSUTRECHT.ica.final.bics)==length(EEG.ALSUTRECHT.ica.final.lbls));
-
 NBIC = sum(ICsMostLikelyBlink | ICsMostLikelyMuscle | ICsMostLikelyComplex | ICsforwICA);
-% labels = EEG.ALSUTRECHT.ica.combi.lbls;
 
 EEG.ALSUTRECHT.ica.numberArtifactICs                   = NBIC;
 EEG.ALSUTRECHT.ica.proportionArtifactICs               = NBIC./NICA;
@@ -243,5 +233,8 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Number of total wIC   %d\n',EEG.ALSUTRECHT.i
 fprintf(EEG.ALSUTRECHT.subject.fid,'Number of blink wIC:  %d\n',EEG.ALSUTRECHT.ica.numberArtifactICsReducedbywICABlink);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Number of muscle IC:  %d\n',EEG.ALSUTRECHT.ica.numberArtifactICsMuscle);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Number of complex IC: %d\n',EEG.ALSUTRECHT.ica.numberArtifactICsComplex);
+
+% Not needed
+EEG.icaact = [];
 
 end

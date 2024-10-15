@@ -23,7 +23,7 @@ cfg.flt.mt.hp = [1, 4];
 cfg.flt.mt.lp = [80, 4];
 
 % RS filter
-cfg.flt.rs.hp = [0.5, 4];
+cfg.flt.rs.hp = [0.5, 4]; % 1?
 cfg.flt.rs.lp = [80, 4];
 
 % EXT filter
@@ -56,9 +56,13 @@ cfg.bch.ransacOff                   = true;
 
 % RELAX: Muscle activity
 % Less stringent = -0.31, Middle Stringency = -0.59, More stringent = -0.72
-cfg.bch.muscleSlopeThreshold        = -0.31;
+% https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7590828
+% If 7-45 then use muscleSlopeThreshold = 0 ?
+% If 7-70 the use the above muscleSlopeThreshold, like -0.31 ?
+cfg.bch.muscleSlopeThreshold        = 0;
+cfg.bch.muscleSlopeFreq             = [7 70]; % 7-45 or 7-70/75
 cfg.bch.muscleSlopeTime             = 0.50;
-cfg.bch.maxProportionOfBadElec      = 0.15;  % that can be deleted using these settings
+cfg.bch.maxProportionOfBadElec      = 0.15;  % that can be deleted using this EMG detection
 
 % RELAX: Slow drifts
 % cfg.bch.DriftSeverityThreshold      = 12;  % default: 10 (MAD from the median of all electrodes)
@@ -82,16 +86,16 @@ else
 end
 
 % PCA reduction prior ICA
-cfg.ica.icMax   = 50;
+cfg.ica.icMax   = 70;
 
 % ICLabel likelihoods
 cfg.ica.iclabel = ...
     [NaN NaN;  % Brain
-    0.5 1;     % Muscle
-    0.5 1;     % Eye (VEOG+HEOG)
-    0.5 1;     % Heart
+    0.4 1;     % Muscle - used
+    0.4 1;     % Eye (VEOG+HEOG) - used
+    NaN NaN;   % Heart - not used
     NaN NaN;   % Line noise - not needed
-    0.5 1;     % Channel noise
+    0.4 1;     % Channel noise - used
     NaN NaN];  % Other
 
 % cfg.ica.blinkchans = {'C8','C9','C10','C14','C15','C16','C17','C18','C19','C27','C28','C29','C30','C31','C32','C26','C20','C13','C21'};
@@ -107,7 +111,7 @@ cfg.trg.mt    = {[21 31 51],[-5 10]};
 cfg.trg.rs    = {2,0.75};             % 2s, 0.75 overlap
 
 %% Bad epoch rejection
-cfg.epoch.rejectAmp                            = 75;  % even >75 is too low for ALS30344 
+cfg.epoch.rejectAmp                            = 75;  % even >75 is too low for ALS30344
 % cfg.epoch.singleChannelImprobableDataThreshold = 5; % MAD from the median of all epochs for each electrode against itself. This could be set lower and would catch less severe pops
 % cfg.epoch.allChannelImprobableDataThreshold    = 3; % SD from the mean of all epochs for each electrode against itself. This could be set lower and would catch less severe improbable data
 % cfg.epoch.singleChannelKurtosisThreshold       = 5; % SD from the mean of the single electrodes. This could be set lower and would catch less severe kurtosis

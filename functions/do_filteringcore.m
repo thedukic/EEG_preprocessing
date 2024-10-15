@@ -11,7 +11,7 @@ jumpsBad = floor([0 eventTimes(mask) size(data,2)]);
 jumpsBad = unique(jumpsBad);
 
 NChunk = length(jumpsBad)-1;
-if NChunk>1, fprintf('Boundaries (N = %d) detected. Each chunk will be filtered separately!\n',NChunk); end
+if NChunk>1, fprintf('Boundaries detected! Each chunk (N = %d) will be filtered separately.\n',NChunk); end
 
 for j = 1:NChunk
     % Indices

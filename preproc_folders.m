@@ -66,6 +66,20 @@ end
 pop_editoptions('option_parallel',flagParallel,'option_single',0,'option_computeica',0);
 
 % Start parallel processes
-delete(gcp("nocreate")); parpool("Processes");
+pool = gcp('nocreate');
+delete(pool); parpool("Processes");
+
+% if ~isempty(pool)
+%     if ~isempty(pool.Cluster) % pool.Cluster.HasSharedFilesystem && pool.SpmdEnabled
+%         % disp('Running with processes.');
+%     else
+%         % disp('Running with threads.');
+%         delete(pool); parpool("Processes");
+%     end
+% else
+%     % disp('No active parpool.');
+%     parpool("Processes");
+% end
+
 
 end

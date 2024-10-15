@@ -57,9 +57,9 @@ for i = 1:NSUB
     N(i,3) = EEG.ALSUTRECHT.issues_to_check.NumberTrials2;
     % Epochs: Left after trial rejection
     N(i,4) = EEG.ALSUTRECHT.issues_to_check.NumberTrials4;
-    
+
     % Leftover EMG
-    % N(i,5) = EEG.ALSUTRECHT.leftovers.muscle1;  % after proc1 
+    % N(i,5) = EEG.ALSUTRECHT.leftovers.muscle1;  % after proc1
     N(i,5) = EEG.ALSUTRECHT.leftovers.muscle2;    % after proc2
 
     % Median voltage range
@@ -208,27 +208,27 @@ end
 
 % =========================================================================
 % CorrelationMatricesMean = mean(CorrelationMatrices,3);
-% 
+%
 % NCHN = size(CorrelationMatricesMean,1);
 % CorrelationMatricesZ = 0*CorrelationMatrices;
-% 
+%
 % for i = 1:NCHN
 %     for j = 1:NCHN
 %         CorrelationMatricesZ(i,j,:) = zscore(squeeze(CorrelationMatrices(i,j,:)));
 %     end
 % end
-% 
+%
 % maskDiff = squeeze(any(abs(CorrelationMatricesZ)>6,[1 2]));
 % maskDiff = find(maskDiff);
-% 
+%
 % maskDiff = [1; 2; 3; maskDiff]
-% 
+%
 % NSUBdv = length(maskDiff);
-% 
+%
 % fh = figure;
 % th = tiledlayout(1,NSUBdv+1);
 % th.TileSpacing = 'compact'; th.Padding = 'compact';
-% 
+%
 % for i = 1:NSUBdv+1
 %     nexttile;
 %     if i == 1

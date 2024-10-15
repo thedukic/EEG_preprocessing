@@ -124,7 +124,7 @@ NumberTrials(2) = EEG.trials;
 fprintf('\n================================\n');
 fprintf('EMG slopes\n');
 fprintf('================================\n');
-slopesChannelsxEpochs = dected_emg(EEG);
+slopesChannelsxEpochs = dected_emg(EEG,cfg.bch);
 slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
 
 BadEpochs = sum(slopesChannelsxEpochs, 1);
@@ -153,7 +153,7 @@ voltageShiftWithinEpoch = range(EEG.data(:,:,:),2);
 EEG.ALSUTRECHT.chanCorr = estimate_channelcov(EEG);
 
 % 9. EMG leftovers
-slopesChannelsxEpochs = dected_emg(EEG);
+slopesChannelsxEpochs = dected_emg(EEG,cfg.bch);
 slopesChannelsxEpochs(slopesChannelsxEpochs < cfg.bch.muscleSlopeThreshold) = NaN;
 slopesChannelsxEpochs = slopesChannelsxEpochs-cfg.bch.muscleSlopeThreshold;
 BadEpochs = sum(slopesChannelsxEpochs,1,'omitnan');

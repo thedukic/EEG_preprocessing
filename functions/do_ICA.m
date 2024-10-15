@@ -12,8 +12,14 @@ end
 
 % Check variance explained
 [~,~,~,~,explained] = pca(EEG.data(:,:)');
-explained = cumsum(explained./sum(explained)); % figure; bar(explained);
-NICA95 = find(explained>0.95,1);
+explained = explained./sum(explained);
+
+% 95% variance
+explainedTmp = cumsum(explained./sum(explained)); % figure; bar(explained);
+NPCA95 = find(explainedTmp>=0.95,1);
+
+% Variance used for ICA
+VarRank = 100*sum(explained(1:rankICA));
 
 % ICA
 if strcmpi(cfg.ica.type2,'AMICA')
@@ -80,20 +86,22 @@ for i = 1:NICA
 end
 
 % Log
-EEG.ALSUTRECHT.ica.icmax0 = cfg.ica.icMax;
-EEG.ALSUTRECHT.ica.icmax1 = rankICA;
-EEG.ALSUTRECHT.ica.icmax2 = NICA95;
-EEG.ALSUTRECHT.ica.varICs = varICs;
+EEG.ALSUTRECHT.ica.icmax0  = cfg.ica.icMax;
+EEG.ALSUTRECHT.ica.icmax1  = rankICA;
+EEG.ALSUTRECHT.ica.icmax2  = NPCA95;
+EEG.ALSUTRECHT.ica.VarRank = VarRank;
+EEG.ALSUTRECHT.ica.varICs  = varICs;
 
 % Report
-fprintf('\nICA has just finished...\n');
-fprintf('Total number of estimated ICs (max %d): %d\n', rankICA,cfg.ica.icMax);
-fprintf('Suggested number of useful ICs: %d\n', NICA95);
+fprintf('\nICA is done.\n');
+fprintf('Number of estimated ICs (max %d): %d\n', rankICA,cfg.ica.icMax);
+fprintf('Used varaince: %1.2f\n',VarRank);
+fprintf('95%% PCA variance: %d\n', NPCA95);
 
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'ICA\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
-fprintf(EEG.ALSUTRECHT.subject.fid,'Total number of estimated ICs (max %d): %d\n', rankICA,cfg.ica.icMax);
-fprintf(EEG.ALSUTRECHT.subject.fid,'Suggested number of useful ICs: %d\n', NICA95);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Number of estimated ICs (max %d): %d (Var = %1.2f)\n', rankICA,cfg.ica.icMax,VarRank);
+fprintf(EEG.ALSUTRECHT.subject.fid,'95% ICs: %d\n', NPCA95);
 
 end

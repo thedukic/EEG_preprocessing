@@ -26,7 +26,7 @@ fprintf('\nMWF (EMG) muscle artifacts...\n');
 
 % =========================================================================
 % Estimate log-log power spectra
-[slopesChannelsxEpochs, other] = dected_emg(EEG);
+[slopesChannelsxEpochs, other] = dected_emg(EEG,cfgbch);
 
 % Account for very bad epochs affected across all channels
 if any(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2)

@@ -1,4 +1,4 @@
-function [EEG, badElectrodes] = remove_flatelec(EEG,cfg)
+function [EEG, badElectrodes] = remove_flatelectrodes(EEG,cfg)
 %
 % Removes flat electrodes (electrodes that were taken out)
 % The code is based on the function from EEGLAB

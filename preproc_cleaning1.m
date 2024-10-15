@@ -5,7 +5,7 @@ function preproc_cleaning1(myPaths,id)
 %
 % =========================================================================
 % SDukic edits
-% v1, September 2024
+% v1, October 2024
 % =========================================================================
 % TODO
 % 1.
@@ -21,6 +21,7 @@ subject.id      = id;
 subject.task    = myPaths.task;
 subject.group   = myPaths.group;
 subject.visit   = myPaths.visit;
+subject.mycodes = myPaths.mycodes;
 subject.rawdata = fullfile(myPaths.rawdata, subject.id);
 subject.preproc = fullfile(myPaths.preproc, subject.id);
 subject.icadata = fullfile(subject.preproc, upper(cfg.ica.type2));
@@ -105,7 +106,7 @@ EEG = pop_resample(EEG,256);
 EEG = extract_eventinfo(EEG,cfg.trg);
 
 % Detect flat channels
-EEG = remove_flatelec(EEG,cfg.bch);
+EEG = remove_flatelectrodes(EEG,cfg.bch);
 
 % Reference
 EEG = do_reref(EEG,'aRobust');
@@ -149,10 +150,10 @@ end
 % EEGRAW = EEG;
 
 % Remove electrode wobbles and pops
-EEG = remove_electrodewobbles(EEG,lower(cfg.ica.type1));
+% EEG = remove_electrodewobbles(EEG,lower(cfg.ica.type1));
 
 % Detect and remove noisy electrodes
-EEG = remove_noisyelec(EEG,cfg.bch);
+EEG = remove_noisyelectrodes(EEG,cfg.bch);
 
 % Log/report bad channel
 EEG = report_badelectrodes(EEG);
@@ -201,26 +202,32 @@ EEG = do_reref(EEG,'aRegular');
 % ICA
 EEG = do_ICA(EEG,cfg);
 
-% Flag artifact ICs
-EEG = detect_badICs(EEG,EXT,cfg);
+% Detect artifact ICs
+EEG = detect_badcomponents2(EEG,EXT,cfg);
 
 % Do wICA
-EEG = do_wICA(EEG,EXT,cfg);
+flagEyeIC = 'target';
+EEG = do_wICA(EEG,EXT,flagEyeIC);
+
+% Report artifact leftovers
+[EEG, flagMWF] = report_leftovers(EEG,EXT,cfg);
+
+% Do MWF on blinks if too many are left
+if flagMWF
+    EEG = mwf_eyeblinks(EEG,EXT);
+
+    % Report again leftovers
+    EEG = report_leftovers(EEG,EXT,cfg);
+end
+
+% Report ICA
+EEG = report_ICA(EEG);
 
 % Interim data saving
 % EEG = pop_saveset(EEG,'filename',[subject.icafile '.set'],'filepath',subject.preproc);
 
 % Visually check the cleaning
 % compare_visually(EEG,EEGRAW,cfg.trg);
-
-% Report ICA
-EEG = report_ICA(EEG);
-
-% Remove IC signals
-EEG.icaact = [];
-
-% Report artifact leftovers
-EEG = report_leftovers(EEG,EXT,cfg);
 
 % Merge channels
 EEG = merge_eeglabsets(EEG,EXT);

@@ -106,7 +106,12 @@ else
         end
 
         NChunk = length(jumpsBad)-1;
-        if NChunk>1, fprintf('Boundaries detected. Each chunk (N = %d) will be filtered separately!\n',NChunk); end
+        if NChunk>1
+            fprintf('Block %d: Boundaries detected! Each chunk (N = %d) will be filtered separately.\n',i,NChunk);
+        else
+            fprintf('Block %d: Boundaries not detected.\n',i);
+        end
+
         for j = 1:NChunk
             % Indices
             dataInd = [jumpsBad(j)+1 jumpsBad(j+1)];

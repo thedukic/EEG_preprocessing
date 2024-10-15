@@ -2,7 +2,7 @@
 %
 % EEG preprocessing main file, ALS Centre UMC Utrecht
 % Check README.md for instructions
-% SDukic, September 2024
+% SDukic, October 2024
 %
 % =========================================================================
 
@@ -19,7 +19,7 @@ for i = 3     % :length(myPaths.group)
         myPathsTmp.rawdata  = fullfile(myPathsTmp.rootrawdata,myPathsTmp.group,myPathsTmp.visit);
         myPathsTmp.preproc  = fullfile(myPathsTmp.rootpreproc,myPathsTmp.task,myPathsTmp.group,myPathsTmp.visit);
 
-        % 1. Process all participants
+        % % 1. Process all participants
         % subjects = list_subjects(myPathsTmp.rawdata,{});
 
         % 2. Process selected participants
@@ -28,7 +28,7 @@ for i = 3     % :length(myPaths.group)
         myPathsTmp.excl = {}; subjects = select_participants([],'C9',myPathsTmp);
         rmpath('C:\DATA\MATLAB\myCodes\RS\common');
         % subjects = list_subjects('E:\3_PREPROCESSED_DATA\RS\ALS\T1',{});
-        % subjects = {'ALS26603','ALS37919'};
+        % subjects = {'ALS27315'};
 
         assert(all(contains(subjects,'ALS'))); NSUB = length(subjects);
         fprintf('Processing %d %s participants....\n',NSUB,myPathsTmp.group);
@@ -48,6 +48,7 @@ for i = 3     % :length(myPaths.group)
 
             % Report
             report_final(myPathsTmp,subjects,1);
+            % estimate_ictemplates(myPathsTmp,subjects,1);
         end
     end
 end

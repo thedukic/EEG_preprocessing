@@ -4,7 +4,7 @@ function EEG = detect_linenoiseleftovers(EEG)
 %   1. topoplots of pvalues masked usign pvals
 %   2. final spectra using a log-scale
 %
-% SDukic, April 2024
+% SDukic, October 2024
 
 Ptrsh = 0.0001;
 
@@ -22,7 +22,7 @@ pval    = cell(NBLK,1);
 
 for i = 1:NBLK
     % Epoch into 1s (or maybe better into 1s with 0.5 overlap, but OK)
-    L = 2*EEG(i).srate;
+    L = 4*EEG(i).srate;
     N = floor(size(EEG(i).data,2)/L);
     dataeeg = reshape(EEG(i).data(:,1:N*L),EEG(i).nbchan,L,N);
 
@@ -36,7 +36,7 @@ for i = 1:NBLK
     end
 
     % Averge across trials
-    psdspectra2a = mean(psdspectra,3)';
+    psdspectra2a = mean(psdspectra,3)'; % better to catch the extreme values
     % psdspectra2a = trimmean(psdspectra,10,'round',3)';
 
     % % Normalise
@@ -84,8 +84,7 @@ for i = 1:NBLK
 
     % Determine channels with 50 Hz
     badelec{i} = find(pval{i}<Ptrsh);
-    % badelec{i} = find(pval{i}<0.05);
-
+	
     % nexttile; plot(-log10(pval{i}),'LineWidth',1.2);
     % ylim([0 4]); xlim([1 EEG(i).nbchan]); ylabel('-log10(p)');
     % title(['Block ' num2str(i)]);
@@ -124,9 +123,12 @@ for i = 1:NBLK
         % psdspectra2b = psdspectra2b ./ sum(psdspectra2(b:,freqsel),2);
         psdspectra2b = 10*log10(psdspectra2b);
 
+        % Mean P-value 
+        Pmean = mean(pval{i}(badelec{i}));
     else
         fprintf('Block %d: Nice! No leftover line noise is found.\n',i);
         NCHN = 0;
+		Pmean = NaN;
     end
 
     % Sort spectra
@@ -157,7 +159,7 @@ for i = 1:NBLK
     end
     xlim([45 55]); ylim([-20 20]); pbaspect([1.618 1 1]);
     xlabel('Frequency (Hz)'); ylabel('10log_{10}(power)');
-    title(['N = ' num2str(NCHN)]);
+    title(['N = ' num2str(NCHN) ', Pm = ' num2str(Pmean)]);
 end
 
 % Save

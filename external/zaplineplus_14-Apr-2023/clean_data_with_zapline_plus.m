@@ -688,7 +688,7 @@ while i_noisefreq <= length(noisefreqs)
             grey = [0.2 0.2 0.2];
 
             this_freq_idx_plot = f>=noisefreq-1.1 & f<=noisefreq+1.1;
-            plothandles(i_noisefreq) = figure(figThis);clf;
+            plothandles(i_noisefreq) = figure(figThis); clf;
             if ~isempty(figPos)
                 set(gcf,'color','w','Position',figPos) % e.g. figpos = [0 0 1500 850]
             else

@@ -90,7 +90,7 @@ function [icablinkmetricsout, matrixofVEOGiBlinks, matrixofICAiBlinks, matrixofE
     try
         r.ArtifactLatencies; 
     catch % no latency markers were inputted
-        fprintf('\n')
+        % fprintf('\n')
         fprintf('icablinkmetrics(). Artifact latency information not provided. Running eyeblinklatencies() on inputted artifact channel.')
         r.ArtifactLatencies = eyeblinklatencies('BlinkActivity', r.ArtifactChannel, 'SampleRate', INEEG.srate, 'Threshold', r(1).TemplateThreshold);
         if (numel(r.ArtifactLatencies) < r.MinimumArtifacts)

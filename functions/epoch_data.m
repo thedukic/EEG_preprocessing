@@ -7,18 +7,18 @@ if strcmpi(EEG.ALSUTRECHT.subject.task,'MMN')
     EEG = pop_epoch(EEG,condLabel,cfg.mmn{2},'epochinfo','yes');
 
 elseif strcmpi(EEG.ALSUTRECHT.subject.task,'SART')
-    EEG0 = EEG; 
+    EEG0 = EEG;
 
     % SART wrt visual stimuli
     condLabel1 = arrayfun(@(x) ['condition ' num2str(x)],cfg.sart1{1},'Uniformoutput',0);
-    EEG  = pop_epoch(EEG0,condLabel1,cfg.sart1{2},'epochinfo','yes');
+    EEG = pop_epoch(EEG0,condLabel1,cfg.sart1{2},'epochinfo','yes');
+    EEG.ALSUTRECHT.SART.type = 'StimulusLocked';
 
-    % SART wrt response times
-    condLabel2 = arrayfun(@(x) ['condition ' num2str(x)],cfg.sart2{1},'Uniformoutput',0);
-    EEG2 = pop_epoch(EEG0,condLabel2,cfg.sart2{2},'epochinfo','yes');
+    % % SART wrt response times
+    % condLabel2 = arrayfun(@(x) ['condition ' num2str(x)],cfg.sart2{1},'Uniformoutput',0);
+    % EEG2 = pop_epoch(EEG0,condLabel2,cfg.sart2{2},'epochinfo','yes');
+    % EEG2.ALSUTRECHT.SART.type  = 'ResponseLocked';
 
-    EEG.ALSUTRECHT.SART.type   = 'StimulusLocked';
-    EEG2.ALSUTRECHT.SART.type  = 'ResponseLocked';
     clearvars EEG0
 
 elseif strcmpi(EEG.ALSUTRECHT.subject.task,'RS') || strcmpi(EEG.ALSUTRECHT.subject.task,'EO') || strcmpi(EEG.ALSUTRECHT.subject.task,'EC')

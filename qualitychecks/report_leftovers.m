@@ -1,7 +1,7 @@
-function EEG = report_leftovers(EEG,EXT,cfg)
+function [EEG, flagMWF] = report_leftovers(EEG,EXT,cfg)
 %
 % RELAX toolbox
-% SDukic, July 2024
+% SDukic, October 2024
 %
 
 %% =========================================================================
@@ -10,7 +10,7 @@ muscleSlopeThreshold = cfg.bch.muscleSlopeThreshold;
 muscleSlopeDuration  = 0.5;
 
 % Estimate log-log power spectra
-slopesChannelsxEpochs = dected_emg(EEG);
+slopesChannelsxEpochs = dected_emg(EEG,cfg.bch);
 [NCHANEEG, NTRL] = size(slopesChannelsxEpochs);
 
 % Strong slow drifts are reflected as very steep negative slopes of the power spectrum
@@ -61,7 +61,7 @@ dataeeg  = EEG.data(chaneeg,:);
 % =========================================================================
 % Detect eye blinks
 blinkLenght = 500;
-[~, eyeBlinksEpochs] = detect_eog(EXT,blinkLenght,false);
+[~, eyeBlinksEpochs] = detect_veog(EXT,blinkLenght,false);
 
 % Find multi-blinks
 multiBlink = detect_multiblinks(eyeBlinksEpochs);
@@ -106,7 +106,7 @@ ylabel('t-test'); title(['Frontal electrodes blink leftovers, N = ' num2str(NTRL
 % Detect eye blinks
 % Not ideal, the code does not care about boundary events
 blinkLenght = 2000;
-[~, eyeBlinksEpochs, BlinkMaxLatency, dataeog, treshold] = detect_eog(EXT,blinkLenght,false);
+[~, eyeBlinksEpochs, BlinkMaxLatency, dataeog, treshold] = detect_veog(EXT,blinkLenght,false);
 
 % Find multi-blinks
 multiBlink = detect_multiblinks(eyeBlinksEpochs);
@@ -141,7 +141,7 @@ if NTRL>0
     dataCmapTmp = brewermap(NTRL,'Spectral'); % BuGn
     set(gca,'ColorOrder',[0 0 0; dataCmapTmp]);
     title(['Detected blinks, N = ' num2str(NTRL)]);
-    pbaspect([1.618 1 1]); ylabel('EOG amplitude (/muV)');
+    pbaspect([1.618 1 1]); ylabel('EOG amplitude (\muV)');
 
     % plot([500 500],yrange,'Color',[0 0 0]);
     % plot([3500 3500],yrange,'Color',[0 0 0]);
@@ -226,6 +226,39 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'--------------------------------------------
 fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover eye blink artifact: %1.0f%%\n', BlinkAmplitudeRatioMean);
 
 EEG.ALSUTRECHT.leftovers.blinks = BlinkAmplitudeRatio;
+
+%% ========================================================================
+% 1. Compare the leftover map to the blink IC
+% Load the template
+load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Blinkweights'),'Blinkweights');
+
+BlinkAmplitudeRatioNorm = BlinkAmplitudeRatio ./ norm(BlinkAmplitudeRatio);
+BlinkweightsNorm =  Blinkweights ./ norm(Blinkweights);
+
+BlinkAmplitudeRatioNorm = BlinkAmplitudeRatioNorm - mean(BlinkAmplitudeRatioNorm);
+BlinkweightsNorm = BlinkweightsNorm - mean(BlinkweightsNorm);
+
+corrMat = abs(corr(BlinkAmplitudeRatioNorm,BlinkweightsNorm));
+
+% figure;
+% mytopoplot(BlinkAmplitudeRatioNorm,[],[],nexttile);
+% mytopoplot(BlinkweightsNorm,[],[],nexttile);
+
+% Lowered to capture imperfect leftovers
+blinkTreshold1 = 0.5;
+flagMWF1 = corrMat>blinkTreshold1;
+
+% 2.Frontal electrodes should have on average >20% of blink leftovers
+meanFrontalBlinkLeftover = mean(BlinkAmplitudeRatio(ismember({EEG.chanlocs.labels},cfg.ica.blinkchans)),1);
+blinkTreshold2 = 1.2;
+flagMWF2 = meanFrontalBlinkLeftover>blinkTreshold2;
+
+% Combine
+flagMWF = flagMWF1 & flagMWF2;
+
+% Report
+fprintf('Blink leftover map correlation is %1.2f and average frontal leftover is %1.2f.\n',corrMat,meanFrontalBlinkLeftover);
+if flagMWF, fprintf('Blink leftover is too big, MWF will be done now...\n'); end
 
 end
 

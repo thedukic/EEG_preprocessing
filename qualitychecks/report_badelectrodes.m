@@ -1,24 +1,41 @@
 function EEG = report_badelectrodes(EEG)
 
+% First check if ICA for wobble/pop detection was done
+if ~isfield(EEG.ALSUTRECHT.badchaninfo,'wica')
+    flagwICAdone = false;
+    % EEG.ALSUTRECHT.badchaninfo.wica.fixed = NaN;
+    % EEG.ALSUTRECHT.badchaninfo.wica.ics   = NaN;
+    % EEG.ALSUTRECHT.badchaninfo.wica.pvec  = NaN;
+    NPLT = 3;
+else
+    flagwICAdone = true;
+    NPLT = 4;
+end
+
 % Log
 EEG.ALSUTRECHT.badchaninfo.badElectrodes = unique([EEG.ALSUTRECHT.badchaninfo.flatElectrodes, EEG.ALSUTRECHT.badchaninfo.PREPElectrodes, EEG.ALSUTRECHT.badchaninfo.EMGSlope]);
 
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad  electrodes\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
+% Flat
 str = strjoin(EEG.ALSUTRECHT.badchaninfo.flatElectrodes,', ');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Flat electrodes: %s\n', str);
-str = strjoin(EEG.ALSUTRECHT.badchaninfo.wica.fixed,', ');
-fprintf(EEG.ALSUTRECHT.subject.fid,'wICA electrodes: %s\n', str);
-str = arrayfun(@(x) num2str(x,'%1.1f'),EEG.ALSUTRECHT.badchaninfo.wica.pvec(EEG.ALSUTRECHT.badchaninfo.wica.ics),'uni',0);
-str = strjoin(str,', ');
-fprintf(EEG.ALSUTRECHT.subject.fid,'wICA P-values:   %s\n', str);
+% wICA
+if flagwICAdone
+    str = strjoin(EEG.ALSUTRECHT.badchaninfo.wica.fixed,', ');
+    fprintf(EEG.ALSUTRECHT.subject.fid,'wICA electrodes: %s\n', str);
+    str = arrayfun(@(x) num2str(x,'%1.1f'),EEG.ALSUTRECHT.badchaninfo.wica.pvec(EEG.ALSUTRECHT.badchaninfo.wica.ics),'uni',0);
+    str = strjoin(str,', ');
+    fprintf(EEG.ALSUTRECHT.subject.fid,'wICA P-values:   %s\n', str);
+end
+% PREP
 str = strjoin(EEG.ALSUTRECHT.badchaninfo.PREPElectrodes,', ');
 fprintf(EEG.ALSUTRECHT.subject.fid,'PREP electrodes: %s\n', str);
 
 % Plot
 fh = figure;
-th = tiledlayout(1,4);
+th = tiledlayout(1,NPLT);
 th.TileSpacing = 'compact'; th.Padding = 'compact';
 
 % EEG electrode colours/labels
@@ -31,10 +48,12 @@ nexttile;
 topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
 title(['Flat, N = ' num2str(sum(mask))]); axis tight;
 
-mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.wica.fixed));
-nexttile;
-topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
-title(['wICA, N = ' num2str(sum(mask))]); axis tight;
+if flagwICAdone
+    mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.wica.fixed));
+    nexttile;
+    topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
+    title(['wICA, N = ' num2str(sum(mask))]); axis tight;
+end
 
 mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.PREPElectrodes));
 nexttile;

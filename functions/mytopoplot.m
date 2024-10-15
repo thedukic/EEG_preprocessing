@@ -5,6 +5,13 @@ load('biosemi128_eeglab.mat','chanlocs');
 fcap = 0.5;
 % fcap = 'rim';
 
+if ~exist('myTitle','var')
+    myTitle = '';
+end
+if ~exist('mask','var')
+    mask = [];
+end
+
 if iscell(myTitle)
     myTitlePlot      = myTitle{1};
     myTitleColourbar = myTitle{2};
@@ -14,10 +21,14 @@ else
 end
 
 % Determine where to plot
-if isempty(ah)
-    figure; ah = gca;
+if exist('ah','var')
+    if isempty(ah)
+        figure; ah = gca;
+    else
+        axes(ah); % gca;
+    end
 else
-    axes(ah); % gca;
+    figure; ah = gca;
 end
 
 % Colour limits
