@@ -16,19 +16,21 @@ cfg.rnum = '1';
 
 % MMN/SART (ERP) filter
 cfg.flt.erp.hp = [0.5, 4];
-cfg.flt.erp.lp = [80, 4];
+cfg.flt.erp.lp = [30, 4];
 
 % MT filter
 cfg.flt.mt.hp = [1, 4];
-cfg.flt.mt.lp = [80, 4];
+cfg.flt.mt.lp = [35, 8];
 
 % RS filter
-cfg.flt.rs.hp = [0.5, 4]; % 1?
+cfg.flt.rs.hp = [1, 4];
 cfg.flt.rs.lp = [80, 4];
 
 % EXT filter
-cfg.flt.ext.hp = [0.15, 4];
-cfg.flt.ext.lp = [80, 4];
+% Keep the same as for EEG because of the correlations with ICs,
+% this was fixed somewhere else in the code
+% cfg.flt.ext.hp = [0.5, 4];
+% cfg.flt.ext.lp = [30, 4];
 
 % EMG filter
 cfg.flt.emg.hp = [5, 4];
@@ -41,8 +43,8 @@ cfg.bch.flatDuration                = 4;    % default: 4 [s]
 % PREP: settings
 cfg.bch.robustDeviationThreshold    = 5;    % default: 5
 cfg.bch.highFrequencyNoiseThreshold = 5;    % default: 5
-cfg.bch.correlationThreshold        = 0.40; % default: 0.4
-cfg.bch.badTimeThreshold            = 0.01; % default: 0.01
+cfg.bch.correlationThreshold        = 0.40; % default: 0.4; higher values -> more stringent
+cfg.bch.badTimeThreshold            = 0.05; % default: 0.01
 
 % PREP: RANSAC (computationally heavy and nondeterministic)
 cfg.bch.ransacOff                   = true;
@@ -60,16 +62,12 @@ cfg.bch.ransacOff                   = true;
 % If 7-45 then use muscleSlopeThreshold = 0 ?
 % If 7-70 the use the above muscleSlopeThreshold, like -0.31 ?
 cfg.bch.muscleSlopeThreshold        = 0;
-cfg.bch.muscleSlopeFreq             = [7 70]; % 7-45 or 7-70/75
+cfg.bch.muscleSlopeFreq             = [7 45]; % 7-45 or 7-70/75
 cfg.bch.muscleSlopeTime             = 0.50;
-cfg.bch.maxProportionOfBadElec      = 0.15;  % that can be deleted using this EMG detection
-
-% RELAX: Slow drifts
-% cfg.bch.DriftSeverityThreshold      = 12;  % default: 10 (MAD from the median of all electrodes)
-% cfg.bch.driftSlopeThreshold         = -4;
+cfg.bch.maxProportionOfBadElec      = 0.10;  % that can be deleted using this EMG detection only
 
 % EEGLAB: ASR
-% cfg.bch.asr                         = 20;    % recommandation: 20-30
+% cfg.bch.asr                         = 30;    % recommandation: 20-30
 
 %% ICA and ICLabels
 
@@ -86,7 +84,7 @@ else
 end
 
 % PCA reduction prior ICA
-cfg.ica.icMax   = 70;
+cfg.ica.icMax = 70;
 
 % ICLabel likelihoods
 cfg.ica.iclabel = ...
@@ -95,7 +93,7 @@ cfg.ica.iclabel = ...
     0.4 1;     % Eye (VEOG+HEOG) - used
     NaN NaN;   % Heart - not used
     NaN NaN;   % Line noise - not needed
-    0.4 1;     % Channel noise - used
+    NaN NaN;   % Channel noise - not used
     NaN NaN];  % Other
 
 % cfg.ica.blinkchans = {'C8','C9','C10','C14','C15','C16','C17','C18','C19','C27','C28','C29','C30','C31','C32','C26','C20','C13','C21'};
@@ -108,7 +106,7 @@ cfg.trg.mmn   = {[12 17],[-0.2 0.5]};
 cfg.trg.sart1 = {[3 6],[-0.2 0.9]};
 cfg.trg.sart2 = {[1 11],[-0.4 0.4]};
 cfg.trg.mt    = {[21 31 51],[-5 10]};
-cfg.trg.rs    = {2,0.75};             % 2s, 0.75 overlap
+cfg.trg.rs    = {2,0.5}; % 2s, 0.75 overlap
 
 %% Bad epoch rejection
 cfg.epoch.rejectAmp                            = 75;  % even >75 is too low for ALS30344

@@ -7,7 +7,7 @@ fprintf('\nMWF (VEOG) eye blinks...\n');
 
 % =========================================================================
 % Detect eye blinks
-[noiseMask, eyeBlinksEpochs, ~, dataeog] = detect_veog(EXT,300,false); % 400 ms
+[noiseMask, eyeBlinksEpochs, ~, dataeog] = detect_veog(EXT,300); % 400 ms
 noiseMask = double(noiseMask);
 
 % % Account for very bad epochs affected across all channels
@@ -97,11 +97,10 @@ if EEG.ALSUTRECHT.MWF.R2.proportionMarkedForMWF>0.05
     [cleanEEG, d, W, SER, ARR] = mwf_process(EEG.data(chaneeg,:),noiseMask,params);
 
     % Check if there were any problems
-    if contains(lastwarn,"eigenvectors")
-        warning('The MWF delay is too long?'); SER = Inf; ARR = Inf;
-    end
-    if isnan(SER) || isnan(ARR)
-        warning('MWF did not fail but the MWF quality measures (SER/ARR) are NaN. The bad data might be too short.');
+    flagMWFsuccessful = true;
+    if contains(lastwarn,"eigenvectors") || contains(lastwarn,"singular") || isnan(SER) || isnan(ARR) || ~isreal(cleanEEG)
+        warning('Something went wrong with MWF...');
+        SER = NaN; ARR = NaN; flagMWFsuccessful = false;
     end
 
     % % Visual inspection
@@ -110,7 +109,9 @@ if EEG.ALSUTRECHT.MWF.R2.proportionMarkedForMWF>0.05
     % vis_artifacts(EEG0,EEG);
 
     % Return the clean data
-    EEG.data(chaneeg,:) = cleanEEG;
+    if flagMWFsuccessful
+        EEG.data(chaneeg,:) = cleanEEG;
+    end
 
     % Log
     % EEG.ALSUTRECHT.MWF.R2.estimatedArtifactInEachChannel = d;

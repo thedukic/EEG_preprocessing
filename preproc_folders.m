@@ -11,17 +11,17 @@ myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
 myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
 
 % Set task/group/visit
-myPaths.task  = 'RS'; % MMN/SART/RS/EO/EC/MT
+myPaths.task  = 'SART'; % MMN/SART/RS/EO/EC/MT
 myPaths.group = {'ALS','CONTROL','AFM','PLS','PMA'};
 myPaths.visit = {'T1','T2','T3','T4','T5'};
 
 drivedata = 'E:';
 myPaths.excpath = fullfile(drivedata,'2_OTHER_DATA\Excel\Utrecht\');
-myPaths.gendata = [myPaths.excpath 'C9STATUS.xlsx'];
-myPaths.peddata = [myPaths.excpath 'EEGPED.xlsx'];
+myPaths.gendata = [myPaths.excpath 'C9status.xlsx'];
+myPaths.peddata = [myPaths.excpath 'Pedigrees.xlsx'];
 myPaths.cogdata = [myPaths.excpath 'ECAS.txt'];
-% myPaths.nexdata = [myPaths.excpath 'NE.xlsx'];
-myPaths.dmdata1 = [myPaths.excpath 'Table1_LME.txt'];
+myPaths.nexdata = [myPaths.excpath 'NE.txt'];
+myPaths.dmdata1 = [myPaths.excpath 'Table1.txt'];
 
 % Navigate the main folder
 cd(myPaths.mycodes);
@@ -41,10 +41,10 @@ subFolderNames    = {subFolders(3:end).name};
 subFolderPaths    = fullfile(subFolderExternal,subFolderNames);
 addpath(subFolderPaths{:});
 
-% Add MWF subfolders as well
-if any(contains(subFolderPaths,'mwf'))
-    addpath(genpath(subFolderPaths{contains(subFolderPaths,'mwf')}));
-end
+% % Add MWF subfolders as well
+% if any(contains(subFolderPaths,'mwf'))
+%     addpath(genpath(subFolderPaths{contains(subFolderPaths,'mwf')}));
+% end
 
 % Initialise the toolboxes
 [ALLEEG, EEG, CURRENTSET, ALLCOM] = eeglab; close all;
@@ -80,6 +80,5 @@ delete(pool); parpool("Processes");
 %     % disp('No active parpool.');
 %     parpool("Processes");
 % end
-
 
 end

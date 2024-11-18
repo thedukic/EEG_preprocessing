@@ -6,13 +6,9 @@ fprintf('\nDetecting bad ICs...\n\n');
 EEG = eeg_checkset(EEG,'ica');
 
 % Make sure IC activations are present
-% EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
-% EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
 EEG.icaact = [];
-ICAdata = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
-% ICAdata = ICAdata(:,:);
-
-NICA = size(ICAdata,1);
+ICAdata    = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
+NICA       = size(ICAdata,1);
 
 %% ========================================================================
 % 1. ICLabel
@@ -218,9 +214,10 @@ for i = 1:3
                 % Prevent false positive HEOG
                 % 1. Here, HEOG ICs are easily confused by broad L-R dipolar (brain) ICs
                 falseHEOGIC1 = EEG.ALSUTRECHT.ica.ICLabel.cvec(badICHEOG) == 1 & EEG.ALSUTRECHT.ica.ICLabel.pvec(badICHEOG) > 0.6;
+
                 % 2. VEOG ICs are sometimes very correlated with the HEOG signal
                 load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Blinkweights'),'Blinkweights'); % template
-                falseHEOGIC2 = abs(corr(EEG.icawinv(:,badICHEOG),Blinkweights)) > 0.85;
+                falseHEOGIC2 = abs(corr(EEG.icawinv(:,badICHEOG),Blinkweights,"type","Spearman")) > 0.85;
 
                 % Either/or should be true if false positive
                 badICHEOG(falseHEOGIC1 | falseHEOGIC2) = [];
@@ -273,9 +270,22 @@ if ~isempty(EXTTMP)
         V = zscore(V);
 
         ctpsTreshold1 = 5;  % 0.3-0.4?
-        ctpsTreshold2 = 22; % 20 original paper
+        ctpsTreshold2 = 20; % 20 original paper
         badIC1 = find(V>ctpsTreshold1);
         badIC2 = find(pK>=ctpsTreshold2);
+
+        % Sometimes there are weird false positives
+        load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Heartweights'),'Heartweights'); % template
+        if any(badIC1)
+            falseECGIC = abs(corr(EEG.icawinv(:,badIC1),Heartweights,"type","Spearman")) < 0.85;
+            badIC1(falseECGIC) = [];
+        end
+        if any(badIC2)
+            falseECGIC = abs(corr(EEG.icawinv(:,badIC2),Heartweights,"type","Spearman")) < 0.85;
+            badIC2(falseECGIC) = [];
+        end
+
+        % Combine
         badIC = unique([badIC1(:); badIC2(:)]);
 
         if ~isempty(badIC1)
@@ -320,24 +330,24 @@ fprintf('EMG: Power slopes\n');
 fprintf('================================\n');
 
 % options.muscleFreqIn       = [7, 70];
+% options.muscleSlopeThreshold = -0.5;
 options.muscleFreqIn         = cfg.bch.muscleSlopeFreq;
-% options.muscleSlopeThreshold = cfg.bch.muscleSlopeThreshold;
-options.muscleSlopeThreshold = -0.5;
+options.muscleSlopeThreshold = cfg.bch.muscleSlopeThreshold;
 options.Freq_to_compute      = [1 100];
 options.muscleFreqEx         = 50 + 2*[-1 1]; % Line freq +-bandwith
 
 % Calculate pwelch to enable detection of log-freq log-power slopes, indicative of muscle activity
-[pxx,fp] = pwelch(ICAdata',size(ICAdata,2),[],size(ICAdata,2),EEG.srate);
-FFTout = pxx';
-fp = fp';
+[pow,frefAll] = pwelch(ICAdata',size(ICAdata,2),[],size(ICAdata,2),EEG.srate);
+pow = pow';
+frefAll = frefAll';
 
 % Calculate FFT bins
 freq = options.Freq_to_compute(1,1):0.5:options.Freq_to_compute(1,2);
-fftBins = zeros(size(FFTout,1),size(freq,2)); % preallocate
+fftBins = zeros(size(pow,1),size(freq,2)); % preallocate
 for a = 1:size(freq,2)
-    [~, index1]=min(abs(fp-((freq(1,a)-0.25))));
-    [~, index2]=min(abs(fp-((freq(1,a)+0.25))));
-    fftBins(:,a) = mean(FFTout(:,index1:index2),2); % creates bins for 0.5 Hz in width centred around whole frequencies (i.e. 0.5, 1, 1.5 Hz etc)
+    [~, index1] = min(abs(frefAll-((freq(1,a)-0.25))));
+    [~, index2] = min(abs(frefAll-((freq(1,a)+0.25))));
+    fftBins(:,a) = mean(pow(:,index1:index2),2); % creates bins for 0.5 Hz in width centred around whole frequencies (i.e. 0.5, 1, 1.5 Hz etc)
 end
 
 % figure;
@@ -462,14 +472,17 @@ fprintf('================================\n');
 % Load the template
 load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Blinkweights'),'Blinkweights');
 
-corrMat = abs(corr(EEG.icawinv,Blinkweights));
-% Lowered to capture imperfect ICs, but leads to false positives
-blinkTreshold = 0.85;
+% Smoothen the ICs to remove 'noise' and improve the correlation
+icawinvSmooth = estimate_invlaplacian(EEG.icawinv,EEG.chanlocs,1);
+
+% Lower to capture imperfect ICs, but leads to false positives
+corrMat = abs(corr(icawinvSmooth,Blinkweights,"type","Spearman"));
+blinkTreshold = 0.95;
 badIC = find(corrMat>blinkTreshold);
 
 % Prevent false positive VEOG
 % Here, VEOG ICs are confused by broad A-P dipolar (brain) ICs
-falseVEOGIC = EEG.ALSUTRECHT.ica.ICLabel.cvec(badIC) == 1 & EEG.ALSUTRECHT.ica.ICLabel.pvec(badIC) > 0.6;
+falseVEOGIC = EEG.ALSUTRECHT.ica.ICLabel.cvec(badIC) == 1 & EEG.ALSUTRECHT.ica.ICLabel.pvec(badIC) > 0.5;
 badIC(falseVEOGIC) = [];
 
 if ~isempty(badIC)
@@ -495,9 +508,14 @@ fprintf('================================\n');
 % Load the template
 load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Saccadeweights'),'Saccadeweights');
 
-corrMat = abs(corr(EEG.icawinv,Saccadeweights));
-saccadeTreshold = 0.9;
+% Lower to capture imperfect ICs, but leads to false positives
+corrMat = abs(corr(icawinvSmooth,Saccadeweights,"type","Pearson"));
+saccadeTreshold = 0.95;
 badIC = find(corrMat>saccadeTreshold);
+
+% figure; 
+% mytopoplot(Saccadeweights,[],[],nexttile);
+% mytopoplot(icawinvSmooth(:,18),[],[],nexttile);
 
 if ~isempty(badIC)
     fprintf('HEOG ICs (N = %d) were identified using template correlation (R>%1.2f).\n',length(badIC),saccadeTreshold);
@@ -556,17 +574,25 @@ ICsMostLikelyEyeICLabel(ICsMostLikelyComplex) = false;
 ICsMostLikelyEye = ICsMostLikelyBlink | ICsMostLikelySaccade | ICsMostLikelyEyeICLabel;
 
 % *Channel ICs
-channel1 = EEG.ALSUTRECHT.ica.ICLabel.bics(EEG.ALSUTRECHT.ica.ICLabel.cvec(EEG.ALSUTRECHT.ica.ICLabel.bics)==6);
-channel2 = EEG.ALSUTRECHT.ica.spatialSmoothness.bics;
-channelAll = unique([channel1(:); channel2(:)]);
+% channel1 = EEG.ALSUTRECHT.ica.ICLabel.bics(EEG.ALSUTRECHT.ica.ICLabel.cvec(EEG.ALSUTRECHT.ica.ICLabel.bics)==6);
+% channel2 = EEG.ALSUTRECHT.ica.spatialSmoothness.bics;
+% channelAll = unique([channel1(:); channel2(:)]);
 ICsMostLikelyChannel = false(NICA,1);
-ICsMostLikelyChannel(channelAll) = true;
+% ICsMostLikelyChannel(channelAll) = true;
 
-% Sometimes muscle ICs are marked as channel ICs
-ICsMostLikelyChannelWrong = ICsMostLikelyChannel & ICsMostLikelyMuscle;
-if any(ICsMostLikelyChannelWrong)
-    ICsMostLikelyChannel(ICsMostLikelyChannelWrong) = false;
-end
+% % These are likely muscle?
+% tmp = zscore(EEG.icawinv(:,ICsMostLikelyMuscle));
+% % figure; imagesc(tmp);
+% ICsMostLikelyChannelWrong = sum(tmp>3,1) > 0 & sum(tmp<-3,1) >0;
+
+% % Sometimes muscle ICs are marked as channel ICs
+% ICsMostLikelyChannelWrong = ICsMostLikelyChannel & ICsMostLikelyMuscle;
+% if any(ICsMostLikelyChannelWrong)
+%     ICsMostLikelyChannel(ICsMostLikelyChannelWrong) = false;
+% end
+
+% % Maybe do not bother with "higher" bad channel ICs, low variance anyway
+% ICsMostLikelyChannel(35:end) = false;
 
 % *Heart ICs
 heart1 = EEG.ALSUTRECHT.ica.ICLabel.bics(EEG.ALSUTRECHT.ica.ICLabel.cvec(EEG.ALSUTRECHT.ica.ICLabel.bics)==4);
@@ -582,22 +608,23 @@ if any(ICsMostLikelyHeartWrong)
     ICsMostLikelyHeart(ICsMostLikelyHeartWrong) = false;
 end
 
-% *wICA ICs
-ICsforwICA = false(NICA,1);
-ICsforwICA(ICsMostLikelyEye | ICsMostLikelyHeart | ICsMostLikelyChannel) = true;
-ICsforwICA(ICsMostLikelyMuscle | ICsMostLikelyComplex) = false;
+% % *wICA ICs
+% ICsforwICA = false(NICA,1);
+% ICsforwICA(ICsMostLikelyEye | ICsMostLikelyHeart | ICsMostLikelyChannel) = true;
+% ICsforwICA(ICsMostLikelyMuscle | ICsMostLikelyComplex) = false;
 
 % There should be no overlap
-assert(max(sum([ICsforwICA, ICsMostLikelyMuscle, ICsMostLikelyComplex],2))==1);
+assert(max(sum([ICsMostLikelyEye, ICsMostLikelyMuscle, ICsMostLikelyComplex],2))==1);
 
 % Log
 EEG.ALSUTRECHT.ica.ICsMostLikelyBlink   = ICsMostLikelyBlink;
 EEG.ALSUTRECHT.ica.ICsMostLikelySaccade = ICsMostLikelySaccade;
+EEG.ALSUTRECHT.ica.ICsMostLikelyEye     = ICsMostLikelyEye;
 EEG.ALSUTRECHT.ica.ICsMostLikelyMuscle  = ICsMostLikelyMuscle;
 EEG.ALSUTRECHT.ica.ICsMostLikelyComplex = ICsMostLikelyComplex;
 EEG.ALSUTRECHT.ica.ICsMostLikelyHeart   = ICsMostLikelyHeart;
 EEG.ALSUTRECHT.ica.ICsMostLikelyChannel = ICsMostLikelyChannel;
-EEG.ALSUTRECHT.ica.ICsforwICA           = ICsforwICA;
+% EEG.ALSUTRECHT.ica.ICsforwICA           = ICsforwICA;
 
 % Labels:
 % 1 'Brain'

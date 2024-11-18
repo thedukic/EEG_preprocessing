@@ -95,8 +95,8 @@ for i = 1:NBLK
         jumpsBadSec = (jumpsBad-1) ./ EEG(i).srate;
         disp(jumpsBadSec);
 
-        EEG(i) = eeg_eegrej(EEG(i), jumpsBad);
-        % EEG(i) = pop_select(EEG(i),'rmpoint',jumpsBad);
+        % EEG(i) = eeg_eegrej(EEG(i), jumpsBad);
+        % % EEG(i) = pop_select(EEG(i),'rmpoint',jumpsBad);
 
         jumpsBadAll{i} = jumpsBad;
         flagDropout = true;
@@ -108,7 +108,8 @@ end
 % EEGTMP = filter_signal(EEG,[],[1 8],1:length(eegchan),'eeglab');
 % vis_artifacts(EEGTMP(1),EEGTMP(1));
 
-%% Log
+%% =====================================================================
+% Log
 NDropouts = cellfun(@(x) size(x,1), jumpsBadAll);
 
 for i = 1:NBLK
@@ -120,6 +121,7 @@ end
 fprintf(EEG(i).ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG(i).ALSUTRECHT.subject.fid,'CMS dropout detected (blue light flashing) \n');
 fprintf(EEG(i).ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
+
 if flagDropout
     fprintf(EEG(i).ALSUTRECHT.subject.fid,'Drop out detected:    Yes\n');
     fprintf(EEG(i).ALSUTRECHT.subject.fid,'Number of detections: %d\n',sum(NDropouts));
@@ -127,4 +129,17 @@ else
     fprintf(EEG(i).ALSUTRECHT.subject.fid,'Drop out detected: No\n');
 end
 
+% Report visually
+report_badsegments(EEG,jumpsBadAll,'cmsdropouts');
+
+%% Remove the chunks
+if flagDropout
+    fprintf('Removing the drop-outs now...\n');
+    for i = 1:NBLK
+        if ~isempty(jumpsBadAll{i})
+            EEG(i) = eeg_eegrej(EEG(i), jumpsBadAll{i});
+            % EEG(i) = pop_select(EEG(i),'rmpoint',jumpsBadAll{i});
+        end
+    end
+end
 end

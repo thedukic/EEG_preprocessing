@@ -61,6 +61,7 @@ if any(chanecg)
     ECGlatency(theseExcl) = [];
 
     % Average ECG
+    ECG  = ECG - mean(ECG,2);
     mECG = mean(ECG,1);
 
     % Detect noise

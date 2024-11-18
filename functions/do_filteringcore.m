@@ -18,7 +18,7 @@ for j = 1:NChunk
     dataInd = [jumpsBad(j)+1 jumpsBad(j+1)];
     dataInd = dataInd(1):dataInd(2);
 
-    if length(dataInd)>srate
+    if length(dataInd) > srate
         dataTmp = double(data(:,dataInd));
 
         % Remove DC (big offsets can cause artifacts)

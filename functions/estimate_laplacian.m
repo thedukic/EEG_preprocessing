@@ -37,7 +37,7 @@ inv_m = inv(matriz_g);
 
 % Preallocate for the Laplacian results
 largo = length(data(1, :));
-laplac = zeros(n, round((largo - 1) / stepSize));
+laplac = zeros(n, max(1,round((largo - 1) / stepSize)));
 
 % Loop through time points with the specified stepSize
 k = 1;

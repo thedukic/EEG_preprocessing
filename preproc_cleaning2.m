@@ -22,7 +22,7 @@ subject.task     = myPaths.task;
 subject.group    = myPaths.group;
 subject.visit    = myPaths.visit;
 subject.preproc  = fullfile(myPaths.preproc, subject.id);
-subject.clnfile  = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' cfg.rnum '.mat'];
+subject.clnfile  = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' cfg.rnum 'a.mat'];
 subject.clnfile1 = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' cfg.rnum 'b.mat'];
 
 % Log time
@@ -89,42 +89,45 @@ end
 
 % 6. Reject epochs that are likely still noisy
 % Note the number of trials
-NumberTrials = NaN(3,1);
+NumberTrials = NaN(4,1);
 NumberTrials(1) = size(EEG.data,3);
 
+% =========================================================================
 % A. EEGLAB-based rejection
 % Any one of these functions can be commented out to ignore those artifacts when creating the mask
 % This section uses traditional amplitude, improbable voltage distributions within epochs, and kurtosis to reject epochs
-ROIidx = 1:128;
-fprintf('\n================================\n');
-fprintf('Max. amplitude\n');
-fprintf('================================\n');
-EEG = pop_eegthresh(EEG,1,ROIidx,-cfg.epoch.rejectAmp,cfg.epoch.rejectAmp,EEG.xmin,EEG.xmax,1,0);
 
-fprintf('\n================================\n');
-fprintf('Improbable data\n');
-fprintf('================================\n');
-EEG = pop_jointprob(EEG,1,ROIidx,cfg.epoch.singleChannelImprobableDataThreshold,cfg.epoch.allChannelImprobableDataThreshold,1,0);
-
-fprintf('\n================================\n');
-fprintf('Kurtosis\n');
-fprintf('================================\n');
-EEG = pop_rejkurt(EEG,1,ROIidx,cfg.epoch.singleChannelKurtosisThreshold,cfg.epoch.allChannelKurtosisThreshold,1,0);
-
-fprintf('\n================================\n');
-fprintf('Combining and rejecting\n');
-fprintf('================================\n');
-EEG = eeg_rejsuperpose(EEG, 1, 0, 1, 1, 1, 1, 1, 1);
-EEG = pop_rejepoch(EEG, EEG.reject.rejglobal, 0);
+% ROIidx = 1:128;
+% fprintf('\n================================\n');
+% fprintf('Max. amplitude\n');
+% fprintf('================================\n');
+% EEG = pop_eegthresh(EEG,1,ROIidx,-cfg.epoch.rejectAmp,cfg.epoch.rejectAmp,EEG.xmin,EEG.xmax,1,0);
+%
+% fprintf('\n================================\n');
+% fprintf('Improbable data\n');
+% fprintf('================================\n');
+% EEG = pop_jointprob(EEG,1,ROIidx,cfg.epoch.singleChannelImprobableDataThreshold,cfg.epoch.allChannelImprobableDataThreshold,1,0);
+%
+% fprintf('\n================================\n');
+% fprintf('Kurtosis\n');
+% fprintf('================================\n');
+% EEG = pop_rejkurt(EEG,1,ROIidx,cfg.epoch.singleChannelKurtosisThreshold,cfg.epoch.allChannelKurtosisThreshold,1,0);
+%
+% fprintf('\n================================\n');
+% fprintf('Combining and rejecting\n');
+% fprintf('================================\n');
+% EEG = eeg_rejsuperpose(EEG, 1, 0, 1, 1, 1, 1, 1, 1);
+% EEG = pop_rejepoch(EEG, EEG.reject.rejglobal, 0);
 
 % Note the number of trials
 NumberTrials(2) = EEG.trials;
 
-% B. EMG-slope-based rejection (ONLY IF LOWPASS >70Hz)
+% =========================================================================
+% B. EMG-slope-based rejection
 fprintf('\n================================\n');
 fprintf('EMG slopes\n');
 fprintf('================================\n');
-slopesChannelsxEpochs = dected_emg(EEG,cfg.bch);
+slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
 slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
 
 BadEpochs = sum(slopesChannelsxEpochs, 1);
@@ -146,6 +149,17 @@ end
 % Note the number of trials
 NumberTrials(3) = EEG.trials;
 
+% =========================================================================
+% C. Detection using variance and the G-ESD method
+fprintf('\n================================\n');
+fprintf('Variance and the G-ESD method\n');
+fprintf('================================\n');
+EEG = detect_badepochs(EEG);
+
+% Note the number of trials
+NumberTrials(4) = EEG.trials;
+
+% =========================================================================
 % 7. Median voltage shift
 voltageShiftWithinEpoch = range(EEG.data(:,:,:),2);
 
@@ -153,25 +167,29 @@ voltageShiftWithinEpoch = range(EEG.data(:,:,:),2);
 EEG.ALSUTRECHT.chanCorr = estimate_channelcov(EEG);
 
 % 9. EMG leftovers
-slopesChannelsxEpochs = dected_emg(EEG,cfg.bch);
+slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
 slopesChannelsxEpochs(slopesChannelsxEpochs < cfg.bch.muscleSlopeThreshold) = NaN;
 slopesChannelsxEpochs = slopesChannelsxEpochs-cfg.bch.muscleSlopeThreshold;
 BadEpochs = sum(slopesChannelsxEpochs,1,'omitnan');
 
 % 10. Log
-EEG.ALSUTRECHT.epochRejections.initialEpochs   = NumberTrials(1);
-EEG.ALSUTRECHT.epochRejections.round1Epochs    = NumberTrials(2);
-EEG.ALSUTRECHT.epochRejections.remainingEpochs = NumberTrials(3);
+EEG.ALSUTRECHT.epochRejections.initialEpochs       = NumberTrials(1);
+EEG.ALSUTRECHT.epochRejections.afterEEGLABEpochs   = NumberTrials(2);
+EEG.ALSUTRECHT.epochRejections.afterEMGSlopeEpochs = NumberTrials(3);
+EEG.ALSUTRECHT.epochRejections.remainingEpochs     = NumberTrials(4);
 EEG.ALSUTRECHT.epochRejections.proportionOfEpochsRejected = (EEG.ALSUTRECHT.epochRejections.initialEpochs-EEG.ALSUTRECHT.epochRejections.remainingEpochs)/EEG.ALSUTRECHT.epochRejections.initialEpochs;
 EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal = median(voltageShiftWithinEpoch,3);
 
+EEG.ALSUTRECHT.epochRejections.badTrialMuscleTreshhold2 = badTrialMuscleTreshhold;
 EEG.ALSUTRECHT.epochRejections.muscle2 = mean(BadEpochs>0);
 EEG.ALSUTRECHT.leftovers.muscle2 = EEG.ALSUTRECHT.epochRejections.muscle2;
 
 % 11. Report
-Nremoved = [NumberTrials(1)-NumberTrials(2), NumberTrials(2)-NumberTrials(3)];
-fprintf('\n%s: Removed trials %d + %d = %d\n',subject.id,Nremoved,sum(Nremoved));
-fprintf('%s: Remaining trials %d\n',subject.id,NumberTrials(3));
+% Nremoved = [NumberTrials(1)-NumberTrials(2), NumberTrials(2)-NumberTrials(3)];
+Nremoved = abs(diff(NumberTrials));
+fprintf('\n%s: Inital trials %d\n',subject.id,NumberTrials(1));
+fprintf('%s: Removed trials %d + %d + %d = %d\n',subject.id,Nremoved,sum(Nremoved));
+fprintf('%s: Remaining trials %d\n',subject.id,NumberTrials(end));
 
 % 12. Plot
 if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')

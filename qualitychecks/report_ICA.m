@@ -61,12 +61,13 @@ myCmap2 = brewermap(4,'Set1');
 ICsMostLikelyMuscle  = find(EEG.ALSUTRECHT.ica.ICsMostLikelyMuscle);
 ICsMostLikelyComplex = find(EEG.ALSUTRECHT.ica.ICsMostLikelyComplex);
 
-ICsforwICA           = find(EEG.ALSUTRECHT.ica.ICsforwICA);
+ICsforRemoval           = find(EEG.ALSUTRECHT.ica.ICsforRemoval);
+% ICsforwICA           = find(EEG.ALSUTRECHT.ica.ICsforwICA);
 % ICsMostLikelyEye     = find(EEG.ALSUTRECHT.ica.ICsMostLikelyBlink);
 % ICsMostLikelyHeart   = find(EEG.ALSUTRECHT.ica.ICsMostLikelyHeart);
 % ICsMostLikelyChannel = find(EEG.ALSUTRECHT.ica.ICsMostLikelyChannel);
 
-NICAtmp = length([ICsforwICA; ICsMostLikelyMuscle; ICsMostLikelyComplex]);
+NICAtmp = length([ICsforRemoval; ICsMostLikelyMuscle; ICsMostLikelyComplex]);
 
 % How many rows are needed for bad ICs
 % We plot the first 24 ICs
@@ -109,8 +110,8 @@ cnt = 0;
 for i = 1:3
     switch i
         case 1
-            theseICs  = ICsforwICA;
-            thisLabel = 'wICA';
+            theseICs  = ICsforRemoval;
+            thisLabel = 'Removed';
         case 2
             theseICs  = ICsMostLikelyMuscle;
             thisLabel = 'Muscle';

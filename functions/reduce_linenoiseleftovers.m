@@ -1,4 +1,4 @@
-function EEG = detect_linenoiseleftovers(EEG)
+function EEG = reduce_linenoiseleftovers(EEG)
 %
 % TODO:
 %   1. topoplots of pvalues masked usign pvals
@@ -6,7 +6,8 @@ function EEG = detect_linenoiseleftovers(EEG)
 %
 % SDukic, October 2024
 
-Ptrsh = 0.0001;
+% Pvalue trashold
+Ptrsh = 1e-4; % approx P = 0.05/136
 
 NBLK    = length(EEG);
 chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
@@ -22,18 +23,21 @@ pval    = cell(NBLK,1);
 
 for i = 1:NBLK
     % Epoch into 1s (or maybe better into 1s with 0.5 overlap, but OK)
-    L = 4*EEG(i).srate;
-    N = floor(size(EEG(i).data,2)/L);
-    dataeeg = reshape(EEG(i).data(:,1:N*L),EEG(i).nbchan,L,N);
+    Lepoch = 4*EEG(1).srate;
+    Nepoch = floor(size(EEG(i).data,2)/Lepoch);
+    dataeeg = reshape(EEG(i).data(:,1:Nepoch*Lepoch),EEG(i).nbchan,Lepoch,Nepoch);
 
     % Estimate power
     % Windowing function
-    winfunc    = hann(L);
+    winfunc    = hann(Lepoch);
     label      = {EEG(i).chanlocs.labels};
-    psdspectra = NaN(L/2+1,EEG(i).nbchan,N);
-    for j = 1:N
-        [psdspectra(:,:,j),freq] = pwelch(dataeeg(:,:,j)',winfunc,0,L,EEG(i).srate);
+    psdspectra = NaN(Lepoch/2+1,EEG(i).nbchan,Nepoch);
+    for j = 1:Nepoch
+        [psdspectra(:,:,j),freq] = pwelch(dataeeg(:,:,j)',winfunc,0,Lepoch,EEG(i).srate);
     end
+
+    % Log transform
+    psdspectra = 10*log10(psdspectra);
 
     % Averge across trials
     psdspectra2a = mean(psdspectra,3)'; % better to catch the extreme values
@@ -45,8 +49,8 @@ for i = 1:NBLK
     % psdspectra = trimmean(psdspectra,10,'round',3)';
     % psdspectra = psdspectra ./ sum(psdspectra(:,freqsel),2);
 
-    % Log transform
-    psdspectra2a = 10*log10(psdspectra2a);
+    % % Log transform
+    % psdspectra2a = 10*log10(psdspectra2a);
 
     % % Plot
     % fh = figure;
@@ -60,12 +64,24 @@ for i = 1:NBLK
 
     %%
     % Frequency masks
-    freqsel50 = false(size(freq));
-    freqsel50(freq>=49 & freq<=51) = true;
+    if i == 1
+        freqsel50 = false(size(freq));
+        % if length(lineBandwith) == 2
+        %     freqsel50(freq>=lineBandwith(1) & freq<=lineBandwith(2)) = true;
+        % elseif length(lineBandwith) == 1
+        %     freqsel50(freq == lineBandwith) = true;
+        % end
+        freqsel50(freq == 50) = true;
 
-    freqselrest = false(size(freq));
-    freqselrest(freq>=45 & freq<=48) = true;
-    freqselrest(freq>=52 & freq<=55) = true;
+        freqselrest = false(size(freq));
+        % freqselrest(freq>=48 & freq<=49) = true;
+        % freqselrest(freq>=51 & freq<=52) = true;
+        freqselrest(freq == 49) = true;
+        freqselrest(freq == 51) = true;
+
+        % freq(freqsel50)
+        % freq(freqselrest)
+    end
 
     % X = mean(psdspectra2(:,freqsel50),2);
     % Y = mean(psdspectra2(:,freqselrest),2);
@@ -84,7 +100,7 @@ for i = 1:NBLK
 
     % Determine channels with 50 Hz
     badelec{i} = find(pval{i}<Ptrsh);
-	
+
     % nexttile; plot(-log10(pval{i}),'LineWidth',1.2);
     % ylim([0 4]); xlim([1 EEG(i).nbchan]); ylabel('-log10(p)');
     % title(['Block ' num2str(i)]);
@@ -104,17 +120,17 @@ for i = 1:NBLK
         % [z1, p1] = butter(2,[47 53]./(EEG(i).srate/2),'stop');
         % for j = 1:NCHN
         %     % Pay attention to boundary events!
-        %     EEG(i).data(badelec{i}(j),:) = filtfilt(z1,p1,EEG(i).data(badelec{i}(j),:)); 
+        %     EEG(i).data(badelec{i}(j),:) = filtfilt(z1,p1,EEG(i).data(badelec{i}(j),:));
         % end
 
         % Spectrum interpolation
         EEG(i).data(badelec{i},:) = my_dftfilter(EEG(i).data(badelec{i},:),EEG(i).srate,50,'neighbour',1,2);
 
         % Recompute
-        dataeeg = reshape(EEG(i).data(:,1:N*L),EEG(i).nbchan,L,N);
-        psdspectra = NaN(L/2+1,EEG(i).nbchan,N);
-        for j = 1:N
-            [psdspectra(:,:,j),freq] = pwelch(dataeeg(:,:,j)',winfunc,0,L,EEG(i).srate);
+        dataeeg = reshape(EEG(i).data(:,1:Nepoch*Lepoch),EEG(i).nbchan,Lepoch,Nepoch);
+        psdspectra = NaN(Lepoch/2+1,EEG(i).nbchan,Nepoch);
+        for j = 1:Nepoch
+            [psdspectra(:,:,j),freq] = pwelch(dataeeg(:,:,j)',winfunc,0,Lepoch,EEG(i).srate);
         end
 
         % Average and log-transform
@@ -123,12 +139,12 @@ for i = 1:NBLK
         % psdspectra2b = psdspectra2b ./ sum(psdspectra2(b:,freqsel),2);
         psdspectra2b = 10*log10(psdspectra2b);
 
-        % Mean P-value 
+        % Mean P-value
         Pmean = mean(pval{i}(badelec{i}));
     else
         fprintf('Block %d: Nice! No leftover line noise is found.\n',i);
         NCHN = 0;
-		Pmean = NaN;
+        Pmean = NaN;
     end
 
     % Sort spectra
@@ -159,7 +175,11 @@ for i = 1:NBLK
     end
     xlim([45 55]); ylim([-20 20]); pbaspect([1.618 1 1]);
     xlabel('Frequency (Hz)'); ylabel('10log_{10}(power)');
-    title(['N = ' num2str(NCHN) ', Pm = ' num2str(Pmean)]);
+    if isnan(Pmean)
+        title(['N = ' num2str(NCHN)]);
+    else
+        title(['N = ' num2str(NCHN) ', Pm = ' num2str(Pmean)]);
+    end
 end
 
 % Save
