@@ -26,11 +26,11 @@ eyeBlinkData = do_filteringcore(bh,ah,eyeBlinkData,EEG.event,EEG.srate);
 % Is this a good idea tho?
 % eyeBlinkData = abs(eyeBlinkData);
 
-% Do this only if doing the MWF step
-if ignoreExtremeNoise
-    assert(length(eyeBlinkData)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1));
-    eyeBlinkData(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = 0;
-end
+% % Do this only if doing the MWF step
+% if ignoreExtremeNoise
+%     assert(length(eyeBlinkData)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1));
+%     eyeBlinkData(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = 0;
+% end
 
 % VEOG
 % figure; histogram(eyeBlinkData);

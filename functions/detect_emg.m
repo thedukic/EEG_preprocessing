@@ -1,4 +1,4 @@
-function [slopesChannelsxEpochs, other] = dected_emg(EEG,cfg)
+function [slopesChannelsxEpochs, other] = detect_emg(EEG,cfg)
 
 % Select only EEG
 chaneeg = strcmp({EEG.chanlocs.type},'EEG');
@@ -21,7 +21,7 @@ end
 modulus = size(EEG.data(:,:),2)-N*L;
 assert(modulus>=0);
 
-% Compute (log) power spectra (7-75 Hz)
+% Compute (log) power spectra
 [NCHN,NPTS,NTRL]= size(dataeeg);
 NWIN = NPTS;
 psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
@@ -29,13 +29,13 @@ for i = 1:NTRL
     [psdspectra(:,:,i),freq] = pwelch(dataeeg(:,:,i)',NWIN,0,NWIN,EEG.srate);
 end
 
-% The original reference uses 75 Hz and the RELAX toolbox as well
-% But MNE toolbox suggests 45 Hz and says that this is a better value in practice
+% The original reference uses 7-75 Hz and the RELAX toolbox as well, slope treshold >-0.31 or -0.51
+% But MNE toolbox suggests 7-45 Hz and says that this is a better value in practice, but slope treshold is >0
 % https://mne.tools/dev/generated/mne.preprocessing.ICA.html#mne.preprocessing.ICA.find_bads_muscle
-% foi = [7 45]; % 45 or 75
-foi = cfg.muscleSlopeFreq;
-frqmsk = freq>=foi(1) & freq<=foi(2);
+
 psdspectra = permute(psdspectra,[1 3 2]);
+
+frqmsk = freq>=cfg.muscleSlopeFreq(1) & freq<=cfg.muscleSlopeFreq(2);
 logpow = log10(psdspectra(frqmsk,:,:));
 logfoi = log10(freq(frqmsk));
 

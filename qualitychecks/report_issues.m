@@ -5,7 +5,7 @@ if isfield(EEG,'data')
     issues_to_check.aFileName = EEG.ALSUTRECHT.subject.id;
     issues_to_check.NumberTrials1 = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);            % Total possible
     issues_to_check.NumberTrials2 = size(EEG.data,3);                                % Left after preproc
-    issues_to_check.NumberTrials3 = EEG.ALSUTRECHT.epochRejections.round1Epochs;     % After EEGLAB exclusions
+    % issues_to_check.NumberTrials3 = EEG.ALSUTRECHT.epochRejections.round1Epochs;     % After EEGLAB exclusions
     issues_to_check.NumberTrials4 = EEG.ALSUTRECHT.epochRejections.remainingEpochs;  % Final number
     if isfield(EEG.ALSUTRECHT.badchaninfo,'wica')
         issues_to_check.NumberIC1 = EEG.ALSUTRECHT.badchaninfo.wica.icmax;           % ICs estiamted for wobbles
@@ -37,26 +37,28 @@ if isfield(EEG,'data')
         issues_to_check.HighProportionExcludedAsExtremeOutlier = 0;
     end
 
-    % EMG noise before cleaning
-    if EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal>0.5
-        issues_to_check.HighProportionOfEMGInitial = EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal;
-    else
-        issues_to_check.HighProportionOfEMGInitial = 0;
-    end
-
-    % MWF
-    MFWrounds = fields(EEG.ALSUTRECHT.MWF);
-    MFWrounds = MFWrounds(contains(MFWrounds,'R'));
-    for j = 1:length(MFWrounds)
-        issues_to_check.(['MWF' MFWrounds{j} 'Status1']) = EEG.ALSUTRECHT.MWF.(MFWrounds{j}).status;
-
-        % If SER/ARR are NaN, then MWF failed
-        if isnan(EEG.ALSUTRECHT.MWF.(MFWrounds{j}).signalToErrorRatio)
-            issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  NaN;
-        elseif isinf(EEG.ALSUTRECHT.MWF.(MFWrounds{j}).signalToErrorRatio)
-            issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  Inf;
+    if isfield(EEG.ALSUTRECHT, 'MWF')
+        % EMG noise before cleaning
+        if EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal>0.5
+            issues_to_check.HighProportionOfEMGInitial = EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal;
         else
-            issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  1;
+            issues_to_check.HighProportionOfEMGInitial = 0;
+        end
+
+        % MWF
+        MFWrounds = fields(EEG.ALSUTRECHT.MWF);
+        MFWrounds = MFWrounds(contains(MFWrounds,'R'));
+        for j = 1:length(MFWrounds)
+            issues_to_check.(['MWF' MFWrounds{j} 'Status1']) = EEG.ALSUTRECHT.MWF.(MFWrounds{j}).status;
+
+            % If SER/ARR are NaN, then MWF failed
+            if isnan(EEG.ALSUTRECHT.MWF.(MFWrounds{j}).signalToErrorRatio)
+                issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  NaN;
+            elseif isinf(EEG.ALSUTRECHT.MWF.(MFWrounds{j}).signalToErrorRatio)
+                issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  Inf;
+            else
+                issues_to_check.(['MWF' MFWrounds{j} 'Status2']) =  1;
+            end
         end
     end
 

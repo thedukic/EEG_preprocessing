@@ -1,20 +1,12 @@
 function EEG = epoch_rsdata2(EEG,epochLength,epochOverlap)
-% epoch_rsdata finds the useful Epochs with length 'EpochLength' in the UV mask vector
+% epoch_rsdata finds the useful Epochs with length 'EpochLength' and overlap 'epochOverlap'
 %
-% [IDX, IDXsimplevector] = bepocher(UV, EpochLength)
-%
-%   UV          : is a 1xn vector that represents bad data points with 0 and good data points with 1.
-%   EpochLength : is the length of the data chunks (in samples) that need to be extracted from the good periods
-%   Epochs      : includes the index number where good epochs with length 'EpochLength' start.
-%
-%   IDX         : indices of the data for extraction (Nepoch x EpochLength)
-%
-% SDukic, March 2024
+% SDukic, November 2024
 % Can be done better so that epoching is possible after bad epoch rejection
 %
 % =========================================================================
 
-fprintf('\nEpoching resting-state data (L = %d s, overlap %1.2f)...\n',epochLength,epochOverlap);
+fprintf('Epoching resting-state data (L = %d s, overlap %1.2f)...\n',epochLength,epochOverlap);
 
 % Check
 % assert(size(EEG.data,2)==length(~maskGood));
@@ -22,83 +14,151 @@ nsmp    = round(epochLength*EEG.srate);
 nshift  = round((1-epochOverlap)*nsmp);
 if nshift<=0, error('the overlap is too large'); end
 
-% Chunk good data only, per block and per good period
-NBLK     = length(EEG.ALSUTRECHT.blockinfo.eo_mask);
-goodIndx = cell(NBLK,1);
-leftover = cell(NBLK,1);
-NTRL     = NaN(NBLK,1);
-
 % Fix the masks as the extreme epochs have been removed already!
 maskGood = ~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1;
 maskRS = EEG.ALSUTRECHT.blockinfo.rs_mask;
 
 % Find start/stop of good periods
 jump = find(diff([false, maskGood, false])~=0);
-jumpStop  = jump(2:2:end)-1; jumpStop(end) = [];
+jumpStop = jump(2:2:end)-1; jumpStop(end) = [];
 
-% Mark one sample as the break point at each jump
+% Mark one sample just before the bad segment
+% 1   1   1   1   1   1   0   0   1   1 ---> 6
 maskGood(jumpStop) = false;
 
 maskGood(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
 maskRS(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
 
-assert(size(EEG.data,2)==length(maskGood));
-assert(size(EEG.data,2)==length(maskRS));
+assert(size(EEG.data,2) == length(maskGood));
+assert(size(EEG.data,2) == length(maskRS));
+assert(length(jumpStop) == sum(~maskGood));
+
+% Add boundaries which could be:
+% 1. Between appended blocks
+% 2. Due to CMS dropouts
+isBoundary = ismember({EEG.event.type},'boundary');
+latencies = round([EEG.event.latency]);
+latencies = latencies(isBoundary);
+latencies(latencies==1 | latencies==EEG.pnts-1) = [];
+maskGood(latencies) = false;
+
+% Chunk good data only, per block and per good period
+NBLK = length(EEG.ALSUTRECHT.blockinfo.eo_mask);
+NTRL = NaN(NBLK,1);
+validEpochs  = cell(NBLK,1);
+leftoverData = cell(NBLK,1);
 
 for i = 1:NBLK
     % Good data in this block
     maskGoodTmp = maskGood(maskRS(i,:));
 
+    % The first sample of a block should be false
+    % Correct that as it can be used
+    if i > 1
+        assert(~maskGoodTmp(1));
+        maskGoodTmp(1) = true;
+    end
+
     % Find start/stop of good periods
     jump = find(diff([false, maskGoodTmp, false])~=0);
     jumpStart = jump(1:2:end);
     jumpStop  = jump(2:2:end)-1;
-    durall    = jumpStop-jumpStart+1;
 
-    % Epoch each period separately
-    newtrl = [];
-    newleftover = [];
-    for j = 1:length(jumpStart)
-        thistrl = (jumpStart(j):nshift:(jumpStop(j)+1-nsmp))';
+    % Find epoch starts
+    epochStarts = arrayfun(@(start, stop) start:nshift:(stop + 1 - nsmp), jumpStart, jumpStop, 'UniformOutput', false);
+    validEpochs{i} = cell2mat(epochStarts);
 
-        if isempty(thistrl)
-            % Too short period to fit any epochs
-            newleftover = cat(1,newleftover,durall(j));
-        else
-            newtrl = cat(1,newtrl,thistrl);
-            newleftover = cat(1,newleftover,jumpStop(j)-(thistrl(end)+nsmp-1));
-        end
+    % Calculate leftovers
+    % Chunks that are very short would lead to empty cells
+    mask = ~cellfun(@(x) isempty(x),epochStarts);
+    epochStarts = epochStarts(mask);
+    jumpStopTmp = jumpStop(mask);
+    leftoverData{i} = sum(cell2mat(cellfun(@(e, stop) stop - (e(end) + nsmp - 1), epochStarts, num2cell(jumpStopTmp), 'UniformOutput', false)));
+
+    % Add those very short epochs to the leftovers
+    if any(~mask)
+        epochChunks = jumpStop - jumpStart + 1;
+        leftoverData{i} = leftoverData{i} + sum(epochChunks(~mask));
     end
-    goodIndx{i} = newtrl;
-    leftover{i} = newleftover;
-    NTRL(i)     = length(goodIndx{i});
+
+    NTRL(i) = length(validEpochs{i});
+    fprintf('Block %d: %d epochs, %d leftover samples\n', i, NTRL(i), sum(leftoverData{i}));
+
+    % % Epoch each period separately
+    % newtrl = [];
+    % newleftover = [];
+    % for j = 1:length(jumpStart)
+    %     thistrl = (jumpStart(j):nshift:(jumpStop(j)+1-nsmp))';
+    %
+    %     if isempty(thistrl)
+    %         % Too short period to fit any epochs
+    %         newleftover = cat(1,newleftover,durall(j));
+    %     else
+    %         newtrl = cat(1,newtrl,thistrl);
+    %         newleftover = cat(1,newleftover,jumpStop(j)-(thistrl(end)+nsmp-1));
+    %     end
+    % end
+    %
+    % goodIndx{i} = newtrl;
+    % leftover{i} = newleftover;
+    % NTRL(i)     = length(goodIndx{i});
 end
 
 % Build a minimal but valid EEG.event from scratch
 % We ignore previous events (boundry only?)
 % as we account for them in the code above!
 EEG.event = [];
+EEG.event = struct('type', cell(1, sum(NTRL)), 'latency', cell(1, sum(NTRL)));
+
+% Generate EO and EC labels
+numEO = sum(EEG.ALSUTRECHT.blockinfo.eo_mask);
+EO_labels = arrayfun(@(x) ['EO' num2str(x)], 1:numEO, 'UniformOutput', false);
+EC_labels = arrayfun(@(x) ['EC' num2str(x)], 1:(NBLK - numEO), 'UniformOutput', false);
+
+% Combine labels in block order
+RS_labels = cell(1, NBLK);
+RS_labels(EEG.ALSUTRECHT.blockinfo.eo_mask)  = EO_labels;
+RS_labels(~EEG.ALSUTRECHT.blockinfo.eo_mask) = EC_labels;
 
 cnt = 0;
 for i = 1:NBLK
-    K = find(maskRS(i,:),1,"first")-1;
-    for j = 1:NTRL(i)
-        cnt = cnt+1;
-        if EEG.ALSUTRECHT.blockinfo.eo_mask(i)
-            EEG.event(cnt).type = ['EO' num2str(i)];
-        else
-            EEG.event(cnt).type = ['EC' num2str(i-sum(EEG.ALSUTRECHT.blockinfo.eo_mask))];
-        end
+    % Calculate the starting index for latencies
+    K = find(maskRS(i,:), 1, "first") - 1;
 
-        % EEG.event(cnt).latency = (K+goodIndx{i}(j,1)-1)./EEG.srate;
-        EEG.event(cnt).latency = K+goodIndx{i}(j); % MUST BE IN SAMPLES!
-    end
+    % Prepare event types and latencies
+    latencies = num2cell(K + validEpochs{i});
+
+    % Create new events and use deal
+    [EEG.event(cnt + (1:NTRL(i))).type] = deal(RS_labels{i});
+    [EEG.event(cnt + (1:NTRL(i))).latency] = deal(latencies{:});
+
+    % Update counter
+    cnt = cnt + NTRL(i);
 end
+
+% cnt = 0;
+% for i = 1:NBLK
+%     K = find(maskRS(i,:),1,"first") - 1;
+%     for j = 1:NTRL(i)
+%         cnt = cnt+1;
+%         if EEG.ALSUTRECHT.blockinfo.eo_mask(i)
+%             EEG.event(cnt).type = ['EO' num2str(i)];
+%         else
+%             EEG.event(cnt).type = ['EC' num2str(i-sum(EEG.ALSUTRECHT.blockinfo.eo_mask))];
+%         end
+%
+%         % MUST BE IN SAMPLES!
+%         % EEG.event(cnt).latency = (K + goodIndx{i}(j,1)-1) ./ EEG.srate;
+%         EEG.event(cnt).latency = K + validEpochs{i}(j);
+%     end
+% end
+
+% Check
 EEG = eeg_checkset(EEG);
 
 % Epoch now
-allLabels = unique({EEG.event(:).type});
-EEG = pop_epoch(EEG,allLabels,[0 epochLength],'epochinfo','yes');
+% allLabels = unique({EEG.event(:).type});
+EEG = pop_epoch(EEG,RS_labels,[0 epochLength],'epochinfo','yes');
 
 % EEG0 = pop_epoch(EEG,allLabels,[0 epochLength]./EEG.srate,'epochinfo','yes');
 % figure; hold on;
@@ -108,27 +168,19 @@ EEG = pop_epoch(EEG,allLabels,[0 epochLength],'epochinfo','yes');
 
 % Check
 EEG = eeg_checkset(EEG);
-assert(sum(NTRL)==size(EEG.data,3));
-assert(nsmp==size(EEG.data,2));
+assert(sum(NTRL) == size(EEG.data,3));
+assert(nsmp == size(EEG.data,2));
 % vis_artifacts(EEG,EEG);
-
-% % This is correct only if not overlapping is done!
-% % % -> extreme noise + epoching
-% % oldL = length(~maskGood);
-% % % -> epoching only
-% oldL = sum(maskGood);
-% newL = prod(size(EEG.data,[2 3]));
-% R = 1-newL./oldL;
-% fprintf('By epoching (L = %ds), %1.2f of the data is lost.\n',epochLength./EEG.srate,R);
 
 % Takes into account overlap
 oldL = sum(maskGood);
-lostL = sum(cell2mat(leftover));
+lostL = sum(cell2mat(leftoverData));
 R = lostL./oldL;
-fprintf('Epoching resulted in %1.3f data loss.\n',R);
+fprintf('Total epochs: %d\n', sum(NTRL));
+fprintf('Data loss due epoching: %1.3f%%\n', R * 100);
 
 % Log
-EEG.ALSUTRECHT.blockinfo.goodIndx   = goodIndx;
+EEG.ALSUTRECHT.blockinfo.goodIndx   = validEpochs;
 EEG.ALSUTRECHT.blockinfo.goodTrls   = NTRL;
 EEG.ALSUTRECHT.blockinfo.trlLength  = epochLength;
 EEG.ALSUTRECHT.blockinfo.trlOverlap = epochOverlap;

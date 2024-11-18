@@ -1,60 +1,65 @@
-function EEG = do_filtering(EEG,thisFiltering,cfg)
+function DATA = do_filtering(DATA,thisFiltering,cfg)
 
-thisTask = EEG(1).ALSUTRECHT.subject.task;
-chaneeg = find(strcmp({EEG(1).chanlocs.type},'EEG'));
-chanext = find(strcmp({EEG(1).chanlocs.type},'EXT'));
-chanemg = find(strcmp({EEG(1).chanlocs.type},'EMG'));
+thisTask = DATA(1).ALSUTRECHT.subject.task;
+chaneeg  = find(strcmp({DATA(1).chanlocs.type},'EEG'));
+chanext  = find(strcmp({DATA(1).chanlocs.type},'EXT'));
+chanemg  = find(strcmp({DATA(1).chanlocs.type},'EMG'));
+fprintf('Using fitler settings for the %s tasks.\n',thisTask);
 
 if strcmpi(thisFiltering,'highpass')
-    cfg.rsmt.lp = [];
-    cfg.erp.lp  = [];
-
-    % EEG
-    fprintf('EEG singals:\n');
-    if strcmpi(thisTask,'SART') || strcmpi(thisTask,'MMN')
-        EEG = filter_signal(EEG,[],cfg.erp.hp,chaneeg,'eeglab');
-
-    elseif strcmpi(thisTask,'MT')
-        EEG = filter_signal(EEG,[],cfg.mt.hp,chaneeg,'eeglab');
-
-    elseif strcmpi(thisTask,'RS') || strcmpi(thisTask,'EO') || strcmpi(thisTask,'EC')
-        EEG = filter_signal(EEG,[],cfg.rs.hp,chaneeg,'eeglab');
-
-    end
-
-    % EXT
-    if any(chanext)
-        fprintf('EXT singals:\n');
-        EEG = filter_signal(EEG,[],cfg.ext.hp,chanext,'eeglab');
-    end
-
-    % EMG
-    if strcmpi(thisTask,'MT')
-        if any(chanemg)
-            fprintf('EMG singals:\n');
-            EEG = filter_signal(EEG,[],cfg.emg.hp,chanemg,'eeglab');
-        end
-    end
+    cfg.rs.lp  = [];
+    cfg.mt.lp  = [];
+    cfg.erp.lp = [];
+    cfg.ext.lp = [];
+    cfg.emg.lp = [];
 
 elseif strcmpi(thisFiltering,'lowpass')
-    cfg.rsmt.hp = [];
-    cfg.erp.hp  = [];
-
-    % EEG
-    fprintf('EEG singals:\n');
-    if strcmpi(thisTask,'SART') || strcmpi(thisTask,'MMN')
-        EEG = filter_signal(EEG,cfg.erp.lp,[],chaneeg,'eeglab');
-
-    elseif strcmpi(thisTask,'MT')
-        EEG = filter_signal(EEG,cfg.mt.lp,[],chaneeg,'eeglab');
-
-    elseif strcmpi(thisTask,'RS') || strcmpi(thisTask,'EO') || strcmpi(thisTask,'EC')
-        EEG = filter_signal(EEG,cfg.rs.lp,[],chaneeg,'eeglab');
-
-    end
+    cfg.rs.hp  = [];
+    cfg.mt.hp  = [];
+    cfg.erp.hp = [];
+    cfg.ext.hp = [];
+    cfg.emg.hp = [];
 
 else
     error('Wrong input!');
+end
+
+% EEG
+if any(chaneeg)
+    fprintf('EEG singals:\n');
+    if strcmpi(thisTask,'SART') || strcmpi(thisTask,'MMN')
+        DATA = filter_signal(DATA,cfg.erp.lp,cfg.erp.hp,chaneeg,'eeglab');
+
+        % EXT will be treated as EEG
+        cfg.ext.lp = cfg.erp.lp;
+        cfg.ext.hp = cfg.erp.hp;
+
+    elseif strcmpi(thisTask,'MT')
+        DATA = filter_signal(DATA,cfg.mt.lp,cfg.mt.hp,chaneeg,'eeglab');
+
+        cfg.ext.lp = cfg.mt.lp;
+        cfg.ext.hp = cfg.mt.hp;
+
+    elseif strcmpi(thisTask,'RS') || strcmpi(thisTask,'EO') || strcmpi(thisTask,'EC')
+        DATA = filter_signal(DATA,cfg.rs.lp,cfg.rs.hp,chaneeg,'eeglab');
+
+        cfg.ext.lp = cfg.rs.lp;
+        cfg.ext.hp = cfg.rs.hp;
+    else
+        error('Something went wrong.');
+    end
+end
+
+% EXT
+if any(chanext)
+    fprintf('EXT singals:\n');
+    DATA = filter_signal(DATA,cfg.ext.lp,cfg.ext.hp,chanext,'eeglab');
+end
+
+% EMG
+if any(chanemg)
+    fprintf('EMG singals:\n');
+    DATA = filter_signal(DATA,cfg.emg.lp,cfg.emg.hp,chanemg,'eeglab');
 end
 
 end

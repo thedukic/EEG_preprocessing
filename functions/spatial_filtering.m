@@ -1,4 +1,4 @@
-function data = spatial_filtering(data,elecpos,neighbours,Nneighbours)
+function dataOut = spatial_filtering(dataIn,elecpos,neighbours,NNeighboursSet)
 % Nnb - number of neighbours, if 0, then it uses all neighbours
 %
 % Baseline correction is probably good to do beforehand
@@ -8,7 +8,11 @@ function data = spatial_filtering(data,elecpos,neighbours,Nneighbours)
 % - Check if each channel has at least Nnb
 %
 
-[NCHN, NTRL] = size(data);
+[NCHN, NTRL] = size(dataIn);
+dataOut = NaN(size(dataIn));
+NNeighboursMax = NaN(NCHN,1);
+
+NNeighboursSet = NNeighboursSet+2;
 
 for i = 1:NCHN
     % Neighbour list
@@ -16,28 +20,30 @@ for i = 1:NCHN
 
     % Remove the current electrode from the neighbour list
     ns(ns==i) = [];
+    NNeighboursMax(i) = length(ns);
+    disp(NNeighboursMax(i));
 
     % ds = sqrt(sum((elecpos(ns,:) - repmat(elecpos(i,:), numel(ns), 1)).^2, 2));
-    ds = vecnorm((elecpos(ns,:)-elecpos(i,:))')';
-    assert(length(ns)==length(ds));
+    ds = vecnorm((elecpos(ns,:) - elecpos(i,:))')';
+    assert(length(ns) == length(ds));
 
-    if Nneighbours>0
-        ind = 1:length(ns)-Nneighbours;
+    if NNeighboursSet>0
+        ind = 1:length(ns)-NNeighboursSet;
         [~, tmp] = sort(ds,'descend');
         ns(tmp(ind)) = [];
         ds(tmp(ind)) = [];
-        assert(length(ns)==Nneighbours);
+        assert(length(ns)==NNeighboursSet);
     end
 
-    [x, indx] = sort(data(ns,:));
+    [x, indx] = sort(dataIn(ns,:));
     ws = repmat([1; (1./ds)],1,size(x,2));
     ws = ws(indx);
 
     x([1 end],:) = [];
     ws([1 end],:) = [];
 
-    ws = ws./sum(ws);
-    data(i,:) = sum(x.*ws);
+    ws = ws ./ sum(ws);
+    dataOut(i,:) = sum(x.*ws);
 
     % Smooth over time
     % data(i,:) = smoothdata(data(i,:),"sgolay",10);

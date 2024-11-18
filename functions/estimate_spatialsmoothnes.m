@@ -1,7 +1,7 @@
 function [spatialSmoothness, badIC, spatialTreshold] = estimate_spatialsmoothnes(EEG)
 
 % Empirical tresholds
-spatialTreshold = [3 3000];
+spatialTreshold = [3 1000];
 
 % Calculate the spatial variance
 theseICs = EEG.icawinv;

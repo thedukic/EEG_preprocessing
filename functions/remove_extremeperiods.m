@@ -1,4 +1,4 @@
-function EEG = detect_extremelybadepochs2(EEG)
+function [EEG, EMG] = remove_extremeperiods(EEG,EMG)
 %
 % Find extreme periods based on:
 % 1. Very high amplitudes (e.g. >400-500 uV)
@@ -164,6 +164,7 @@ L = EEG.srate;
 N = floor(length(extremeMask)/L);
 extremeNoiseEpochs2 = any(reshape(extremeMask(1:N*L),L,N));
 
+%% =========================================================================
 % Log
 EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier = mean(extremeMask);
 EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs0                 = extremeMask0;
@@ -178,5 +179,20 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Extremly bad epochs\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'These data will be excluded from MWF and ICA.\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Detected: %1.2f\n', EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier);
+
+% Report visually
+if ~isempty(extremeNoiseEpochs3)
+    report_badsegments(EEG,{extremeNoiseEpochs3},'extremeperiods');
+end
+
+%% Remove the chunks
+if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
+    fprintf('\nRemoving extremely bad chunks of data...\n');
+    EEG = eeg_eegrej(EEG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
+
+    if nargin == 2
+        EMG = eeg_eegrej(EMG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
+    end
+end
 
 end

@@ -1,7 +1,6 @@
 function EEG = epoch_data(EEG,cfg)
 % SART: EEG = [EEG1 EEG2], stimulus- and response-locked
 
-
 if strcmpi(EEG.ALSUTRECHT.subject.task,'MMN')
     condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.mmn{1},'Uniformoutput',0);
     EEG = pop_epoch(EEG,condLabel,cfg.mmn{2},'epochinfo','yes');
@@ -22,7 +21,6 @@ elseif strcmpi(EEG.ALSUTRECHT.subject.task,'SART')
     clearvars EEG0
 
 elseif strcmpi(EEG.ALSUTRECHT.subject.task,'RS') || strcmpi(EEG.ALSUTRECHT.subject.task,'EO') || strcmpi(EEG.ALSUTRECHT.subject.task,'EC')
-    % 2s w/ 0.75 overlap
     % EEG = epoch_rsdata3(EEG,cfg.rs{1},cfg.rs{2}); % OK if proc EO/EC only
     % EXT = epoch_rsdata3(EXT,cfg.rs{1},cfg.rs{2});
     EEG = epoch_rsdata2(EEG,cfg.rs{1},cfg.rs{2});   % OK if proc EO+EC together

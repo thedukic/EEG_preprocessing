@@ -1,4 +1,11 @@
-function [powout, freq] = checkpowerspectrum(data,NC,NT)
+function [powout, freq] = checkpowerspectrum(data,theseRows,theseTrials)
+
+if nargin == 1
+    theseRows = 1:size(data.data,1);
+    theseTrials = [];
+elseif nargin == 2
+    theseTrials = [];
+end
 
 rsdata = false;
 if isfield(data,'fsample')
@@ -9,10 +16,10 @@ if isfield(data,'fsample')
 
     fs = data.fsample;
     % data = mean(cat(3,data.trial{:}),3);
-    if isempty(NT)
+    if isempty(theseTrials)
         data = cat(3,data.trial{:});
     else
-        data = cat(3,data.trial{NT});
+        data = cat(3,data.trial{theseTrials});
     end
 
 else
@@ -23,8 +30,8 @@ else
 
     fs = data.srate;
     data = data.data;
-    if ~isempty(NT)
-        data = data(:,:,NT);
+    if ~isempty(theseTrials)
+        data = data(:,:,theseTrials);
     end
 end
 
@@ -43,29 +50,29 @@ else
     L2=L;
 end
 
-NFRQ = L2/2+1; 
+NFRQ = L2/2+1;
 freq = fs*(0:(L2/2))/L2;
 
-figure;
-if length(NC)<=5
-    tiledlayout(1,length(NC));
-else
-    tiledlayout(4,5);
-end
+figure; hold on;
+% if length(theseRows)<=5
+%     tiledlayout(1,length(theseRows));
+% else
+%     tiledlayout(4,5);
+% end
 
-for i = 1:length(NC)
+for i = 1:length(theseRows)
     pow = NaN(NTRL,NFRQ);
     for j = 1:NTRL
-        tmp = fft(hanning(L)' .* squeeze(data(NC(i),:,j)));
+        tmp = fft(hanning(L)' .* squeeze(data(theseRows(i),:,j)));
         pow(j,:) = abs(tmp(1:NFRQ)).^2;
     end
     powout(i,:) = mean(pow,1);
 
-    nexttile; 
+    % nexttile;
     % plot(freq,log10(pow));
     % pow = pow./sum(pow);
-    plot(freq,zscore(powout(i,:)));
-    title(['COMP' num2str(NC(i))]);
+    plot(freq,powout(i,:));
+    title(['COMP' num2str(theseRows(i))]);
     % xlim([2 max(freq)]);
     xlim([0 100]);
     pbaspect([1.62 1 1]);
@@ -79,9 +86,9 @@ end
 % else
 %     tiledlayout(4,5);
 % end
-% 
+%
 % for i = 1:length(NC)
-%     nexttile; 
+%     nexttile;
 %     plot(data(NC(i),:));
 %     title(['COMP' num2str(NC(i))]);
 %     pbaspect([1.62 1 1]); axis tight;

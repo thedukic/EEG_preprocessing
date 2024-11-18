@@ -19,20 +19,20 @@ function [EEG, badElectrodes, noiseMask] = mwf_channelemg(EEG,cfgbch)
 %
 % Fitzgibbon, S. P., DeLosAngeles, D., Lewis, T. W., Powers, D. M. W., Grummett, T. S., Whitham, E. M., ... & Pope, K. J. (2016). Automatic determination of EMG-contaminated components and validation of independent component analysis using EEG during pharmacologic paralysis. Clinical Neurophysiology, 127(3), 1781-1793.
 %
-% SDukic, July 2024
+% SDukic, October 2024
 %
 
 fprintf('\nMWF (EMG) muscle artifacts...\n');
 
 % =========================================================================
 % Estimate log-log power spectra
-[slopesChannelsxEpochs, other] = dected_emg(EEG,cfgbch);
+[slopesChannelsxEpochs, other] = detect_emg(EEG,cfgbch);
 
-% Account for very bad epochs affected across all channels
-if any(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2)
-    assert(size(slopesChannelsxEpochs,2)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
-    slopesChannelsxEpochs(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
-end
+% % Account for very bad epochs affected across all channels
+% if any(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2)
+%     assert(size(slopesChannelsxEpochs,2)==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
+%     slopesChannelsxEpochs(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
+% end
 
 % Detect noisy channels that are left in the data
 badElectrodes = mean(slopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,2,'omitnan');
@@ -64,9 +64,9 @@ templateMarkedForMuscleArtifacts = zeros(1,NTRL);
 muscleSlopeThresholdAfterAdjustment = 0;
 templateMarkedForMuscleArtifacts(sortingOutWorstMuscleEpochs>muscleSlopeThresholdAfterAdjustment) = 1;
 
-% Mark extremly bad epochs as they may now appear as EMG-free!
-assert(NTRL==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
-templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
+% % Mark extremly bad epochs as they may now appear as EMG-free!
+% assert(NTRL==length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2));
+% templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
 
 proportionOfDataShowingMuscleActivityTotal = mean(templateMarkedForMuscleArtifacts,"omitnan");
 
@@ -87,13 +87,13 @@ if proportionOfDataShowingMuscleActivityTotal > maxProportionOfDataCanBeMarkedAs
 
     templateMarkedForMuscleArtifacts = zeros(1,NTRL);
     % 1. Original
-    % muscleSlopeThresholdAfterAdjustment = prctile(sortingOutWorstMuscleEpochs,100-(MaxProportionOfDataCanBeMarkedAsMuscle*100));
+    muscleSlopeThresholdAfterAdjustment = prctile(sortingOutWorstMuscleEpochs,100-(maxProportionOfDataCanBeMarkedAsMuscle*100));
     % 2. Use only those epochs that are not extremly bad, as they can obscure the following estimation
-    extremelyBadEpochsExcluded = sortingOutWorstMuscleEpochs(~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2);
-    muscleSlopeThresholdAfterAdjustment = prctile(extremelyBadEpochsExcluded,100-(maxProportionOfDataCanBeMarkedAsMuscle*100));
+    % extremelyBadEpochsExcluded = sortingOutWorstMuscleEpochs(~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2);
+    % muscleSlopeThresholdAfterAdjustment = prctile(extremelyBadEpochsExcluded,100-(maxProportionOfDataCanBeMarkedAsMuscle*100));
 
     templateMarkedForMuscleArtifacts(sortingOutWorstMuscleEpochs>=muscleSlopeThresholdAfterAdjustment) = 1;
-    templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
+    % templateMarkedForMuscleArtifacts(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2) = NaN;
 end
 
 % Find those trials
@@ -118,10 +118,12 @@ if ~isempty(badTrialsAll)
     end
 end
 
-% Mark extremly bad epochs
 assert(length(noiseMask)==size(EEG.data,2));
-assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask));
-noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
+assert(~any(isnan(noiseMask)));
+
+% % Mark extremly bad epochs
+% assert(length(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1)==length(noiseMask));
+% noiseMask(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = NaN;
 
 % Ignore the very last samples
 % because we do not know if they are good or not
@@ -154,11 +156,10 @@ if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF>0.05
     [cleanEEG, d, W, SER, ARR] = mwf_process(EEG.data(chaneeg,:),noiseMask,params);
 
     % Check if there were any problems
-    if contains(lastwarn,"eigenvectors")
-        warning('The MWF delay is too long?'); SER = Inf; ARR = Inf;
-    end
-    if isnan(SER) || isnan(ARR)
-        warning('MWF did not fail but the MWF quality measures (SER/ARR) are NaN. The bad data might be too short.');
+    flagMWFsuccessful = true;
+    if contains(lastwarn,"eigenvectors") || contains(lastwarn,"singular") || isnan(SER) || isnan(ARR) || ~isreal(cleanEEG)
+        warning('Something went wrong with MWF...'); 
+        SER = NaN; ARR = NaN; flagMWFsuccessful = false;
     end
 
     % % Visual inspection
@@ -167,7 +168,9 @@ if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF>0.05
     % vis_artifacts(EEG0,EEG);
 
     % Return the clean data
-    EEG.data(chaneeg,:) = cleanEEG;
+    if flagMWFsuccessful
+        EEG.data(chaneeg,:) = cleanEEG;
+    end
 
     % Log
     % EEG.ALSUTRECHT.MWF.R1.estimatedArtifactInEachChannel = d;

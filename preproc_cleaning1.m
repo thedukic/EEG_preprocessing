@@ -5,7 +5,7 @@ function preproc_cleaning1(myPaths,id)
 %
 % =========================================================================
 % SDukic edits
-% v1, October 2024
+% v1, November 2024
 % =========================================================================
 % TODO
 % 1.
@@ -25,7 +25,7 @@ subject.mycodes = myPaths.mycodes;
 subject.rawdata = fullfile(myPaths.rawdata, subject.id);
 subject.preproc = fullfile(myPaths.preproc, subject.id);
 subject.icadata = fullfile(subject.preproc, upper(cfg.ica.type2));
-subject.clnfile = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' cfg.rnum '.mat'];
+subject.clnfile = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' cfg.rnum 'a.mat'];
 
 % Find datasets
 [subject.datablocks, NBLK] = list_datasets(subject.rawdata,myPaths.task);
@@ -117,13 +117,13 @@ EEG = do_filtering(EEG,'highpass',cfg.flt);
 % Remove line noise
 EEG = reduce_linenoise(EEG);
 
-% Check leftovers
-EEG = detect_linenoiseleftovers(EEG);
+% Remove line noise leftovers
+EEG = reduce_linenoiseleftovers(EEG);
 
 % Cut block ends
 EEG = remove_datasetends(EEG);
 
-% Bipolar EXT
+% Make EXT bipolar
 EEG = make_extbipolar(EEG);
 
 % Mark where each RS block starts/ends
@@ -152,39 +152,26 @@ end
 % Remove electrode wobbles and pops
 % EEG = remove_electrodewobbles(EEG,lower(cfg.ica.type1));
 
-% Detect and remove noisy electrodes
+% Remove noisy electrodes
 EEG = remove_noisyelectrodes(EEG,cfg.bch);
 
 % Log/report bad channel
 EEG = report_badelectrodes(EEG);
 
-% Detect extremely bad epochs
-EEG = detect_extremelybadepochs2(EEG);
+% Remove extremely bad epochs
+if ~strcmpi(myPaths.task,'MT')
+    EEG = remove_extremeperiods(EEG);
+else
+    [EEG, EMG] = remove_extremeperiods(EEG,EMG);
+end
 
 % Check if EC has eye blinks; Currently too sensitive?
 % if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EC')
 %     EEG = check_eyesclosedeyeblinks(EEG);
 % end
 
-% Make a copy
-EEGRAW = EEG;
-
-% Reduce artifacts
-EEG = reduce_artifacts(EEG,cfg.bch);
-
-% Report MWF metrics
-EEG = report_mwf(EEG,EEGRAW);
-clearvars EEGRAW
-
-% Remove extremely bad epochs
-if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
-    fprintf('\nRemoving extremely bad chunks of data...\n');
-    EEG = eeg_eegrej(EEG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
-
-    if strcmpi(myPaths.task,'MT')
-        EMG = eeg_eegrej(EMG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
-    end
-end
+% % Reduce artifacts
+% EEG = reduce_artifacts(EEG,cfg.bch);
 
 % Separate EXT channels before ICA
 chanext = {EEG.chanlocs(strcmp({EEG.chanlocs.type},'EXT')).labels};
@@ -196,7 +183,7 @@ if ~isempty(EEG.ALSUTRECHT.badchaninfo.badElectrodes)
     EEG = pop_interp(EEG,chanlocs,'spherical');
 end
 
-% Common-average before ICA
+% Reference
 EEG = do_reref(EEG,'aRegular');
 
 % ICA
@@ -205,20 +192,30 @@ EEG = do_ICA(EEG,cfg);
 % Detect artifact ICs
 EEG = detect_badcomponents2(EEG,EXT,cfg);
 
-% Do wICA
-flagEyeIC = 'target';
-EEG = do_wICA(EEG,EXT,flagEyeIC);
+% Do wICA or remove them coompletely
+% EEG = do_wICA(EEG,EXT,'remove');
+EEG = remove_badcomponents(EEG);
 
 % Report artifact leftovers
-[EEG, flagMWF] = report_leftovers(EEG,EXT,cfg);
+EEG = report_leftovers(EEG,EXT,1,cfg);
 
-% Do MWF on blinks if too many are left
-if flagMWF
-    EEG = mwf_eyeblinks(EEG,EXT);
-
-    % Report again leftovers
-    EEG = report_leftovers(EEG,EXT,cfg);
-end
+% % Remove IC blinks completely if too much blink lefotver is detected
+% if flagREDO
+%     EEGTMP = do_wICA(EEG,EXT,'remove');
+%
+%     % Report again leftovers
+%     [EEG, flagREDO] = report_leftovers(EEGTMP,EXT,2,cfg);
+%
+%     % Report
+%     if flagREDO
+%         warning('Failed to remove the blinks. It seems that there is sill a lot of them left in the EEG data.');
+%     else
+%         fprintf('Nice! It seems that the blinks are not properly removed from the data the EEG data.');
+%     end
+% else
+%     EEG = EEGTMP;
+% end
+% clearvars EEGTMP;
 
 % Report ICA
 EEG = report_ICA(EEG);

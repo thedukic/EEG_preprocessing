@@ -11,12 +11,13 @@ if rankICA>rankData
 end
 
 % Check variance explained
-[~,~,~,~,explained] = pca(EEG.data(:,:)');
-explained = explained./sum(explained);
+[U,S,V] = svd(EEG.data(:,:) * EEG.data(:,:)','econ');
+S = diag(S);
+explained = S ./ sum(S);
 
 % 95% variance
-explainedTmp = cumsum(explained./sum(explained)); % figure; bar(explained);
-NPCA95 = find(explainedTmp>=0.95,1);
+explainedTmp = cumsum(explained); % figure; bar(explained);
+NPCA95 = find(explainedTmp >= 0.95,1);
 
 % Variance used for ICA
 VarRank = 100*sum(explained(1:rankICA));

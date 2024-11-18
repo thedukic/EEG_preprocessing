@@ -14,19 +14,16 @@ function [EEG, badElectrodes1] = remove_noisyelectrodes(EEG,cfgbch)
 % - Referenced, probably the best to the common-average
 %
 % =========================================================================
-% SDukic edit, Feb 2024
+% SDukic edit, October 2024
 % =========================================================================
-
-totalInitialChannels = 128;
-currentChannels      = sum(strcmp({EEG.chanlocs.type},'EEG'));
-youCanRejectThisManyChannelsHere = floor(cfgbch.maxProportionOfBadElec*totalInitialChannels)-(totalInitialChannels-currentChannels);
 
 % =========================================================================
 % 1. PREP function
 fprintf('\nDetecting and removing noisy electrodes using PREP toolbox...\n');
 
 % Remove external channels
-chanext = {EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels};
+chaneeg = strcmp({EEG.chanlocs.type},'EEG');
+chanext = {EEG.chanlocs(~chaneeg).labels};
 EEGTMP  = pop_select(EEG,'nochannel',chanext);
 
 if cfgbch.ransacOff
@@ -65,28 +62,48 @@ else
     % badElectrodes = find(badness_percent >= cfgbch.iter.frc);
 end
 
-% 2. Detect EMG-contaminated channels
-% Estimate log-log power spectra
-slopesChannelsxEpochs = dected_emg(EEGTMP,cfgbch);
+% Report
+Nremoved1 = length(badElectrodes1);
+fprintf('PREP detected %d bad electrodes.\n',Nremoved1);
 
-% Detect noisy channels
-muscleSlopeTimeAvg = mean(slopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,2);
+% Determine how many we can still remove
+totalInitialChannels = sum(strcmp({EEG.allchans.type},'EEG'));
+currentChannels      = sum(chaneeg)-Nremoved1;
+maxThatCanBeRemoved  = round(cfgbch.maxProportionOfBadElec*totalInitialChannels);
+youCanRejectThisManyChannelsHere = maxThatCanBeRemoved - (totalInitialChannels-currentChannels);
 
-badElectrodes2   = find(muscleSlopeTimeAvg>cfgbch.muscleSlopeTime);
-initalNumber     = length(badElectrodes2);
-initalProportion = initalNumber/length(muscleSlopeTimeAvg);
+% 2. Detect EMG-contaminated channels using log-log power spectra slope
+if youCanRejectThisManyChannelsHere>0
+    slopesChannelsxEpochs = detect_emg(EEGTMP,cfgbch);
 
-if initalProportion>cfgbch.maxProportionOfBadElec
-    warning('Too many electrodes (%d) are marked for rejection based on their EMG-slope.',initalNumber);
-    badElectrodes2sorted = sort(muscleSlopeTimeAvg,1,'descend');
-    muscleSlopeTimeNew   = badElectrodes2sorted(youCanRejectThisManyChannelsHere,1);
-    badElectrodes2       = find(muscleSlopeTimeAvg>muscleSlopeTimeNew);
-    warning('Lowering that to N = %d.',length(badElectrodes2));
+    % Detect noisy channels
+    muscleSlopeTimeAvg = mean(slopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,2);
+
+    badElectrodes2 = find(muscleSlopeTimeAvg>cfgbch.muscleSlopeTime);
+    initalNumber   = length(badElectrodes2);
+    initalProportion = initalNumber/length(muscleSlopeTimeAvg);
+
+    if initalNumber > youCanRejectThisManyChannelsHere % initalProportion>cfgbch.maxProportionOfBadElec
+        warning('Too many electrodes (N = %d, max = %d) are marked for rejection based on their EMG-slope.',initalNumber,youCanRejectThisManyChannelsHere);
+        badElectrodes2sorted = sort(muscleSlopeTimeAvg,1,'descend');
+        muscleSlopeTimeNew   = badElectrodes2sorted(youCanRejectThisManyChannelsHere,1);
+        badElectrodes2       = find(muscleSlopeTimeAvg>=muscleSlopeTimeNew);
+        warning('Lowering that to N = %d.',length(badElectrodes2));
+    end
+
+    fprintf('EMG-slope detected %d bad electrodes.\n',length(badElectrodes2));
+
+else
+    warning('Too many electrodes (N = %d, max = %d) are already marked for rejection by PREP toolbox.',Nremoved1,maxThatCanBeRemoved);
+    badElectrodes2 = [];
+    initalNumber = NaN;
+    initalProportion = NaN;
 end
 
 % Log
-EEG.ALSUTRECHT.badchaninfo.PREPElectrodes = {EEG.chanlocs(badElectrodes1).labels};
-EEG.ALSUTRECHT.badchaninfo.EMGSlope       = {EEG.chanlocs(badElectrodes2).labels};
+EEG.ALSUTRECHT.badchaninfo.maxThatCanBeRemoved      = maxThatCanBeRemoved;
+EEG.ALSUTRECHT.badchaninfo.PREPElectrodes           = {EEG.chanlocs(badElectrodes1).labels};
+EEG.ALSUTRECHT.badchaninfo.EMGSlope                 = {EEG.chanlocs(badElectrodes2).labels};
 EEG.ALSUTRECHT.badchaninfo.EMGSlopeInitalSum        = initalNumber;
 EEG.ALSUTRECHT.badchaninfo.EMGSlopeInitalProportion = initalProportion;
 
@@ -98,12 +115,5 @@ if ~isempty(badElectrodes)
     badElectrodes = {EEG.chanlocs(badElectrodes).labels};
     EEG = pop_select(EEG,'nochannel',badElectrodes);
 end
-
-% Report
-fprintf('PREP detected %d bad electrodes.\n',length(badElectrodes1));
-fprintf('EMG-slope detected %d bad electrodes.\n',length(badElectrodes2));
-
-% ADD THIS
-% RELAX_excluding_channels_and_epoching
 
 end
