@@ -5,7 +5,7 @@ function preproc_cleaning1(myPaths,id)
 %
 % =========================================================================
 % SDukic edits
-% v1, November 2024
+% v1, December 2024
 % =========================================================================
 % TODO
 % 1.
@@ -194,7 +194,7 @@ EEG = detect_badcomponents2(EEG,EXT,cfg);
 
 % Do wICA or remove them coompletely
 % EEG = do_wICA(EEG,EXT,'remove');
-EEG = remove_badcomponents(EEG);
+EEG = remove_badcomponents(EEG,cfg);
 
 % Report artifact leftovers
 EEG = report_leftovers(EEG,EXT,1,cfg);

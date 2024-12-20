@@ -4,9 +4,9 @@ if isfield(EEG,'data')
     % ALS number
     issues_to_check.aFileName = EEG.ALSUTRECHT.subject.id;
     issues_to_check.NumberTrials1 = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);            % Total possible
-    issues_to_check.NumberTrials2 = size(EEG.data,3);                                % Left after preproc
-    % issues_to_check.NumberTrials3 = EEG.ALSUTRECHT.epochRejections.round1Epochs;     % After EEGLAB exclusions
-    issues_to_check.NumberTrials4 = EEG.ALSUTRECHT.epochRejections.remainingEpochs;  % Final number
+    issues_to_check.NumberTrials2 = EEG.ALSUTRECHT.epochRejections.initialEpochs;    % Left after preproc1
+    issues_to_check.NumberTrials3 = EEG.ALSUTRECHT.epochRejections.remainingEpochs;  % Left after preproc2
+
     if isfield(EEG.ALSUTRECHT.badchaninfo,'wica')
         issues_to_check.NumberIC1 = EEG.ALSUTRECHT.badchaninfo.wica.icmax;           % ICs estiamted for wobbles
     end

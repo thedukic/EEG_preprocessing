@@ -11,7 +11,7 @@ myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
 myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
 
 % Set task/group/visit
-myPaths.task  = 'SART'; % MMN/SART/RS/EO/EC/MT
+myPaths.task  = 'RS'; % MMN/SART/RS/EO/EC/MT
 myPaths.group = {'ALS','CONTROL','AFM','PLS','PMA'};
 myPaths.visit = {'T1','T2','T3','T4','T5'};
 
@@ -47,7 +47,7 @@ addpath(subFolderPaths{:});
 % end
 
 % Initialise the toolboxes
-[ALLEEG, EEG, CURRENTSET, ALLCOM] = eeglab; close all;
+eeglab; close all;
 
 % Double-check drives
 drive1 = myPaths.rootrawdata(1:3);
@@ -66,9 +66,10 @@ end
 pop_editoptions('option_parallel',flagParallel,'option_single',0,'option_computeica',0);
 
 % Start parallel processes
-pool = gcp('nocreate');
-delete(pool); parpool("Processes");
+delete(gcp('nocreate'));
+parpool("Processes");
 
+% pool = gcp('nocreate');
 % if ~isempty(pool)
 %     if ~isempty(pool.Cluster) % pool.Cluster.HasSharedFilesystem && pool.SpmdEnabled
 %         % disp('Running with processes.');

@@ -16,15 +16,15 @@ cfg.rnum = '1';
 
 % MMN/SART (ERP) filter
 cfg.flt.erp.hp = [0.5, 4];
-cfg.flt.erp.lp = [30, 4];
+cfg.flt.erp.lp = [60, 4];
 
 % MT filter
 cfg.flt.mt.hp = [1, 4];
-cfg.flt.mt.lp = [35, 8];
+cfg.flt.mt.lp = [60, 4];
 
 % RS filter
 cfg.flt.rs.hp = [1, 4];
-cfg.flt.rs.lp = [80, 4];
+cfg.flt.rs.lp = [60, 4];
 
 % EXT filter
 % Keep the same as for EEG because of the correlations with ICs,
@@ -100,6 +100,10 @@ cfg.ica.iclabel = ...
 cfg.ica.blinkchans = {'C8','C9','C10','C14','C15','C16','C17','C18','C19','C27','C28','C29','C30','C31','C32'};
 % BlinkElectrodes = {'C14','C15','C16','C17','C18','C19','C27','C28','C29'};
 % BlinkElectrodes = {'C8','C17','C29','C30'};
+
+% EMG ICs will be filtered out above this freq
+% https://www.biorxiv.org/content/10.1101/2024.06.06.597688v1.full.pdf
+cfg.ica.emgfilt = 15; % [Hz]
 
 %% Event triggers
 cfg.trg.mmn   = {[12 17],[-0.2 0.5]};
