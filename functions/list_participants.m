@@ -1,4 +1,4 @@
-function subjects = list_subjects(folderpath,todolist)
+function subjects = list_participants(folderpath,todolist)
 %
 % List subjects from the given folder
 % SDukic, March 2024

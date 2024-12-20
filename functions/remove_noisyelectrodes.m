@@ -68,18 +68,18 @@ fprintf('PREP detected %d bad electrodes.\n',Nremoved1);
 
 % Determine how many we can still remove
 totalInitialChannels = sum(strcmp({EEG.allchans.type},'EEG'));
-currentChannels      = sum(chaneeg)-Nremoved1;
-maxThatCanBeRemoved  = round(cfgbch.maxProportionOfBadElec*totalInitialChannels);
-youCanRejectThisManyChannelsHere = maxThatCanBeRemoved - (totalInitialChannels-currentChannels);
+currentChannels      = sum(chaneeg) - Nremoved1;
+maxThatCanBeRemoved  = round(cfgbch.maxProportionOfBadElec * totalInitialChannels);
+youCanRejectThisManyChannelsHere = maxThatCanBeRemoved - (totalInitialChannels - currentChannels);
 
 % 2. Detect EMG-contaminated channels using log-log power spectra slope
 if youCanRejectThisManyChannelsHere>0
     slopesChannelsxEpochs = detect_emg(EEGTMP,cfgbch);
 
     % Detect noisy channels
-    muscleSlopeTimeAvg = mean(slopesChannelsxEpochs>cfgbch.muscleSlopeThreshold,2);
+    muscleSlopeTimeAvg = mean(slopesChannelsxEpochs > cfgbch.muscleSlopeThreshold,2);
 
-    badElectrodes2 = find(muscleSlopeTimeAvg>cfgbch.muscleSlopeTime);
+    badElectrodes2 = find(muscleSlopeTimeAvg > cfgbch.muscleSlopeTime);
     initalNumber   = length(badElectrodes2);
     initalProportion = initalNumber/length(muscleSlopeTimeAvg);
 

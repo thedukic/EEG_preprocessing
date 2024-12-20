@@ -1,11 +1,12 @@
-function EEG = remove_badcomponents(EEG)
+function EEG = remove_badcomponents(EEG,cfg)
 %
 %
-% SDukic, November 2024
+% SDukic, December 2024
+% https://www.biorxiv.org/content/10.1101/2024.06.06.597688v1.full.pdf
 % =========================================================================
 
 % Muscle ICs will be filtered such that they have only freq above this one
-muscleFreq = 25; % [Hz]
+muscleFreq = cfg.ica.emgfilt; % [Hz]
 
 % Double-check
 EEG = eeg_checkset(EEG,'ica');

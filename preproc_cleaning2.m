@@ -130,20 +130,33 @@ fprintf('================================\n');
 slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
 slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
 
-BadEpochs = sum(slopesChannelsxEpochs, 1);
-badTrialMuscleTreshhold = 0;
-badTrialMuscle = BadEpochs>badTrialMuscleTreshhold;
+% Interpolate trials that do not have a lot of electrodes contaminated by EMG
+badElecsPerTrial = arrayfun(@(col) find(slopesChannelsxEpochs(:, col)), 1:size(slopesChannelsxEpochs, 2), 'UniformOutput', false);
+eegchans = strcmp({EEG.chanlocs.type},'EEG');
+chanLocs = EEG.chanlocs(eegchans);
+[data, report] = interpolate_epochs(EEG.data(eegchans,:,:),chanLocs,badElecsPerTrial);
 
-while sum(badTrialMuscle) > 0.5*EEG.trials
-    warning('Increasing the minimum number of allowed EMG-contaminated channels: %d -> %d!',badTrialMuscleTreshhold,badTrialMuscleTreshhold+1);
-    badTrialMuscleTreshhold = badTrialMuscleTreshhold+1;
-    badTrialMuscle = BadEpochs>badTrialMuscleTreshhold;
-end
+% Return the data to the struct
+EEG.data(eegchans,:,:) = data;
+
+% These are too noisy to be saved
+badTrialMuscle = false(size(badElecsPerTrial));
+badTrialMuscle(report.listNotFixed) = true;
+
+% BadEpochs = sum(slopesChannelsxEpochs, 1);
+% badTrialMuscleTreshhold = 0;
+% badTrialMuscle = BadEpochs>badTrialMuscleTreshhold;
+%
+% while sum(badTrialMuscle) > 0.5*EEG.trials
+%     warning('Increasing the minimum number of allowed EMG-contaminated channels: %d -> %d!',badTrialMuscleTreshhold,badTrialMuscleTreshhold+1);
+%     badTrialMuscleTreshhold = badTrialMuscleTreshhold+1;
+%     badTrialMuscle = BadEpochs>badTrialMuscleTreshhold;
+% end
 
 if any(badTrialMuscle)
     EEG = pop_rejepoch(EEG,badTrialMuscle,0);
 else
-    fprintf('No EMG-contaminated epochs are found. \n');
+    fprintf('No EMG-contaminated epochs/trials are found. \n');
 end
 
 % Note the number of trials
@@ -177,10 +190,11 @@ EEG.ALSUTRECHT.epochRejections.initialEpochs       = NumberTrials(1);
 EEG.ALSUTRECHT.epochRejections.afterEEGLABEpochs   = NumberTrials(2);
 EEG.ALSUTRECHT.epochRejections.afterEMGSlopeEpochs = NumberTrials(3);
 EEG.ALSUTRECHT.epochRejections.remainingEpochs     = NumberTrials(4);
+EEG.ALSUTRECHT.epochRejections.interpEpochs        = length(report.listFixed);
 EEG.ALSUTRECHT.epochRejections.proportionOfEpochsRejected = (EEG.ALSUTRECHT.epochRejections.initialEpochs-EEG.ALSUTRECHT.epochRejections.remainingEpochs)/EEG.ALSUTRECHT.epochRejections.initialEpochs;
 EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal = median(voltageShiftWithinEpoch,3);
 
-EEG.ALSUTRECHT.epochRejections.badTrialMuscleTreshhold2 = badTrialMuscleTreshhold;
+% EEG.ALSUTRECHT.epochRejections.badTrialMuscleTreshhold2 = badTrialMuscleTreshhold;
 EEG.ALSUTRECHT.epochRejections.muscle2 = mean(BadEpochs>0);
 EEG.ALSUTRECHT.leftovers.muscle2 = EEG.ALSUTRECHT.epochRejections.muscle2;
 

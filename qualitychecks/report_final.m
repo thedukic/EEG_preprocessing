@@ -53,10 +53,10 @@ for i = 1:NSUB
     % Epochs: Total possible
     % N(i,2) = sum([EEG.ALSUTRECHT.eventinfo{:,3}])*4/2; % RS
     N(i,2) = EEG.ALSUTRECHT.issues_to_check.NumberTrials1;
-    % Epochs: Left after preproc
+    % Epochs: Left after preproc1
     N(i,3) = EEG.ALSUTRECHT.issues_to_check.NumberTrials2;
-    % Epochs: Left after trial rejection
-    N(i,4) = EEG.ALSUTRECHT.issues_to_check.NumberTrials4;
+    % Epochs: Left after preproc2
+    N(i,4) = EEG.ALSUTRECHT.issues_to_check.NumberTrials3;
 
     % Leftover EMG
     % N(i,5) = EEG.ALSUTRECHT.leftovers.muscle1;  % after proc1
