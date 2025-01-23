@@ -5,12 +5,8 @@ function preproc_cleaning1(myPaths,id)
 %
 % =========================================================================
 % SDukic edits
-% v1, December 2024
+% v1, January 2025
 % =========================================================================
-% TODO
-% 1.
-% 2.
-%
 
 % Load preprocessing settings
 cfg = preproc_parameters;
@@ -25,7 +21,7 @@ subject.mycodes = myPaths.mycodes;
 subject.rawdata = fullfile(myPaths.rawdata, subject.id);
 subject.preproc = fullfile(myPaths.preproc, subject.id);
 subject.icadata = fullfile(subject.preproc, upper(cfg.ica.type2));
-subject.clnfile = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' cfg.rnum 'a.mat'];
+subject.clnfile = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'a.mat'];
 
 % Find datasets
 [subject.datablocks, NBLK] = list_datasets(subject.rawdata,myPaths.task);
@@ -67,10 +63,10 @@ if exist(subject.preproc,'dir')~=7, mkdir(subject.preproc); end
 % Open a report
 t0 = datetime("now");
 procTimeTags = {myPaths.proctime; strrep(strrep(char(t0),':','-'),' ','-')};
-subject.fid  = fopen(fullfile(subject.preproc,['report_preprocess_v' cfg.rnum '.txt']),'w+');
+subject.fid  = fopen(fullfile(subject.preproc,['report_preprocess_v' myPaths.rnum '.txt']),'w+');
 
 fprintf(subject.fid,'%s | %s | %s dataset\n\n',myPaths.group,subject.id,myPaths.task);
-fprintf(subject.fid,'Code version %s\n',cfg.rnum);
+fprintf(subject.fid,'Code version %s\n',myPaths.rnum);
 fprintf(subject.fid,'Started: %s\n',t0);
 
 % Manually fix datasets
@@ -134,6 +130,11 @@ end
 % Merge datasets
 EEG = pop_mergeset(EEG,1:NBLK);
 
+% Check if EC has eye blinks; Currently too sensitive?
+if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EC')
+    EEG = check_eyesclosedeyeblinks(EEG);
+end
+
 % % Clean EMG
 % if strcmpi(myPaths.task,'MT')
 %     EEG = clean_emgdata(EEG);
@@ -165,13 +166,8 @@ else
     [EEG, EMG] = remove_extremeperiods(EEG,EMG);
 end
 
-% Check if EC has eye blinks; Currently too sensitive?
-% if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EC')
-%     EEG = check_eyesclosedeyeblinks(EEG);
-% end
-
-% % Reduce artifacts
-% EEG = reduce_artifacts(EEG,cfg.bch);
+% Reduce artifacts
+EEG = reduce_artifacts(EEG,cfg.bch);
 
 % Separate EXT channels before ICA
 chanext = {EEG.chanlocs(strcmp({EEG.chanlocs.type},'EXT')).labels};
@@ -192,30 +188,11 @@ EEG = do_ICA(EEG,cfg);
 % Detect artifact ICs
 EEG = detect_badcomponents2(EEG,EXT,cfg);
 
-% Do wICA or remove them coompletely
-% EEG = do_wICA(EEG,EXT,'remove');
+% Deal with artifact ICs
 EEG = remove_badcomponents(EEG,cfg);
 
 % Report artifact leftovers
 EEG = report_leftovers(EEG,EXT,1,cfg);
-
-% % Remove IC blinks completely if too much blink lefotver is detected
-% if flagREDO
-%     EEGTMP = do_wICA(EEG,EXT,'remove');
-%
-%     % Report again leftovers
-%     [EEG, flagREDO] = report_leftovers(EEGTMP,EXT,2,cfg);
-%
-%     % Report
-%     if flagREDO
-%         warning('Failed to remove the blinks. It seems that there is sill a lot of them left in the EEG data.');
-%     else
-%         fprintf('Nice! It seems that the blinks are not properly removed from the data the EEG data.');
-%     end
-% else
-%     EEG = EEGTMP;
-% end
-% clearvars EEGTMP;
 
 % Report ICA
 EEG = report_ICA(EEG);

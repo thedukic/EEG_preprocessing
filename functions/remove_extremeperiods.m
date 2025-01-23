@@ -172,7 +172,7 @@ EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1                 = extremeMask;
 EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs2                 = extremeNoiseEpochs2;
 EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3                 = extremeNoiseEpochs3;
 
-fprintf('Percentage of extremly bad EEG: %1.2f\n', EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier);
+fprintf('Proportion of extremly bad EEG: %1.2f\n', EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier);
 
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Extremly bad epochs\n');
@@ -193,6 +193,32 @@ if ~isempty(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
     if nargin == 2
         EMG = eeg_eegrej(EMG, EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
     end
+end
+
+%% Fix the masks as the extreme epochs have been removed already!
+if isfield(EEG.ALSUTRECHT,'blockinfo')
+    maskGood = ~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1;
+    maskRS = EEG.ALSUTRECHT.blockinfo.rs_mask;
+
+    % Find start/stop of good periods
+    jump = find(diff([false, maskGood, false])~=0);
+    jumpStop = jump(2:2:end)-1; jumpStop(end) = [];
+
+    % Mark one sample just before the bad segment
+    % 1   1   1   1   1   1   0   0   1   1 ---> 6
+    maskGood(jumpStop) = false;
+
+    maskGood(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
+    maskRS(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
+
+    % Double-check
+    assert(size(EEG.data,2) == length(maskGood));
+    assert(size(EEG.data,2) == length(maskRS));
+    assert(length(jumpStop) == sum(~maskGood));
+
+    % Return
+    EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1 = ~maskGood;
+    EEG.ALSUTRECHT.blockinfo.rs_mask = maskRS;
 end
 
 end

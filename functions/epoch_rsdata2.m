@@ -14,31 +14,33 @@ nsmp    = round(epochLength*EEG.srate);
 nshift  = round((1-epochOverlap)*nsmp);
 if nshift<=0, error('the overlap is too large'); end
 
-% Fix the masks as the extreme epochs have been removed already!
+% Extract the RS masks
 maskGood = ~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1;
 maskRS = EEG.ALSUTRECHT.blockinfo.rs_mask;
 
-% Find start/stop of good periods
-jump = find(diff([false, maskGood, false])~=0);
-jumpStop = jump(2:2:end)-1; jumpStop(end) = [];
+% % Not needed, this is now done immediately when the extreme epochs are removed
+% % Fix the masks as the extreme epochs have been removed already!
+% % Find start/stop of good periods
+% jump = find(diff([false, maskGood, false])~=0);
+% jumpStop = jump(2:2:end)-1; jumpStop(end) = [];
+%
+% % Mark one sample just before the bad segment
+% % 1   1   1   1   1   1   0   0   1   1 ---> 6
+% maskGood(jumpStop) = false;
+%
+% maskGood(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
+% maskRS(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
 
-% Mark one sample just before the bad segment
-% 1   1   1   1   1   1   0   0   1   1 ---> 6
-maskGood(jumpStop) = false;
-
-maskGood(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
-maskRS(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
-
+% assert(length(jumpStop) == sum(~maskGood));
 assert(size(EEG.data,2) == length(maskGood));
 assert(size(EEG.data,2) == length(maskRS));
-assert(length(jumpStop) == sum(~maskGood));
 
 % Add boundaries which could be:
 % 1. Between appended blocks
-% 2. Due to CMS dropouts
+% 2. Due to CMS dropouts or extrme outliers being removed
 isBoundary = ismember({EEG.event.type},'boundary');
-latencies = round([EEG.event.latency]);
-latencies = latencies(isBoundary);
+latencies  = round([EEG.event.latency]);
+latencies  = latencies(isBoundary);
 latencies(latencies==1 | latencies==EEG.pnts-1) = [];
 maskGood(latencies) = false;
 

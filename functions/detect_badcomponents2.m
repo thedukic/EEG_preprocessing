@@ -7,7 +7,7 @@ EEG = eeg_checkset(EEG,'ica');
 
 % Make sure IC activations are present
 EEG.icaact = [];
-ICAdata    = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
+ICAdata    = (EEG.icaweights*EEG.icasphere) * EEG.data(EEG.icachansind,:);
 NICA       = size(ICAdata,1);
 
 %% ========================================================================
@@ -40,7 +40,7 @@ chanheog = find(strcmp({EXT.chanlocs.labels},'HEOG'));
 % If the signal is not recorded, try to estimate it using
 % an approximate reconstruciton (ICA-like) weights
 if isempty(chanecg)
-    warning('ECG signals was not recorded. Some heart IC check cannot be done.');
+    warning('ECG signal was not recorded. Some heart IC detections cannot be done.');
     EXTdataECG = []; EXTTMP = [];
 
     % warning('ECG signals was not recorded, but we can try to estimate it from the EEG data...');
@@ -98,11 +98,12 @@ if ~isempty(EXTdataECG)
     EXTdataECG = do_filteringcore(blECG,alECG,EXTdataECG,EEG.event,EEG.srate);
     EXTdataECG = do_filteringcore(bhECG,ahECG,EXTdataECG,EEG.event,EEG.srate);
 else
-    EXTdataECG = NaN*EXTdataEOG(1,:);
+    EXTdataECG = NaN * EXTdataEOG(1,:);
 end
 
 % Combine: ECG / VEOG / HEOG
 EXTdata = [EXTdataECG; EXTdataEOG]';
+clearvars EXTdataECG EXTdataEOG
 
 % Correlation
 % 1. ECG
@@ -233,7 +234,7 @@ badICtype = [ones(length(badICECG),1); 2*ones(length(badICVEOG),1); 3*ones(lengt
 NEXT = length(extLabels);
 for i = 1:NEXT
     if any(badICtype==i)
-        fprintf('%s ICs (N = %d) were identified using EXT channel correlation (Z>%1.1f).\n',extLabels{i},sum(badICtype==i),corrTreshold(i));
+        fprintf('%s ICs (N=%d) were identified using EXT channel correlation (Z>%1.1f).\n',extLabels{i},sum(badICtype==i),corrTreshold(i));
         str = strjoin(string(badIC(badICtype==i)),', ');
         fprintf('%s ICs: %s\n',extLabels{i},str);
     else
@@ -271,32 +272,34 @@ if ~isempty(EXTTMP)
 
         ctpsTreshold1 = 5;  % 0.3-0.4?
         ctpsTreshold2 = 20; % 20 original paper
-        badIC1 = find(V>ctpsTreshold1);
-        badIC2 = find(pK>=ctpsTreshold2);
+        badIC1 = find(V > ctpsTreshold1);
+        badIC2 = find(pK >= ctpsTreshold2);
 
         % Sometimes there are weird false positives
         load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Heartweights'),'Heartweights'); % template
         if any(badIC1)
-            falseECGIC = abs(corr(EEG.icawinv(:,badIC1),Heartweights,"type","Spearman")) < 0.85;
-            badIC1(falseECGIC) = [];
+            falseECGIC1 = abs(corr(EEG.icawinv(:,badIC1),Heartweights,"type","Spearman")) < 0.85;
+            falseECGIC2 = EEG.ALSUTRECHT.ica.ICLabel.cvec(badIC1) == 1 & EEG.ALSUTRECHT.ica.ICLabel.pvec(badIC1) >= 0.98;
+            badIC1(falseECGIC1 | falseECGIC2) = [];
         end
         if any(badIC2)
-            falseECGIC = abs(corr(EEG.icawinv(:,badIC2),Heartweights,"type","Spearman")) < 0.85;
-            badIC2(falseECGIC) = [];
+            falseECGIC1 = abs(corr(EEG.icawinv(:,badIC2),Heartweights,"type","Spearman")) < 0.85;
+            falseECGIC2 = EEG.ALSUTRECHT.ica.ICLabel.cvec(badIC2) == 1 & EEG.ALSUTRECHT.ica.ICLabel.pvec(badIC2) >= 0.98;
+            badIC2(falseECGIC1 | falseECGIC2) = [];
         end
 
         % Combine
         badIC = unique([badIC1(:); badIC2(:)]);
 
         if ~isempty(badIC1)
-            fprintf('ECG ICs (N = %d) were identified using cross-trial phase statistics (Z>%1.1f).\n',length(badIC1),ctpsTreshold1);
+            fprintf('ECG ICs (N=%d) were identified using cross-trial phase statistics (Z>%1.1f).\n',length(badIC1),ctpsTreshold1);
             str = strjoin(string(badIC1),', ');
             fprintf('ECG ICs: %s\n',str);
         else
             fprintf('No ECG ICs were identified using cross-trial phase statistics (Z>%1.1f).\n',ctpsTreshold1);
         end
         if ~isempty(badIC2)
-            fprintf('ECG ICs (N = %d) were identified using cross-trial phase statistics (pK>=%1.1f).\n',length(badIC2),ctpsTreshold2);
+            fprintf('ECG ICs (N=%d) were identified using cross-trial phase statistics (pK>=%1.1f).\n',length(badIC2),ctpsTreshold2);
             str = strjoin(string(badIC2),', ');
             fprintf('ECG ICs: %s\n',str);
         else
@@ -384,7 +387,7 @@ end
 badIC = find(muscleRatio > options.muscleSlopeThreshold);
 
 if ~isempty(badIC)
-    fprintf('Muscle ICs (N = %d) were identified using ICLabel and power slope (>%1.1f).\n',length(badIC),options.muscleSlopeThreshold);
+    fprintf('Muscle ICs (N=%d) were identified using ICLabel and power slope (>%1.1f).\n',length(badIC),options.muscleSlopeThreshold);
     str = strjoin(string(badIC),', ');
     fprintf('EMG ICs: %s\n',str);
 else
@@ -404,16 +407,20 @@ fprintf('VEOG: icablinkmetrics plugin\n');
 fprintf('================================\n');
 
 % Blink / VEOG channel
-% EOGdata = mean(EEG.data(ismember({EEG.chanlocs.labels},cfg.ica.blinkchans),:),1);
-EOGdata = EXTdata(:,2)';
+EOGdata = mean(EEG.data(ismember({EEG.chanlocs.labels},cfg.ica.blinkchans),:),1);
+% Filter EEG (~EOG)
+% EOGdata = do_filteringcore(blEOG,alEOG,EOGdata,EEG.event,EEG.srate);
+% EOGdata = do_filteringcore(bhEOG,ahEOG,EOGdata,EEG.event,EEG.srate);
+% EOGdata = EXTdata(:,2)';
 
 % Put bandpassed ICA data
-EEG.icaact = ICAdataEOG';
+% EEG.icaact = ICAdataEOG';
+EEG.icaact = ICAdata;
 
 try
     icablinkmetricsout = icablinkmetrics(EEG,'ArtifactChannel',EOGdata,'Alpha',0.001,'VisualizeData','False');
-    if any(icablinkmetricsout.identifiedcomponents>0)
-        fprintf('Blink ICs (N = %d) were identified using icablinkmetrics.\n',length(icablinkmetricsout.identifiedcomponents));
+    if any(icablinkmetricsout.identifiedcomponents > 0)
+        fprintf('Blink ICs (N=%d) were identified using icablinkmetrics.\n',length(icablinkmetricsout.identifiedcomponents));
         str = strjoin(string(icablinkmetricsout.identifiedcomponents),', ');
         fprintf('VEOG ICs: %s\n',str);
     else
@@ -431,7 +438,12 @@ catch
     icablinkmetricsout.metrics.perc_Pvalue  = [];
 end
 
-% Put back
+% Prevent obvious missclasifications, not sure why this happens
+load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Blinkweights'),'Blinkweights'); % template
+falseVEOG = abs(corr(EEG.icawinv(:,icablinkmetricsout.identifiedcomponents),Blinkweights,"type","Spearman")) < 0.8;
+icablinkmetricsout.identifiedcomponents(falseVEOG) = [];
+
+% Remove (not needed)
 EEG.icaact = [];
 
 % Log
@@ -449,8 +461,34 @@ fprintf('================================\n');
 % Estimate spatial smootheness
 [spatialSmoothness, badIC, spatialTreshold] = estimate_spatialsmoothnes(EEG);
 
+% % These are likely not good/clear ICs (or muscle)
+% % -> multiple strong weights
+% falseChannel = abs(zscore(EEG.icawinv(:,badIC)));
+% ICsMostLikelyChannelWrong = sum(falseChannel > 3, 1) ~= 1;
+% badIC(ICsMostLikelyChannelWrong) = [];
+
+% falseChannel = sign(falseChannel) .* falseChannel.^2;
+% maxWeights = max(abs(falseChannel));
+
+% NICAbad = length(badIC);
+% ICsMostLikelyChannelWrong1 = false(1,NICAbad);
+% ICsMostLikelyChannelWrong2 = false(1,NICAbad);
+%
+% for i = 1:NICAbad
+%     maxWeightsTmp1 = 0.5 * maxWeights(i);
+%     maxWeightsTmp2 = 0.2 * maxWeights(i);
+%     ICsMostLikelyChannelWrong1(i) = sum(falseChannel(:,i)>maxWeightsTmp1) > 0 & sum(falseChannel(:,i)<-maxWeightsTmp1) > 0; % EMG dipoles
+%     ICsMostLikelyChannelWrong2(i) = sum(abs(falseChannel(:,i))>maxWeightsTmp2) > 3; % too weak channel ICs
+% end
+% badIC(ICsMostLikelyChannelWrong1 | ICsMostLikelyChannelWrong2) = [];
+
+% figure;
+% for i = 1:length(badIC)
+%     mytopoplot(EEG.icawinv(:,badIC(i)), [],num2str(badIC(i)),nexttile);
+% end
+
 if ~isempty(badIC)
-    fprintf('Channel ICs (N = %d) were identified using spatial characteristics (Var1<%1.1f & Var2>%d).\n',length(badIC),spatialTreshold);
+    fprintf('Channel ICs (N=%d) were identified using spatial characteristics (Var1<%1.1f & Var2>%d).\n',length(badIC),spatialTreshold);
     str = strjoin(string(badIC),', ');
     fprintf('Channel ICs: %s\n',str);
 else
@@ -476,7 +514,7 @@ load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Blinkweights'),'Blinkweigh
 icawinvSmooth = estimate_invlaplacian(EEG.icawinv,EEG.chanlocs,1);
 
 % Lower to capture imperfect ICs, but leads to false positives
-corrMat = abs(corr(icawinvSmooth,Blinkweights,"type","Spearman"));
+corrMat = abs(corr(icawinvSmooth,Blinkweights,"type","Pearson"));
 blinkTreshold = 0.95;
 badIC = find(corrMat>blinkTreshold);
 
@@ -486,7 +524,7 @@ falseVEOGIC = EEG.ALSUTRECHT.ica.ICLabel.cvec(badIC) == 1 & EEG.ALSUTRECHT.ica.I
 badIC(falseVEOGIC) = [];
 
 if ~isempty(badIC)
-    fprintf('VEOG ICs (N = %d) were identified using template correlation (R>%1.2f).\n',length(badIC),blinkTreshold);
+    fprintf('VEOG ICs (N=%d) were identified using template correlation (R>%1.2f).\n',length(badIC),blinkTreshold);
     str = strjoin(string(badIC),', ');
     fprintf('VEOG ICs: %s\n',str);
 else
@@ -513,12 +551,12 @@ corrMat = abs(corr(icawinvSmooth,Saccadeweights,"type","Pearson"));
 saccadeTreshold = 0.95;
 badIC = find(corrMat>saccadeTreshold);
 
-% figure; 
+% figure;
 % mytopoplot(Saccadeweights,[],[],nexttile);
 % mytopoplot(icawinvSmooth(:,18),[],[],nexttile);
 
 if ~isempty(badIC)
-    fprintf('HEOG ICs (N = %d) were identified using template correlation (R>%1.2f).\n',length(badIC),saccadeTreshold);
+    fprintf('HEOG ICs (N=%d) were identified using template correlation (R>%1.2f).\n',length(badIC),saccadeTreshold);
     str = strjoin(string(badIC),', ');
     fprintf('HEOG ICs: %s\n',str);
 else
@@ -554,6 +592,12 @@ eye1 = EEG.ALSUTRECHT.ica.ICLabel.bics(EEG.ALSUTRECHT.ica.ICLabel.cvec(EEG.ALSUT
 ICsMostLikelyEyeICLabel = false(NICA,1);
 ICsMostLikelyEyeICLabel(eye1) = true;
 
+% Fix wrong ICLabel estimates
+% 1. Increase the probability, > 0.5/0.6
+% 2. Remove ICs with low variance, likely channel (or muscle) ICs
+ICsMostLikelyEyeICLabel(EEG.ALSUTRECHT.ica.spatialSmoothness.bics) = false;
+
+% Eye ICs: combine all
 ICsMostLikelyEye = ICsMostLikelyBlink | ICsMostLikelySaccade | ICsMostLikelyEyeICLabel;
 
 % *Muscle ICs
@@ -574,25 +618,15 @@ ICsMostLikelyEyeICLabel(ICsMostLikelyComplex) = false;
 ICsMostLikelyEye = ICsMostLikelyBlink | ICsMostLikelySaccade | ICsMostLikelyEyeICLabel;
 
 % *Channel ICs
-% channel1 = EEG.ALSUTRECHT.ica.ICLabel.bics(EEG.ALSUTRECHT.ica.ICLabel.cvec(EEG.ALSUTRECHT.ica.ICLabel.bics)==6);
-% channel2 = EEG.ALSUTRECHT.ica.spatialSmoothness.bics;
-% channelAll = unique([channel1(:); channel2(:)]);
+channel1 = EEG.ALSUTRECHT.ica.ICLabel.bics(EEG.ALSUTRECHT.ica.ICLabel.cvec(EEG.ALSUTRECHT.ica.ICLabel.bics)==6);
+channel2 = EEG.ALSUTRECHT.ica.spatialSmoothness.bics;
+channelAll = unique([channel1(:); channel2(:)]);
 ICsMostLikelyChannel = false(NICA,1);
-% ICsMostLikelyChannel(channelAll) = true;
+ICsMostLikelyChannel(channelAll) = true;
 
-% % These are likely muscle?
-% tmp = zscore(EEG.icawinv(:,ICsMostLikelyMuscle));
-% % figure; imagesc(tmp);
-% ICsMostLikelyChannelWrong = sum(tmp>3,1) > 0 & sum(tmp<-3,1) >0;
-
-% % Sometimes muscle ICs are marked as channel ICs
-% ICsMostLikelyChannelWrong = ICsMostLikelyChannel & ICsMostLikelyMuscle;
-% if any(ICsMostLikelyChannelWrong)
-%     ICsMostLikelyChannel(ICsMostLikelyChannelWrong) = false;
-% end
-
-% % Maybe do not bother with "higher" bad channel ICs, low variance anyway
-% ICsMostLikelyChannel(35:end) = false;
+% Sometimes muscle ICs are marked as channel ICs
+ICsMostLikelyChannelWrong = ICsMostLikelyChannel & (ICsMostLikelyEye | ICsMostLikelyMuscle | ICsMostLikelyComplex);
+ICsMostLikelyChannel(ICsMostLikelyChannelWrong) = false;
 
 % *Heart ICs
 heart1 = EEG.ALSUTRECHT.ica.ICLabel.bics(EEG.ALSUTRECHT.ica.ICLabel.cvec(EEG.ALSUTRECHT.ica.ICLabel.bics)==4);
@@ -603,18 +637,13 @@ ICsMostLikelyHeart = false(NICA,1);
 ICsMostLikelyHeart(heartAll) = true;
 
 % Sometimes muscle or channel ICs are marked as heart ICs
+% Heart ICs are usually <20th ICs
 ICsMostLikelyHeartWrong = ICsMostLikelyHeart & (ICsMostLikelyMuscle |  ICsMostLikelyComplex | ICsMostLikelyChannel);
-if any(ICsMostLikelyHeartWrong)
-    ICsMostLikelyHeart(ICsMostLikelyHeartWrong) = false;
-end
-
-% % *wICA ICs
-% ICsforwICA = false(NICA,1);
-% ICsforwICA(ICsMostLikelyEye | ICsMostLikelyHeart | ICsMostLikelyChannel) = true;
-% ICsforwICA(ICsMostLikelyMuscle | ICsMostLikelyComplex) = false;
+ICsMostLikelyHeart(ICsMostLikelyHeartWrong) = false;
+ICsMostLikelyHeart(25:end) = false;
 
 % There should be no overlap
-assert(max(sum([ICsMostLikelyEye, ICsMostLikelyMuscle, ICsMostLikelyComplex],2))==1);
+assert(max(sum([ICsMostLikelyEye, ICsMostLikelyMuscle, ICsMostLikelyComplex, ICsMostLikelyChannel],2)) == 1);
 
 % Log
 EEG.ALSUTRECHT.ica.ICsMostLikelyBlink   = ICsMostLikelyBlink;

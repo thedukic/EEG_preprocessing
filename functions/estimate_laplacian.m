@@ -1,7 +1,4 @@
-function [laplac, time] = estimate_laplacian(data, chanlocs, stepSize)
-
-% Start the timer
-tic;
+function laplac = estimate_laplacian(data, chanlocs, stepSize)
 
 % Number of channels (electrodes)
 n = length(data(:,1));
@@ -57,9 +54,6 @@ for j = 1:stepSize:largo
     k = k + 1;
 end
 
-% Record the computation time
-time = toc;
-
 end
 
 %% ========================================================================
@@ -93,6 +87,10 @@ end
 function valor = gm_1(r1, r2, r3, r4)
 % Compute gm_1 function, similar to g2 but with different weighting
 
+% Both param: Smaller -> smoother
+smoothnesParam = 2;
+K = 25;
+
 % Compute x from spherical coordinates
 x = cos(r1) .* cos(r2) .* cos(r3) .* cos(r4) + ...
     cos(r1) .* sin(r2) .* cos(r3) .* sin(r4) + ...
@@ -103,17 +101,17 @@ x = min(max(x, -1), 1);
 
 % Preallocate for Legendre polynomials
 L = length(x);
-P = zeros(25, L);
+P = zeros(K, L);
 
 % Compute Legendre polynomials up to n=25
-for n = 1:25
+for n = 1:K
     aux = legendre(n, x);
     P(n, :) = aux(1, :);
 end
 
 % Calculate gm_1 using a different weighting for each term
-n = 1:25;
-aux2 = (2 * n + 1) ./ (n .* (n + 1)).^2;
+n = 1:K;
+aux2 = (2 * n + 1) ./ (n .* (n + 1)).^smoothnesParam;
 aux2 = repmat(aux2',1,L);
 valor = 1 / (4 * pi) * sum(aux2 .* P, 1);
 

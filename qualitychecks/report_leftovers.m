@@ -1,13 +1,14 @@
 function [EEG, flagREDO] = report_leftovers(EEG,EXT,run,cfg)
 %
-% RELAX toolbox
+% Based on the RELAX toolbox
+% The code might not work very well
 % SDukic, October 2024
 %
 
 %% =========================================================================
 fprintf('\nChecking muscle activity leftovers...\n');
 muscleSlopeThreshold = cfg.bch.muscleSlopeThreshold;
-muscleSlopeDuration  = 0.5;
+muscleSlopeDuration  = cfg.bch.muscleSlopeTime;
 
 % Estimate log-log power spectra
 slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
@@ -84,7 +85,7 @@ if NTRL>0
         dataeogepoched(:,i)   = dataeog(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
     end
 
-    baselineTime = timeBlink0(end)*[0.05 0.95];
+    baselineTime = timeBlink0(end) * [0.05 0.95];
     timesel = timeBlink0<baselineTime(1) | timeBlink0>baselineTime(2);
     dataeegepoched = dataeegepoched - mean(dataeegepoched(:,timesel,:),2);
     % dataeegepoched = dataeegepoched - mean(dataeegepoched,2);
@@ -342,10 +343,16 @@ elseif ~isnan(tstatMean)
     fprintf('Average frontal leftover is %1.2f (T-stat).\n',meanFrontalBlinkLeftoverTstat);
 end
 
-if flagREDO, warning('Blink leftover is too big, wICA will be redone by completely removing the blink ICs...\n'); end
+% if flagREDO, warning('Blink leftover is too big, wICA will be redone by completely removing the blink ICs...\n'); end
+
+% Remove (not needed)
+EEG.icaact = [];
 
 end
 
+% =========================================================================
+% Helper functions
+% =========================================================================
 function multiBlink = detect_multiblinks(eyeBlinksEpochs,overlap)
 % Find multi-blinks
 % Function to create the range specified by each row

@@ -76,15 +76,18 @@ end
 EEG = eeg_checkset(EEG,'ica');
 
 % Make sure IC activations are present
-EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
+EEG.icaact = (EEG.icaweights*EEG.icasphere) * EEG.data(EEG.icachansind,:);
 EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
 
-% Calculate the variances
+% Calculate the variances/power
 NICA = length(EEG.reject.gcompreject);
 varICs = NaN(NICA,1);
 for i = 1:NICA
     [~, varICs(i)] = compvar(EEG.data,EEG.icaact,EEG.icawinv,i);
 end
+
+% Remove (not needed)
+EEG.icaact = [];
 
 % Log
 EEG.ALSUTRECHT.ica.icmax0  = cfg.ica.icMax;

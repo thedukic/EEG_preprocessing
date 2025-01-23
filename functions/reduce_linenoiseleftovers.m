@@ -23,8 +23,8 @@ pval    = cell(NBLK,1);
 
 for i = 1:NBLK
     % Epoch into 1s (or maybe better into 1s with 0.5 overlap, but OK)
-    Lepoch = 4*EEG(1).srate;
-    Nepoch = floor(size(EEG(i).data,2)/Lepoch);
+    Lepoch  = 4*EEG(1).srate;
+    Nepoch  = floor(size(EEG(i).data,2)/Lepoch);
     dataeeg = reshape(EEG(i).data(:,1:Nepoch*Lepoch),EEG(i).nbchan,Lepoch,Nepoch);
 
     % Estimate power
@@ -183,7 +183,9 @@ for i = 1:NBLK
 end
 
 % Save
-if NBLK==3
+if NBLK == 2
+    plotX=20; plotY=10;
+elseif NBLK==3
     plotX=20; plotY=15;
 elseif NBLK==4
     plotX=20; plotY=20;

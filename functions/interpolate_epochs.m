@@ -1,4 +1,4 @@
-function [data, report] = interpolate_epochs(data,elec,badElecsPerTrial,ignore_chans)
+function [data, report] = interpolate_epochs(data,elec,badElecsPerTrial,ignore_chans,maxBadChans)
 
 % Assert the right format
 assert(size(data,3) == length(badElecsPerTrial));
@@ -18,7 +18,7 @@ listNotFixed = [];
 for i = 1:length(badElecsPerTrial)
     if ~isempty(badElecsPerTrial{i})
         % The trial is noisy
-        if length(badElecsPerTrial{i}) <= 3
+        if length(badElecsPerTrial{i}) <= maxBadChans
             % The trial can be fixed
             badchans  = badElecsPerTrial{i};
             goodchans = setdiff(1:size(data,1), badchans);
@@ -61,19 +61,20 @@ for i = 1:length(badElecsPerTrial)
     end
 end
 
+% Report
 report = [];
 report.listFixed = listFixed;
 report.listNotFixed = listNotFixed;
 
-fprintf('Number of trials fixed: %d.\n',length(listFixed));
-fprintf('Number of trials to be removed: %d.\n',length(listNotFixed));
+fprintf('Number of trials fixed: %d\n',length(listFixed));
+fprintf('Number of trials to be removed: %d\n',length(listNotFixed));
 
 % =========================================================================
 % =========================================================================
 % Helper functions
 % =========================================================================
 % =========================================================================
-function allres = spheric_spline( xelec, yelec, zelec, xbad, ybad, zbad, values)
+function allres = spheric_spline(xelec, yelec, zelec, xbad, ybad, zbad, values)
 
 newchans = length(xbad);
 numpoints = size(values,2);

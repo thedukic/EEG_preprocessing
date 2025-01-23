@@ -18,7 +18,7 @@ if isempty(cfg.flatDuration)
 end
 
 % Minimum "flat" duration in [samples]
-T0 = cfg.flatDuration*EEG(1).srate;
+T0 = cfg.flatDuration * EEG(1).srate;
 
 % EXT/EMG electrodes are not checked (they should never be flat)
 % otherchan = {EEG(1).chanlocs(~strcmp({EEG(1).chanlocs.type},'EEG')).labels};

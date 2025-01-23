@@ -1,20 +1,24 @@
-function report_final(myPaths,subjects,rnum)
+function report_final(myPaths,subjects)
 %
 % Script for reporting on EEG data preprocessing
 % ALS Centre, University Medical Centre Utrecht
 %
 % =========================================================================
 % SDukic edits
-% v1, September 2024
+% v1, January 2025
 % =========================================================================
 % TODO
 % 1.
 % 2.
 %
 
-fprintf('Generating a final report... This may take a while...\n');
-if isnumeric(rnum), rnum = num2str(rnum); end
+fprintf('\n');
+disp('==================================================================');
+fprintf('Generating the final report for %s. This may take a bit...\n',myPaths.group);
+disp('==================================================================');
+fprintf('\n');
 
+% =========================================================================
 NSUB = length(subjects);
 chanlocs = readlocs('biosemi128_eeglab.ced');
 chanlbls = {chanlocs.labels};
@@ -26,14 +30,13 @@ if exist(myPaths.reports,'dir')~=7, mkdir(myPaths.reports); end
 
 % =========================================================================
 N = NaN(NSUB,5);
-
 NCHN = length(chanlbls);
 Medianvoltageshift = NaN(NCHN,NSUB);
 CorrelationMatrices = NaN(NCHN+2,NCHN+2,NSUB);
 
-fprintf('Loading %d datasets... Wait...\n',NSUB);
+fprintf('Loading %d datasets. Wait...\n',NSUB);
 for i = 1:NSUB
-    load(fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' rnum 'b.mat']),'EEG');
+    load(fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']),'EEG');
 
     % Record warnings about potential issues
     EEG = report_issues(EEG);
@@ -126,8 +129,8 @@ print(fh,fullfile(myPaths.reports,['Summary1_' myPaths.group '_' myPaths.visit '
 % The following detects outlier files in the median amount of their max-min
 % voltage shift within an epoch, after adjusting for the fact that the data
 % across all participants is likely to be positively skewed with a log transform.
-MedianvoltageshiftwithinepochLogged=log10(Medianvoltageshift);
-InterQuartileRange=iqr(MedianvoltageshiftwithinepochLogged,2);
+MedianvoltageshiftwithinepochLogged = log10(Medianvoltageshift);
+InterQuartileRange = iqr(MedianvoltageshiftwithinepochLogged,2);
 Upper25 = prctile(MedianvoltageshiftwithinepochLogged,75,2);
 Lower25 = prctile(MedianvoltageshiftwithinepochLogged,25,2);
 
@@ -135,21 +138,21 @@ Lower25 = prctile(MedianvoltageshiftwithinepochLogged,25,2);
 % so this is used to recommend which participants to manually check
 % However, I find this can be a bit too sensitive upon manual inspection,
 % and that 1.75, 2, or even 2.5 can be a better threshold.
-LowerBound=size(MedianvoltageshiftwithinepochLogged,1);
-UpperBound=size(MedianvoltageshiftwithinepochLogged,1);
-for i=1:size(MedianvoltageshiftwithinepochLogged,1)
-    LowerBound(i,1)=Lower25(i,1)-(2*InterQuartileRange(i,1));
-    UpperBound(i,1)=Upper25(i,1)+(2*InterQuartileRange(i,1));
+LowerBound = NaN(128,1);
+UpperBound = NaN(128,1);
+for i = 1:size(MedianvoltageshiftwithinepochLogged,1)
+    LowerBound(i) = Lower25(i) - (2 * InterQuartileRange(i));
+    UpperBound(i) = Upper25(i) + (2 * InterQuartileRange(i));
 end
 
-VoltageShiftsTooLow=MedianvoltageshiftwithinepochLogged;
-VoltageShiftsTooLow=VoltageShiftsTooLow-LowerBound;
-VoltageShiftsTooLow(VoltageShiftsTooLow>0)=0;
+VoltageShiftsTooLow = MedianvoltageshiftwithinepochLogged;
+VoltageShiftsTooLow = VoltageShiftsTooLow - LowerBound;
+VoltageShiftsTooLow(VoltageShiftsTooLow > 0) = 0;
 CumulativeSeverityOfAmplitudesBelowThreshold = sum(VoltageShiftsTooLow,1)';
 
-VoltageShiftsTooHigh=MedianvoltageshiftwithinepochLogged;
-VoltageShiftsTooHigh=VoltageShiftsTooHigh-UpperBound;
-VoltageShiftsTooHigh(VoltageShiftsTooHigh<0)=0;
+VoltageShiftsTooHigh = MedianvoltageshiftwithinepochLogged;
+VoltageShiftsTooHigh = VoltageShiftsTooHigh - UpperBound;
+VoltageShiftsTooHigh(VoltageShiftsTooHigh < 0) = 0;
 CumulativeSeverityOfAmplitudesAboveThreshold = sum(VoltageShiftsTooHigh,1)';
 
 % 2. Plot:
@@ -169,7 +172,7 @@ set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[
 print(fh,fullfile(myPaths.reports,['Summary2_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
 
 % 3. Visualise
-maskSubj = find(CumulativeSeverityOfAmplitudesAboveThreshold>0);
+maskSubj = find(CumulativeSeverityOfAmplitudesAboveThreshold > 0);
 
 if ~isempty(maskSubj)
     NSUBhv = length(maskSubj);
@@ -240,6 +243,104 @@ end
 %     end
 %     axis square;
 % end
+
+% =========================================================================
+% Empirical estimates
+cutoffSpread = 0.04;
+cutoffPeak   = 5;
+
+cnt = 0;
+psdSpreadsAll = NaN(NSUB,1);
+psdPeaksAll   = NaN(NSUB,1);
+
+fprintf('Loading %d datasets... Wait...\n',NSUB);
+for i = 1:NSUB
+    load(fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']),'EEG');
+
+    % Estimate the spectra
+    [psdspectra, freq, chaneeg] = estimate_power(EEG,'freport');
+
+    % =================================================================
+    % 1. Calculate measure of power spread across EEG electrodes
+    maskFreq  = freq>40 & freq<70;
+    % psdSpread = psdspectra ./ sum(psdspectra,1);
+    psdSpread = psdspectra;
+    psdSpreadsAll(i) = mean(std(psdSpread(maskFreq,:),0,2));
+    % psdSpreadsAll(i) = std(mean(psdspectra(mask,:),1));
+
+    % =================================================================
+    % 2. Find the number of peaks in the average EEG spectrum
+    psdPeak  = mean(psdspectra,2);
+    psdPeak  = psdPeak ./ sum(psdPeak,1);
+    maskFreq = freq < 40;
+    [qrspeaks, locs] = findpeaks(psdPeak(maskFreq),freq(maskFreq),'MinPeakProminence',0.0005);
+    psdPeaksAll(i) = length(locs);
+
+    % =================================================================
+    % figure; plot(std(psdspectra(mask,:),0,2))
+    % figure; histogram(std(psdspectra(mask,:),0,2))
+
+    % Plot and output if it exceeds the cut-off
+    if psdSpreadsAll(i) > cutoffSpread || psdPeaksAll(i) > cutoffPeak
+        fprintf('%s : Spread = (%.2f), Peaks = %d.\n', subjects{i}, psdSpreadsAll(i), psdPeaksAll(i));
+
+        cnt = cnt+1;
+        if cnt == 1
+            dataCmap = brewermap(sum(chaneeg),'BrBG');
+
+            fh = figure;
+            th = tiledlayout("flow");
+            th.TileSpacing = 'compact'; th.Padding = 'compact';
+        end
+
+        th = nexttile;
+        hold on; box off;
+
+        % Plot log power
+        psdspectra  = log10(psdspectra);
+        % dataClim    = 1.1*[min(psdspectra(:)), max(psdspectra(:))];
+        % dataClim(1) = floor(dataClim(1));
+        % dataClim(2) = ceil(dataClim(2));
+        plot(freq,psdspectra,'LineWidth',1.1);
+        colororder(th,dataCmap);
+
+        for j = 1:psdPeaksAll(i)
+            plot(locs(j) * ones(1,2),[-4 3],'LineWidth',1,'Color',0.2*ones(1,3));
+            % scatter(locs,psdspectra(any(freq==locs',2)),'filled','*','MarkerFaceColor',0.2*ones(1,3));
+        end
+
+        xlim([freq(1), 70]); ylim([-4 3]); % ylim(dataClim);
+        title({[subjects{i},', group: ',myPaths.group, ', visit: ', myPaths.visit, ', task: ', myPaths.task], ['Spread: ', num2str(psdSpreadsAll(i), '%.2f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
+        pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
+    end
+end
+
+if cnt > 0
+    plotX=25; plotY=25;
+    set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+    set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+    print(fh,fullfile(myPaths.reports,['Summary4_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r300');
+    % close(fh);
+end
+
+% Plot the distributions of the power spectra characteristics
+% -> Power spectra spread, power spectra peaks
+fh = figure;
+th = tiledlayout(1,2);
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+nexttile;
+hb = histogram(psdSpreadsAll);
+hb.FaceColor = 0.7*ones(1,3);
+pbaspect([1.618 1 1]); xlabel('Power spectra spread');
+nexttile;
+hb = histogram(psdPeaksAll);
+hb.FaceColor = 0.7*ones(1,3);
+pbaspect([1.618 1 1]); xlabel('Power spectra # peaks');
+
+plotX=25; plotY=15;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(myPaths.reports,['Summary5_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r300');
 
 % =========================================================================
 % Report table

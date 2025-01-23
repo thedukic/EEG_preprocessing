@@ -18,8 +18,8 @@ else
 end
 
 % Check
-modulus = size(EEG.data(:,:),2)-N*L;
-assert(modulus>=0);
+modulus = size(EEG.data(:,:),2) - N*L;
+assert(modulus >= 0);
 
 % Compute (log) power spectra
 [NCHN,NPTS,NTRL]= size(dataeeg);
@@ -32,7 +32,7 @@ end
 % The original reference uses 7-75 Hz and the RELAX toolbox as well, slope treshold >-0.31 or -0.51
 % But MNE toolbox suggests 7-45 Hz and says that this is a better value in practice, but slope treshold is >0
 % https://mne.tools/dev/generated/mne.preprocessing.ICA.html#mne.preprocessing.ICA.find_bads_muscle
-
+fprintf('Slope frequency range: %d-%d Hz\n',cfg.muscleSlopeFreq);
 psdspectra = permute(psdspectra,[1 3 2]);
 
 frqmsk = freq>=cfg.muscleSlopeFreq(1) & freq<=cfg.muscleSlopeFreq(2);
@@ -51,5 +51,10 @@ end
 other.modulus = modulus;
 other.L = L;
 other.N = N;
+
+% Exclude electrodes that are unlikely contamindated by EMG (?)
+fprintf('Using only the slopes of peripheral electrodes.\n');
+peripheralelecs = select_peripheralelecs(EEG);
+slopesChannelsxEpochs(~peripheralelecs,:) = NaN;
 
 end

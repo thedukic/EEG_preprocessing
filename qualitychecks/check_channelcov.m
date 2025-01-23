@@ -1,4 +1,4 @@
-function C_zscored = estimate_channelcov(EEG)
+function EEG = check_channelcov(EEG)
 
 % fprintf('Estimating a correlation matrix from the cleaned data...\n');
 
@@ -47,5 +47,8 @@ C_zscored(logical(eye(size(C)))) = 1;
 
 % % Plot
 % figure; imagesc(C_zscored); colorbar; axis square;
+
+% Log
+EEG.ALSUTRECHT.chanCorr = C_zscored;
 
 end
