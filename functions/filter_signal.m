@@ -60,13 +60,13 @@ if filterflag(1)
     [bLow, aLow] = butter(lp(2)/2, lp(1)/FNYQ, 'low');
     assert(isstable(bLow, aLow), 'Low-pass filter unstable.');
     fprintf('Using Butterworth lowpass [%1.2f Hz, order %d] filter.\n',lp(1),lp(2));
-    if lp(1)<20, warning('Very low (<20 Hz) lowpass filter settings!'); end
+    if lp(1)<20, warning('N.B. Very low (<20 Hz) lowpass filter settings.'); end
 end
 if filterflag(2)
     [bHigh, aHigh] = butter(hp(2)/2, hp(1)/FNYQ, 'high');
     assert(isstable(bHigh, aHigh), 'High-pass filter unstable.');
     fprintf('Using Butterworth highpass [%1.2f Hz, order %d] filter.\n',hp(1),hp(2));
-    if hp(1)>1.5, warning('Very high (>1.5 Hz) highpass filter settings!'); end
+    if hp(1)>1.5, warning('N.B. Very high (>1.5 Hz) highpass filter settings.'); end
 end
 
 % Filtering

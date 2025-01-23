@@ -21,8 +21,8 @@ function [c,tw]=nt_xcov(x,y,shifts,w);
 %
 % NoiseTools
 
-if nargin<4; w=[]; end;
-if nargin<3||isempty(shifts); shifts=0; end;
+if nargin<4; w=[]; end
+if nargin<3||isempty(shifts); shifts=0; end
 
 if ~isempty(w) && size(x,1)~=size(w,1); error('X and W should have same nrows'); end
 if size(x,3)~=size(y,3); error('X and Y should have same npages'); end

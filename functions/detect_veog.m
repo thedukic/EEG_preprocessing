@@ -17,8 +17,8 @@ eyeBlinkData = EEG.data(chaneog,:);
 
 % Temporarily filter for better detection
 % It is fine that it will be now double-filtered
-[bl, al] = butter(4,15/(EEG.srate/2),'low');
-[bh, ah] = butter(4,1/(EEG.srate/2),'high');
+[bl, al] = butter(2,10/(EEG.srate/2),'low');
+[bh, ah] = butter(2,1/(EEG.srate/2),'high');
 
 eyeBlinkData = do_filteringcore(bl,al,eyeBlinkData,EEG.event,EEG.srate);
 eyeBlinkData = do_filteringcore(bh,ah,eyeBlinkData,EEG.event,EEG.srate);
@@ -36,12 +36,13 @@ eyeBlinkData = do_filteringcore(bh,ah,eyeBlinkData,EEG.event,EEG.srate);
 % figure; histogram(eyeBlinkData);
 EOGIQR = iqr(eyeBlinkData);
 EOG75P = prctile(eyeBlinkData,75);
-if EOGIQR>100
+
+if EOGIQR > 100
     % If eyeblinks are too frequent and small?
     treshold = EOG75P + EOGIQR;
     fprintf('Eye blinks were detected using a treshold of 75PRC+IQR = %1.0fuV.\n',treshold);
 else
-    treshold = EOG75P + 2*EOGIQR;
+    treshold = EOG75P + 3*EOGIQR;
     fprintf('Eye blinks were detected using a treshold of 75PRC+2IQR = %1.0fuV.\n',treshold);
 end
 

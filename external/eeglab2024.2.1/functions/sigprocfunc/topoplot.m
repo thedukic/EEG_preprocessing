@@ -623,7 +623,9 @@ end
 
 if isempty(find(strcmp(varargin,'colormap')))
     if exist('DEFAULT_COLORMAP','var')
-        cmap = colormap(DEFAULT_COLORMAP);
+        % SDukic edit, 2025
+        % Add gca so that it does mess up the whole figure!
+        cmap = colormap(gca,DEFAULT_COLORMAP);
     else
         cmap = parula;
     end

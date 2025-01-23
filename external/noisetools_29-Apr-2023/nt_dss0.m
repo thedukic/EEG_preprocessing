@@ -1,5 +1,5 @@
 function [todss,pwr0,pwr1]=nt_dss0(c0,c1,keep1,keep2)
-%[todss,pwr1,pwr2]=nt_dss0(c0,c1,keep1,keep2) - dss from covariance
+% [todss,pwr1,pwr2] = nt_dss0(c0,c1,keep1,keep2) - dss from covariance
 %
 % todss: matrix to convert data to normalized DSS components
 % pwr0: power per component (baseline)

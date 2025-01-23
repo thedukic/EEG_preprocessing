@@ -2,16 +2,20 @@
 %
 % EEG preprocessing main file, ALS Centre UMC Utrecht
 % Check README.md for instructions
-% SDukic, October 2024
+% SDukic, January 2025
+%
+% TODO
+% 1. Turn off figure visibility while plotting
+% 2. ZipLine that exlcudes other peaks 50-100 Hz
 %
 % =========================================================================
 
-close all; fclose all; clc; clear all;
+close all; fclose all; clear all; clc;
 myPaths = preproc_folders;
 
-% Add specific info: group/task/visit
-for i = 3     % :length(myPaths.group)
-    for j = 1 % :length(myPaths.visit)
+% Run
+for i = 1:length(myPaths.group)
+    for j = 1:length(myPaths.visit)
         myPathsTmp          = myPaths;
         myPathsTmp.task     = myPaths.task;
         myPathsTmp.group    = myPaths.group{i};
@@ -30,14 +34,18 @@ for i = 3     % :length(myPaths.group)
                 disp('==================================================================');
                 fprintf('\n');
 
-                % Cleaning step 1 & 2
+                % Cleaning steps
                 preproc_cleaning1(myPathsTmp,subjects{k});
                 preproc_cleaning2(myPathsTmp,subjects{k});
             end
 
             % Report
-            report_final(myPathsTmp,subjects,1);
-            % estimate_ictemplates(myPathsTmp,subjects,1);
+            report_final(myPathsTmp,subjects);
         end
     end
 end
+
+% =========================================================================
+% Do not run this code
+% =========================================================================
+% estimate_ictemplates(myPathsTmp,subjects);

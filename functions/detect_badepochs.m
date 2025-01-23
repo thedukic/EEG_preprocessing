@@ -1,5 +1,11 @@
 function EEG_cleaned = detect_badepochs(EEG)
 % Detect bad epochs using variance and the G-ESD method
+%
+% MAYBE DO NO USE IT.
+% AS ANY OTHER STATISTICAL APPROACH THAT TRIES TO IDENTIFY *ANY* TYPE OF
+% ARTIFACT IN TRIALS, THIS ONE ALSO IS PRONE TO FALSE POSITIVES
+% -> TRUE STRONG (ALPHA) OSCILLATIONS
+%
 
 % Do not include other channels, this will cause false positives/negatives
 chaneeg = strcmp({EEG.chanlocs.type},'EEG');
@@ -43,6 +49,11 @@ max_outliers2 = isoutlier(variance_per_trial_derivative, 'gesd');
 % Combine bad trials from both the original data and the derivative
 combined_bad_trials = max_outliers1 | max_outliers2;
 assert(length(combined_bad_trials) == num_trials);
+
+% % Check
+% figure; tiledlayout(1,2);
+% mytopoplot(mean(EEGdata(:,:,max_outliers1).^2,[2 3]),[],'',nexttile);
+% mytopoplot(mean(EEGdata(:,:,max_outliers2).^2,[2 3]),[],'',nexttile);
 
 % Display the total number of bad trials
 fprintf('Low freq. bad trials: %d\n', sum(max_outliers1));

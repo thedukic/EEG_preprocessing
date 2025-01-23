@@ -28,4 +28,7 @@ output.chaninfo.removedchans = [];
 % Check
 output = eeg_checkset(output);
 
+% Remove (not needed)
+output.icaact = [];
+
 end

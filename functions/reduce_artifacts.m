@@ -65,22 +65,51 @@ EEG = mwf_channelemg(EEG,cfgbch);
 % EEG = mwf_heartbeats(EEG,EEG);
 
 % =========================================================================
-% 5. ASR - automatic, which is nice but maybe not as good as targeted MWF?
+% % 5. ASR - automatic, which is nice but maybe not as good as targeted MWF?
 % fprintf('\nUsing ASR to fix bad segments of EEG data...\n');
-%
-% extchan = {EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels};
+% 
+% % Separate EXT channels
+% eegchan = strcmp({EEG.chanlocs.type},'EEG');
+% extchan = {EEG.chanlocs(~eegchan).labels};
 % EXT = pop_select(EEG,'channel',extchan);
-%
+% 
 % originalEEG  = EEG;
 % originalData = EEG.data;
-% EEG = pop_clean_rawdata(pop_select(EEG,'nochannel',extchan),'FlatlineCriterion','off','ChannelCriterion','off','LineNoiseCriterion','off','Highpass','off', ...
-%     'BurstCriterion',cfgbch.asr,'WindowCriterion','off','BurstRejection','off','Distance','Euclidian');
 % 
-% survivedDataIdx           = find(EEG.etc.clean_sample_mask);
-% correspondingOriginalData = originalData(:,survivedDataIdx);
-% asrPowerReductionDb       = 10*log10(var(EEG.data,0,2)./var(correspondingOriginalData,0,2));
+% % Can be set to run on GPU, but this option is burried in a few subfunc
+% % Which means that with each EEGLAB update, we need to manually change
+% % multiple subfunc to make it work  again ...
+% EEG = pop_clean_rawdata(pop_select(EEG,'nochannel',extchan), ...
+%     'FlatlineCriterion','off','ChannelCriterion','off','LineNoiseCriterion','off','Highpass','off', ...
+%     'BurstCriterion',cfgbch.asr,'WindowCriterion','off','BurstRejection','off','Distance','Euclidian', ...
+%     'BurstCriterionRefMaxBadChns', 0, ...
+%     'BurstCriterionRefTolerances', [-inf 8], ...
+%     'WindowCriterionTolerances',[-Inf 8], 'MaxMem', 4096);
+% 
+% if ~isfield(EEG.etc,'clean_sample_mask')
+%     EEG.etc.clean_sample_mask = true(1,EEG.pnts);
+% end
+% 
+% % Check which channels have been ASR'd
+% originalData = originalData(eegchan,EEG.etc.clean_sample_mask);
+% asrPowerReductionDb = 10*log10(var(EEG.data(:,EEG.etc.clean_sample_mask),0,2) ./ var(originalData,0,2));
 % EEG.etc.varianceReductionInDbByAsr = asrPowerReductionDb;
 % 
+% fh = figure;
+% topoplot(asrPowerReductionDb, EEG.chanlocs(eegchan),'headrad',0.5,'whitebk','on','shading','interp','gridscale',300);
+% colormap(brewermap(128,'*PuOr'));
+% hcb = colorbar;
+% hcb.Title.String = "%";
+% title('Interpolated ASR power');
+% 
+% % Save
+% plotX=15; plotY=15;
+% set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+% set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+% print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_ASR']),'-dtiff','-r300');
+% close(fh);
+% 
+% % Put back EXT channels
 % EEG = merge_eeglabsets(EEG,EXT);
 % fprintf('Done using ASR.\n');
 
@@ -88,5 +117,6 @@ EEG = mwf_channelemg(EEG,cfgbch);
 % % Visual check
 % EEG0.data(end,:) = 1000*EEG0.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1;
 % vis_artifacts(EEG,EEG0);
+% vis_artifacts(EEG,originalEEG);
 
 end

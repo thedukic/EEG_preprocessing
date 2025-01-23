@@ -4,14 +4,6 @@ function EEG = report_ICA(EEG)
 %
 
 % =========================================================================
-% Should I recomopute the variances here??? Not sure.
-% % Double-check
-% EEG = eeg_checkset(EEG,'ica');
-%
-% % Make sure IC activations are present
-% EEG.icaact = (EEG.icaweights*EEG.icasphere)*EEG.data(EEG.icachansind,:);
-% EEG.icaact = reshape(EEG.icaact, size(EEG.icaact,1), EEG.pnts, EEG.trials);
-
 % Normalised variance of all ICs
 varICs = EEG.ALSUTRECHT.ica.varICs;
 varAICsNorm = varICs./sum(varICs);
@@ -58,16 +50,13 @@ myCmap1 = brewermap(128,'*RdBu');
 myCmap2 = brewermap(4,'Set1');
 
 % Extract bad ICs for plotting
-ICsMostLikelyMuscle  = find(EEG.ALSUTRECHT.ica.ICsMostLikelyMuscle);
+% ICsforRemoval = [];
+ICsforRemoval        = find(EEG.ALSUTRECHT.ica.ICsforRemoval);
+ICsMostLikelyMuscle  = find(EEG.ALSUTRECHT.ica.ICsMostLikelyMuscle2);
+ICsMostLikelyChannel = find(EEG.ALSUTRECHT.ica.ICsMostLikelyChannel2);
 ICsMostLikelyComplex = find(EEG.ALSUTRECHT.ica.ICsMostLikelyComplex);
 
-ICsforRemoval           = find(EEG.ALSUTRECHT.ica.ICsforRemoval);
-% ICsforwICA           = find(EEG.ALSUTRECHT.ica.ICsforwICA);
-% ICsMostLikelyEye     = find(EEG.ALSUTRECHT.ica.ICsMostLikelyBlink);
-% ICsMostLikelyHeart   = find(EEG.ALSUTRECHT.ica.ICsMostLikelyHeart);
-% ICsMostLikelyChannel = find(EEG.ALSUTRECHT.ica.ICsMostLikelyChannel);
-
-NICAtmp = length([ICsforRemoval; ICsMostLikelyMuscle; ICsMostLikelyComplex]);
+NICAtmp = length([ICsforRemoval; ICsMostLikelyMuscle; ICsMostLikelyChannel; ICsMostLikelyComplex]);
 
 % How many rows are needed for bad ICs
 % We plot the first 24 ICs
@@ -107,7 +96,7 @@ end
 % 2. Plot bad ICs
 NSTART = NICAgood + NCOL;
 cnt = 0;
-for i = 1:3
+for i = 1:4
     switch i
         case 1
             theseICs  = ICsforRemoval;
@@ -116,6 +105,9 @@ for i = 1:3
             theseICs  = ICsMostLikelyMuscle;
             thisLabel = 'Muscle';
         case 3
+            theseICs  = ICsMostLikelyChannel;
+            thisLabel = 'Channel';
+        case 4
             theseICs = ICsMostLikelyComplex;
             thisLabel = 'Complex';
     end
@@ -128,9 +120,8 @@ for i = 1:3
             case 1
                 % thisLabelTmp = EEG.ALSUTRECHT.ica.combi.lbls(EEG.ALSUTRECHT.ica.combi.bics==thisIC);
                 % if length(thisLabelTmp)>1, thisLabelTmp = {strjoin(thisLabelTmp,'/')}; end
-
                 thisLabelTmp = EEG.ALSUTRECHT.ica.ICLabel.clss{EEG.ALSUTRECHT.ica.combi.report(thisIC)};
-            case {2,3}
+            case {2,3,4}
                 thisLabelTmp = thisLabel;
         end
 
@@ -340,7 +331,7 @@ EEG.ALSUTRECHT.ica.ProportionVariance_was_LineNoiseICs    = LineNoiseVariance/To
 EEG.ALSUTRECHT.ica.ProportionVariance_was_ChannelNoiseICs = ChannelNoiseVariance/TotalVariance;
 EEG.ALSUTRECHT.ica.ProportionVariance_was_OtherICs        = OtherVariance/TotalVariance;
 
-% Not needed
+% Remove (not needed)
 EEG.icaact = [];
 
 end

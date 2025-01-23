@@ -1,7 +1,15 @@
 function myPaths = preproc_folders
+%
+% Script for setting up the paths and labels of data for preprocessing
+% ALS Centre, University Medical Centre Utrecht
+%
+% =========================================================================
+% SDukic edits
+% v1, January 2025
+% =========================================================================
 
-% Track time
-myPaths.proctime = strrep(strrep(char(datetime("now")),':','-'),' ','-');
+% Preprocessing code version
+myPaths.rnum = '1';
 
 % Set paths
 myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\Preprocessing';                                                        % Pipeline
@@ -11,27 +19,42 @@ myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
 myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
 
 % Set task/group/visit
-myPaths.task  = 'RS'; % MMN/SART/RS/EO/EC/MT
-myPaths.group = {'ALS','CONTROL','AFM','PLS','PMA'};
-myPaths.visit = {'T1','T2','T3','T4','T5'};
+% MMN/SART/RS/MT
+myPaths.task  = 'RS';
+% 'ALS','CONTROL','AFM','PLS','PMA'
+myPaths.group = {'CONTROL'};
+% 'T1','T2','T3','T4','T5'
+myPaths.visit = {'T1'};
 
-drivedata = 'E:';
-myPaths.excpath = fullfile(drivedata,'2_OTHER_DATA\Excel\Utrecht\');
-myPaths.gendata = [myPaths.excpath 'C9status.xlsx'];
-myPaths.peddata = [myPaths.excpath 'Pedigrees.xlsx'];
-myPaths.cogdata = [myPaths.excpath 'ECAS.txt'];
-myPaths.nexdata = [myPaths.excpath 'NE.txt'];
-myPaths.dmdata1 = [myPaths.excpath 'Table1.txt'];
+% =========================================================================
+% The script below does not need changing
+% =========================================================================
+
+fprintf('\n');
+disp('==================================================================');
+fprintf('Setting up the paths and loading the toolboxes...\n');
+disp('==================================================================');
+
+% Track time
+myPaths.proctime = strrep(strrep(char(datetime("now")),':','-'),' ','-');
 
 % Navigate the main folder
 cd(myPaths.mycodes);
+
+fprintf('EEG data paths:\n');
+fprintf('Raw: %s\n', myPaths.rootrawdata);
+fprintf('Cleaned: %s\n', myPaths.rootpreproc);
 
 % Add subfolders
 files             = dir(myPaths.mycodes);
 subFolders        = files([files.isdir]);
 subFolderNames    = {subFolders(3:end).name};
 subFolderPaths    = [myPaths.mycodes, fullfile(myPaths.mycodes,subFolderNames)];
+subFolderPaths    = subFolderPaths(~contains(subFolderPaths,{'git','unused'}));
+
 addpath(subFolderPaths{:});
+fprintf('Adding folders:\n');
+fprintf('%s\n', subFolderPaths{:});
 
 % Add toolboxes from the external subfolder
 subFolderExternal = subFolderPaths{contains(subFolderPaths,'external','IgnoreCase',true)};
@@ -39,12 +62,10 @@ files             = dir(subFolderExternal);
 subFolders        = files([files.isdir]);
 subFolderNames    = {subFolders(3:end).name};
 subFolderPaths    = fullfile(subFolderExternal,subFolderNames);
-addpath(subFolderPaths{:});
 
-% % Add MWF subfolders as well
-% if any(contains(subFolderPaths,'mwf'))
-%     addpath(genpath(subFolderPaths{contains(subFolderPaths,'mwf')}));
-% end
+addpath(subFolderPaths{:});
+fprintf('Adding external toolboxes:\n');
+fprintf('%s\n', subFolderPaths{:}); fprintf('\n');
 
 % Initialise the toolboxes
 eeglab; close all;
@@ -58,17 +79,19 @@ end
 
 % Set EEGLAB options
 if strcmpi(myPaths.task,'MT')
-    % Motor task data are large, and the current implementation of parallel processing in EEGLAB would require a large amount of RAM
+    % Motor task data are large
+    % The current implementation of parallel processing in EEGLAB would require large RAM
     flagParallel = 0;
 else
     flagParallel = 1;
 end
 pop_editoptions('option_parallel',flagParallel,'option_single',0,'option_computeica',0);
 
-% Start parallel processes
-delete(gcp('nocreate'));
-parpool("Processes");
+% Kill and start again the parallel processes
+delete(gcp('nocreate')); parpool("Processes");
 
+% Cant make it work
+% The code is suppsed to be smart about starting the parallel processes 
 % pool = gcp('nocreate');
 % if ~isempty(pool)
 %     if ~isempty(pool.Cluster) % pool.Cluster.HasSharedFilesystem && pool.SpmdEnabled

@@ -5,12 +5,8 @@ function preproc_cleaning2(myPaths,id)
 %
 % =========================================================================
 % SDukic edits
-% v1, September 2024
+% v1, January 2025
 % =========================================================================
-% TODO
-% 1.
-% 2.
-%
 
 % Load preprocessing settings
 cfg = preproc_parameters;
@@ -22,8 +18,8 @@ subject.task     = myPaths.task;
 subject.group    = myPaths.group;
 subject.visit    = myPaths.visit;
 subject.preproc  = fullfile(myPaths.preproc, subject.id);
-subject.clnfile  = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' cfg.rnum 'a.mat'];
-subject.clnfile1 = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' cfg.rnum 'b.mat'];
+subject.clnfile1 = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'a.mat'];
+subject.clnfile2 = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat'];
 
 % Log time
 t0 = datetime("now");
@@ -36,8 +32,11 @@ fprintf('%s | %s | %s dataset | processing part 2\n',myPaths.group,subject.id,my
 disp('==================================================================');
 fprintf('\n');
 
+% =========================================================================
+% Basic post-preprocessing
+% =========================================================================
 % 1. Load cleaned data
-fileName = fullfile(subject.preproc,subject.clnfile);
+fileName = fullfile(subject.preproc,subject.clnfile1);
 if exist(fileName, 'file') == 2
     fprintf('%s: Loading the preprocessed data...\n',subject.id);
     load(fileName,'EEG');
@@ -46,7 +45,7 @@ else
     return;
 end
 
-% 2. Filter lowpass
+% 2. Filter lowpass, must be done on the continuous data
 fprintf('\nLowpass filtering...\n');
 EEG = do_filtering(EEG,'lowpass',cfg.flt);
 
@@ -87,19 +86,21 @@ end
 %     % EEG = correct_baseline(EEG,[(EEG.xmin)*1000 0]); % if only 1 stimulus condition present
 % end
 
-% 6. Reject epochs that are likely still noisy
+% =========================================================================
+% Data quaility checks
+% =========================================================================
 % Note the number of trials
 NumberTrials = NaN(4,1);
 NumberTrials(1) = size(EEG.data,3);
 
-% =========================================================================
+% =============================================
 % A. EEGLAB-based rejection
 % Any one of these functions can be commented out to ignore those artifacts when creating the mask
 % This section uses traditional amplitude, improbable voltage distributions within epochs, and kurtosis to reject epochs
 
-% ROIidx = 1:128;
+% ROIidx = 1:128; % Use only EEG electrodes!
 % fprintf('\n================================\n');
-% fprintf('Max. amplitude\n');
+% fprintf('Max. amplitude (>abs(%d uV))\n',cfg.epoch.rejectAmp);
 % fprintf('================================\n');
 % EEG = pop_eegthresh(EEG,1,ROIidx,-cfg.epoch.rejectAmp,cfg.epoch.rejectAmp,EEG.xmin,EEG.xmax,1,0);
 %
@@ -119,22 +120,73 @@ NumberTrials(1) = size(EEG.data,3);
 % EEG = eeg_rejsuperpose(EEG, 1, 0, 1, 1, 1, 1, 1, 1);
 % EEG = pop_rejepoch(EEG, EEG.reject.rejglobal, 0);
 
+fprintf('\n================================\n');
+fprintf('Max. amplitude (>abs(%d uV))\n',cfg.epoch.rejectAmp);
+fprintf('================================\n');
+% It could be that some people have very strong oscillations
+% Example: Resting-state alpha oscillations
+% We do not want to exclude these data
+% -> bandstop filter 5-25 Hz
+% -> EOG <5 Hz
+% -> EMG >25 Hz
+freqStop = [2 20]; % Hz
+
+fprintf('Temporarily bandstop filtering [%d-%d Hz] the data.\n',freqStop);
+fprintf('This prevents removal of trials with strong brain oscillations.\n');
+eegchans = strcmp({EEG.chanlocs.type},'EEG');
+dataTmp  = double(EEG.data(eegchans,:));
+[b, a]   = butter(5, freqStop / (EEG.srate / 2), 'stop');
+assert(isstable(b,a), 'Bandstop filter unstable.');
+dataTmp  = filtfilt(b, a, dataTmp')';
+dataTmp  = dataTmp - mean(dataTmp,1);
+dataTmp  = dataTmp - mean(dataTmp,2);
+dataTmp  = reshape(dataTmp, size(EEG.data(eegchans,:,:)));
+badTrialTreshold = squeeze(any(abs(dataTmp) > cfg.epoch.rejectAmp, [1 2]));
+
+% badTrialTmp = find(badTrialTreshold);
+% figure; tiledlayout(1,2);
+% mytopoplot(mean(dataTmp(:,:,badTrialTmp).^2,[2 3]),[],'Filtered',nexttile); colorbar;
+% dataTmp = double(EEG.data(eegchans,:,:));
+% mytopoplot(mean(dataTmp(:,:,badTrialTmp).^2,[2 3]),[],'Raw',nexttile); colorbar;
+% disp(sum(badTrialTreshold));
+%
+% [NCHN,NPTS,NTRL]= size(dataTmp);
+% for i = 1:NTRL
+%     [psdspectra(:,:,i), freq] = pwelch(dataTmp(:,:,i)',NPTS,0,NPTS,EEG.srate);
+% end
+% figure; plot(freq, mean(psdspectra,3));
+
+if any(badTrialTreshold)
+    EEG = pop_rejepoch(EEG,badTrialTreshold,0);
+else
+    fprintf('No high voltage trials are found. \n');
+end
+
 % Note the number of trials
 NumberTrials(2) = EEG.trials;
 
-% =========================================================================
+% =============================================
 % B. EMG-slope-based rejection
 fprintf('\n================================\n');
 fprintf('EMG slopes\n');
 fprintf('================================\n');
+
+% Estimate slopes
 slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
 slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
 
+% tmp = any(slopesChannelsxEpochs,2);
+% figure; mytopoplot(ones(1,128), tmp,'',nexttile);
+
+% 1. Interpolate
 % Interpolate trials that do not have a lot of electrodes contaminated by EMG
 badElecsPerTrial = arrayfun(@(col) find(slopesChannelsxEpochs(:, col)), 1:size(slopesChannelsxEpochs, 2), 'UniformOutput', false);
 eegchans = strcmp({EEG.chanlocs.type},'EEG');
 chanLocs = EEG.chanlocs(eegchans);
-[data, report] = interpolate_epochs(EEG.data(eegchans,:,:),chanLocs,badElecsPerTrial);
+
+% Max number of contaminated electrodes
+fprintf('The maximum number of EMG-contaminated electrodes: %d\n', cfg.epoch.NinterpMax);
+[data, report] = interpolate_epochs(EEG.data(eegchans,:,:),chanLocs,badElecsPerTrial,[],cfg.epoch.NinterpMax);
 
 % Return the data to the struct
 EEG.data(eegchans,:,:) = data;
@@ -143,6 +195,7 @@ EEG.data(eegchans,:,:) = data;
 badTrialMuscle = false(size(badElecsPerTrial));
 badTrialMuscle(report.listNotFixed) = true;
 
+% 2. Remove all
 % BadEpochs = sum(slopesChannelsxEpochs, 1);
 % badTrialMuscleTreshhold = 0;
 % badTrialMuscle = BadEpochs>badTrialMuscleTreshhold;
@@ -156,56 +209,82 @@ badTrialMuscle(report.listNotFixed) = true;
 if any(badTrialMuscle)
     EEG = pop_rejepoch(EEG,badTrialMuscle,0);
 else
-    fprintf('No EMG-contaminated epochs/trials are found. \n');
+    fprintf('No EMG-contaminated trials are found.\n');
 end
 
 % Note the number of trials
 NumberTrials(3) = EEG.trials;
 
-% =========================================================================
-% C. Detection using variance and the G-ESD method
-fprintf('\n================================\n');
-fprintf('Variance and the G-ESD method\n');
-fprintf('================================\n');
-EEG = detect_badepochs(EEG);
+% =============================================
+% % C. Detection using variance and the G-ESD method
+% fprintf('\n================================\n');
+% fprintf('Variance and the G-ESD method\n');
+% fprintf('================================\n');
+% EEG = detect_badepochs(EEG);
 
 % Note the number of trials
 NumberTrials(4) = EEG.trials;
 
 % =========================================================================
-% 7. Median voltage shift
-voltageShiftWithinEpoch = range(EEG.data(:,:,:),2);
+fprintf('\n================================\n');
+fprintf('Final checks\n');
+fprintf('================================\n');
 
-% 8. Channel correlation matrix
-EEG.ALSUTRECHT.chanCorr = estimate_channelcov(EEG);
+% Channel correlation matrix
+fprintf('Estimating individual alpha frequency...\n');
+EEG = check_restingIAF(EEG);
 
-% 9. EMG leftovers
+% Median voltage shift
+fprintf('Estimating voltage range...\n');
+voltageShiftWithinEpoch = median(range(EEG.data,2),3);
+EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal = voltageShiftWithinEpoch;
+
+% Channel correlation matrix
+fprintf('Estimating channel correlation matrix...\n');
+EEG = check_channelcov(EEG);
+
+% % Empirical frequency boundaries
+% fprintf('Estimating empirical frequency boundaries...\n');
+% EEG = estimate_gedBounds(EEG);
+
+% EMG leftovers
+fprintf('Checking EMG leftovers...\n');
 slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
 slopesChannelsxEpochs(slopesChannelsxEpochs < cfg.bch.muscleSlopeThreshold) = NaN;
-slopesChannelsxEpochs = slopesChannelsxEpochs-cfg.bch.muscleSlopeThreshold;
+slopesChannelsxEpochs = slopesChannelsxEpochs - cfg.bch.muscleSlopeThreshold;
 BadEpochs = sum(slopesChannelsxEpochs,1,'omitnan');
+muscleLeftover = mean(BadEpochs > 0);
+fprintf('EMG leftovers: %1.2f\n',muscleLeftover);
 
-% 10. Log
+% Log
 EEG.ALSUTRECHT.epochRejections.initialEpochs       = NumberTrials(1);
 EEG.ALSUTRECHT.epochRejections.afterEEGLABEpochs   = NumberTrials(2);
 EEG.ALSUTRECHT.epochRejections.afterEMGSlopeEpochs = NumberTrials(3);
 EEG.ALSUTRECHT.epochRejections.remainingEpochs     = NumberTrials(4);
 EEG.ALSUTRECHT.epochRejections.interpEpochs        = length(report.listFixed);
 EEG.ALSUTRECHT.epochRejections.proportionOfEpochsRejected = (EEG.ALSUTRECHT.epochRejections.initialEpochs-EEG.ALSUTRECHT.epochRejections.remainingEpochs)/EEG.ALSUTRECHT.epochRejections.initialEpochs;
-EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal = median(voltageShiftWithinEpoch,3);
+EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal = voltageShiftWithinEpoch;
 
 % EEG.ALSUTRECHT.epochRejections.badTrialMuscleTreshhold2 = badTrialMuscleTreshhold;
-EEG.ALSUTRECHT.epochRejections.muscle2 = mean(BadEpochs>0);
+EEG.ALSUTRECHT.epochRejections.muscle2 = muscleLeftover;
 EEG.ALSUTRECHT.leftovers.muscle2 = EEG.ALSUTRECHT.epochRejections.muscle2;
 
-% 11. Report
+% =========================================================================
+% Report
+fprintf('\n================================\n');
+fprintf('Final overview\n');
+fprintf('================================\n');
 % Nremoved = [NumberTrials(1)-NumberTrials(2), NumberTrials(2)-NumberTrials(3)];
 Nremoved = abs(diff(NumberTrials));
-fprintf('\n%s: Inital trials %d\n',subject.id,NumberTrials(1));
-fprintf('%s: Removed trials %d + %d + %d = %d\n',subject.id,Nremoved,sum(Nremoved));
-fprintf('%s: Remaining trials %d\n',subject.id,NumberTrials(end));
+fprintf('Inital trials:    %d\n',NumberTrials(1));
+fprintf('Removed trials:   %d + %d + %d = %d\n',Nremoved,sum(Nremoved));
+fprintf('Remaining trials: %d\n',NumberTrials(end));
 
-% 12. Plot
+% =========================================================================
+% Estimate the spectra
+[psdspectra, freq, chaneeg, chanemg] = estimate_power(EEG,'preproc2');
+
+% Plots differe per task
 if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
     maskCond = [EEG.event.edftype];
     if strcmpi(myPaths.task,'SART')
@@ -226,7 +305,6 @@ if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
     % condTrig = unique(maskCond);
 
     % Select only EEG
-    chaneeg  = strcmp({EEG.chanlocs.type},'EEG');
     dataCmap = brewermap(128,'PRGn');
     % dataCmap = brewermap(128,'BrBG');
 
@@ -267,7 +345,7 @@ if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
     end
 
     % ERP difference
-    dataTmp = dataTmp1-dataTmp2;
+    dataTmp = dataTmp1 - dataTmp2;
 
     dataClim = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
     dataClim(1) = floor(dataClim(1));
@@ -301,22 +379,15 @@ if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
     print(fh,fullfile(subject.preproc,[subject.id '_erp_final']),'-dtiff','-r300');
     close(fh);
 
+    % =============================
+    % Plot 2 (Freq bands and IAF)
+    % =============================
+    plot_iaf(EEG.ALSUTRECHT.pSpec.sums.paf,mean(psdspectra,2),freq,EEG.ALSUTRECHT.pSpec.sums.muSpec,EEG.ALSUTRECHT.pSpec.sums.freq,subject);
+
 elseif strcmpi(myPaths.task,'RS')
-    % Select only EEG
-    chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-    dataeeg = EEG.data(chaneeg,:,:);
-
-    % Compute power spectra
-    [NCHN,NPTS,NTRL]= size(dataeeg);
-    psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
-
-    for i = 1:NTRL
-        [psdspectra(:,:,i), freq] = pwelch(dataeeg(:,:,i)',NPTS,0,NPTS,EEG.srate);
-    end
-
-    % Average the spectra
-    psdspectra = mean(psdspectra,3);
-
+    % =============================
+    % Plot 1
+    % =============================
     dataCmap = brewermap(sum(chaneeg),'BrBG');
 
     fh = figure;
@@ -334,8 +405,8 @@ elseif strcmpi(myPaths.task,'RS')
     th = nexttile;
     hold on; box off;
 
-    dataTmp = log10(psdspectra);
-    dataClim = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
+    dataTmp     = log10(psdspectra);
+    dataClim    = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
     dataClim(1) = floor(dataClim(1));
     dataClim(2) = ceil(dataClim(2));
     plot(freq,dataTmp,'LineWidth',1.1);
@@ -350,23 +421,12 @@ elseif strcmpi(myPaths.task,'RS')
     print(fh,fullfile(subject.preproc,[subject.id '_pspectra_final']),'-dtiff','-r300');
     close(fh);
 
+    % =============================
+    % Plot 2 (Freq bands and IAF)
+    % =============================
+    plot_iaf(EEG.ALSUTRECHT.pSpec.sums.paf,mean(psdspectra,2),freq,EEG.ALSUTRECHT.pSpec.sums.muSpec,EEG.ALSUTRECHT.pSpec.sums.freq,subject);
+
 elseif strcmpi(myPaths.task,'MT')
-    % Select only EEG/EMG
-    chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-    chanemg = strcmp({EEG.chanlocs.type},'EMG');
-    dataeeg = EEG.data;
-
-    % Compute power spectra
-    [NCHN,NPTS,NTRL]= size(dataeeg);
-    psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
-
-    for i = 1:NTRL
-        [psdspectra(:,:,i), freq] = pwelch(dataeeg(:,:,i)',NPTS,0,NPTS,EEG.srate);
-    end
-
-    % Average the spectra
-    psdspectra = mean(psdspectra,3);
-
     dataCmap1 = brewermap(sum(chaneeg),'BrBG');
     dataCmap2 = brewermap(sum(chanemg),'PRGn');
 
@@ -396,8 +456,8 @@ elseif strcmpi(myPaths.task,'MT')
     th = nexttile;
     hold on; box off;
 
-    dataTmp = log10(psdspectra(:,chaneeg));
-    dataClim = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
+    dataTmp     = log10(psdspectra(:,chaneeg));
+    dataClim    = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
     dataClim(1) = floor(dataClim(1));
     dataClim(2) = ceil(dataClim(2));
     plot(freq,dataTmp,'LineWidth',1.1);
@@ -410,8 +470,8 @@ elseif strcmpi(myPaths.task,'MT')
     th = nexttile;
     hold on; box off;
 
-    dataTmp = log10(psdspectra(:,chanemg));
-    dataClim = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
+    dataTmp     = log10(psdspectra(:,chanemg));
+    dataClim    = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
     dataClim(1) = floor(dataClim(1));
     dataClim(2) = ceil(dataClim(2));
     plot(freq,dataTmp,'LineWidth',1.1);
@@ -425,13 +485,26 @@ elseif strcmpi(myPaths.task,'MT')
     set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
     print(fh,fullfile(subject.preproc,[subject.id '_pspectra_final']),'-dtiff','-r300');
     close(fh);
+
+    % =============================
+    % Plot 2 (Freq bands and IAF)
+    % =============================
+    plot_iaf(EEG.ALSUTRECHT.pSpec.sums.paf,mean(psdspectra(:,chaneeg),2),freq,EEG.ALSUTRECHT.pSpec.sums.muSpec,EEG.ALSUTRECHT.pSpec.sums.freq,subject);
+
 end
 
+% =========================================================================
 % Remove IC signals
 EEG.icaact = [];
 
-% 13. Save and return
-fprintf('%s: Saving the preprocessed data (part 2)...\n',subject.id);
-save(fullfile(subject.preproc,subject.clnfile1),'EEG','cfg','procTimeTags');
+% Save
+fprintf('\n%s: Saving the preprocessed data (part 2)...\n',subject.id);
+save(fullfile(subject.preproc,subject.clnfile2),'EEG','cfg','procTimeTags');
+
+% Report
+t1 = datetime("now");
+dd = round(minutes(diff([t0 t1])));
+fprintf('Finished: %s\n',t1);
+fprintf('Running time: %d min.\n\n',dd);
 
 end

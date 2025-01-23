@@ -1,8 +1,7 @@
 function EEG = remove_badcomponents(EEG,cfg)
 %
-%
-% SDukic, December 2024
 % https://www.biorxiv.org/content/10.1101/2024.06.06.597688v1.full.pdf
+% SDukic, January 2025
 % =========================================================================
 
 % Muscle ICs will be filtered such that they have only freq above this one
@@ -28,10 +27,13 @@ ICsMostLikelyEye     = EEG.ALSUTRECHT.ica.ICsMostLikelyEye;
 ICsMostLikelyHeart   = EEG.ALSUTRECHT.ica.ICsMostLikelyHeart;
 ICsMostLikelyComplex = EEG.ALSUTRECHT.ica.ICsMostLikelyComplex;
 ICsMostLikelyMuscle  = EEG.ALSUTRECHT.ica.ICsMostLikelyMuscle;
+ICsMostLikelyChannel = EEG.ALSUTRECHT.ica.ICsMostLikelyChannel;
 
-% Testing
-fprintf('Muscle ICs above the 25th IC are removed!\n');
-ICsMostLikelyMuscle(26:end) = false;
+% Maybe we dont care about ICs with low variance
+fprintf('\nMuscle ICs above the 25th IC are not removed.\n');
+fprintf('Channel ICs above the 25th IC are not wavelet-thresholded.\n\n');
+ICsMostLikelyMuscle(26:end)  = false;
+ICsMostLikelyChannel(26:end) = false;
 
 % *Remove completely ICs
 ICsforRemoval = false(NICA,1);
@@ -43,6 +45,7 @@ fprintf('Heart ICs,   N = %d (removed completely).\n',sum(ICsMostLikelyHeart));
 fprintf('Complex ICs, N = %d (removed completely).\n',sum(ICsMostLikelyComplex));
 fprintf('Total ICs,   N = %d (removed completely).\n',sum(ICsforRemoval));
 fprintf('Muscle ICs,  N = %d (keeping >%d Hz).\n',sum(ICsMostLikelyMuscle),muscleFreq);
+fprintf('Channel ICs, N = %d (wavelet-thresholded).\n',sum(ICsMostLikelyChannel));
 
 % 1. Remove selected bad ICs
 if any(ICsforRemoval)
@@ -53,6 +56,15 @@ end
 if any(ICsMostLikelyMuscle)
     [bh, ah] = butter(2, muscleFreq/(EEG.srate/2), 'high');
     artifactComponents(ICsMostLikelyMuscle,:) = do_filteringcore(bh,ah,dataICs(ICsMostLikelyMuscle,:),EEG.event,EEG.srate);
+end
+
+% 3. Obtain channel artifact for subtraction by wavelet-thresholding
+if any(ICsMostLikelyChannel)
+    ICsMostLikelyChannel2 = find(ICsMostLikelyChannel);
+
+    for i = 1:length(ICsMostLikelyChannel2)
+        artifactComponents(ICsMostLikelyChannel2(i),:) = wThresholding(dataICs(ICsMostLikelyChannel2(i),:));
+    end
 end
 
 %% Remove artifact and reconstruct data:
@@ -71,10 +83,14 @@ EEG.data(chaneeg,:,:) = EEG.data(chaneeg,:,:) - artifactEEG;
 NBIC = sum(ICsforRemoval | ICsMostLikelyMuscle);
 
 EEG.ALSUTRECHT.ica.ICsforRemoval                       = ICsforRemoval;
+EEG.ALSUTRECHT.ica.ICsMostLikelyMuscle2                = ICsMostLikelyMuscle;
+EEG.ALSUTRECHT.ica.ICsMostLikelyChannel2               = ICsMostLikelyChannel;
+
 EEG.ALSUTRECHT.ica.numberArtifactICs                   = NBIC;
 EEG.ALSUTRECHT.ica.proportionArtifactICs               = NBIC./NICA;
 EEG.ALSUTRECHT.ica.numberArtifactICsRemoval            = sum(ICsforRemoval);
 EEG.ALSUTRECHT.ica.numberArtifactICsMuscle             = sum(ICsMostLikelyMuscle);
+EEG.ALSUTRECHT.ica.numberArtifactICsChannel            = sum(ICsMostLikelyChannel);
 
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'wICA cleaning\n');
@@ -83,7 +99,7 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Number of bad ICs:    %d\n',EEG.ALSUTRECHT.i
 fprintf(EEG.ALSUTRECHT.subject.fid,'Number of removed IC: %d\n',EEG.ALSUTRECHT.ica.numberArtifactICsRemoval);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Number of muscle IC:  %d\n',EEG.ALSUTRECHT.ica.numberArtifactICsMuscle);
 
-% Not needed
+% Remove (not needed)
 EEG.icaact = [];
 
 end
