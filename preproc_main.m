@@ -11,6 +11,7 @@
 % =========================================================================
 
 close all; fclose all; clear all; clc;
+% set(0, 'DefaultFigureVisible', 'off'); % not tested
 myPaths = preproc_folders;
 
 % Run

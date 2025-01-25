@@ -7,10 +7,6 @@ function report_final(myPaths,subjects)
 % SDukic edits
 % v1, January 2025
 % =========================================================================
-% TODO
-% 1.
-% 2.
-%
 
 fprintf('\n');
 disp('==================================================================');
@@ -246,12 +242,14 @@ end
 
 % =========================================================================
 % Empirical estimates
-cutoffSpread = 0.04;
+warning('The cutoff for spectra spread is tested only for resting-state. It might not be appropriate for other tasks.');
+cutoffSpread = 20; % RS
 cutoffPeak   = 5;
 
 cnt = 0;
 psdSpreadsAll = NaN(NSUB,1);
 psdPeaksAll   = NaN(NSUB,1);
+psdPromsAll   = NaN(NSUB,1);
 
 fprintf('Loading %d datasets... Wait...\n',NSUB);
 for i = 1:NSUB
@@ -259,21 +257,36 @@ for i = 1:NSUB
 
     % Estimate the spectra
     [psdspectra, freq, chaneeg] = estimate_power(EEG,'freport');
+    % psdspectra = log10(psdspectra);
+    % psdspectraNorm = psdspectra ./ sum(psdspectra(freq>0,:),1);
 
     % =================================================================
     % 1. Calculate measure of power spread across EEG electrodes
-    maskFreq  = freq>40 & freq<70;
+    maskFreq  = freq>25 & freq<40;
     % psdSpread = psdspectra ./ sum(psdspectra,1);
-    psdSpread = psdspectra;
-    psdSpreadsAll(i) = mean(std(psdSpread(maskFreq,:),0,2));
-    % psdSpreadsAll(i) = std(mean(psdspectra(mask,:),1));
+
+    % Spread
+    % psdSpreadsAll(i) = mean(std(psdspectra(maskFreq,:),0,2));
+    psdSpreadsAll(i) = mean(kurtosis(psdspectra(maskFreq,:),1,2));
+    % psdSpreadsAll(i) = std(mean(psdspectra(maskFreq,:),1));
 
     % =================================================================
     % 2. Find the number of peaks in the average EEG spectrum
-    psdPeak  = mean(psdspectra,2);
-    psdPeak  = psdPeak ./ sum(psdPeak,1);
-    maskFreq = freq < 40;
-    [qrspeaks, locs] = findpeaks(psdPeak(maskFreq),freq(maskFreq),'MinPeakProminence',0.0005);
+    % psdPeak = mean(psdspectraNorm,2);
+    % psdPeak  = psdPeak ./ sum(psdPeak,1);
+    maskFreq      = freq<40;
+    freqTmp       = freq(maskFreq);
+    psdspectraTmp = mean(log10(psdspectra(maskFreq,:)),2);
+
+    % Initial step
+    [qrspeaks, locs, ~, proms] = findpeaks(psdspectraTmp,freqTmp);
+    % Guided detection
+    psdPromsAll(i) = quantile(proms,0.2);
+    psdPromsFinal  = max(psdPromsAll(i),0.005);
+    % psdPromsFinal  = psdPromsAll(i);
+    [qrspeaks, locs] = findpeaks(psdspectraTmp,freqTmp,'MinPeakProminence',psdPromsFinal);
+
+    % [qrspeaks, locs] = findpeaks(psdspectraTmp,freqTmp,'MinPeakProminence',0.0005);
     psdPeaksAll(i) = length(locs);
 
     % =================================================================
@@ -282,7 +295,7 @@ for i = 1:NSUB
 
     % Plot and output if it exceeds the cut-off
     if psdSpreadsAll(i) > cutoffSpread || psdPeaksAll(i) > cutoffPeak
-        fprintf('%s : Spread = (%.2f), Peaks = %d.\n', subjects{i}, psdSpreadsAll(i), psdPeaksAll(i));
+        fprintf('%s : Spread = %1.3f, Peaks = %d.\n', subjects{i}, psdSpreadsAll(i), psdPeaksAll(i));
 
         cnt = cnt+1;
         if cnt == 1
@@ -297,11 +310,11 @@ for i = 1:NSUB
         hold on; box off;
 
         % Plot log power
-        psdspectra  = log10(psdspectra);
+        % psdspectra  = log10(psdspectra);
         % dataClim    = 1.1*[min(psdspectra(:)), max(psdspectra(:))];
         % dataClim(1) = floor(dataClim(1));
         % dataClim(2) = ceil(dataClim(2));
-        plot(freq,psdspectra,'LineWidth',1.1);
+        plot(freq,log10(psdspectra),'LineWidth',1.1);
         colororder(th,dataCmap);
 
         for j = 1:psdPeaksAll(i)
@@ -309,9 +322,13 @@ for i = 1:NSUB
             % scatter(locs,psdspectra(any(freq==locs',2)),'filled','*','MarkerFaceColor',0.2*ones(1,3));
         end
 
-        xlim([freq(1), 70]); ylim([-4 3]); % ylim(dataClim);
-        title({[subjects{i},', group: ',myPaths.group, ', visit: ', myPaths.visit, ', task: ', myPaths.task], ['Spread: ', num2str(psdSpreadsAll(i), '%.2f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
+        xticks(unique([locs' 0 5 10 15 20 25 30 50]));
+        xlim([freq(1), 60]); ylim([-4 3]); % ylim(dataClim);
+        % title({[subjects{i},', group: ',myPaths.group, ', visit: ', myPaths.visit, ', task: ', myPaths.task], ['Spread: ', num2str(psdSpreadsAll(i), '%.3f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
+        title({subjects{i}, ['Spread: ', num2str(psdSpreadsAll(i), '%.3f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
+      
         pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
+        
     end
 end
 
@@ -326,16 +343,20 @@ end
 % Plot the distributions of the power spectra characteristics
 % -> Power spectra spread, power spectra peaks
 fh = figure;
-th = tiledlayout(1,2);
+th = tiledlayout(1,3);
 th.TileSpacing = 'compact'; th.Padding = 'compact';
 nexttile;
-hb = histogram(psdSpreadsAll);
+hb = histogram(psdSpreadsAll,10);
 hb.FaceColor = 0.7*ones(1,3);
 pbaspect([1.618 1 1]); xlabel('Power spectra spread');
 nexttile;
 hb = histogram(psdPeaksAll);
 hb.FaceColor = 0.7*ones(1,3);
 pbaspect([1.618 1 1]); xlabel('Power spectra # peaks');
+nexttile;
+hb = histogram(psdPromsAll,10);
+hb.FaceColor = 0.7*ones(1,3);
+pbaspect([1.618 1 1]); xlabel('Power peak prominance');
 
 plotX=25; plotY=15;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);

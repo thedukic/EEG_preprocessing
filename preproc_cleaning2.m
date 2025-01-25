@@ -45,25 +45,29 @@ else
     return;
 end
 
-% 2. Filter lowpass, must be done on the continuous data
+% 2. Filter lowpass, must be done on continuous data
 fprintf('\nLowpass filtering...\n');
 EEG = do_filtering(EEG,'lowpass',cfg.flt);
 
-% 3. Epoch
+% 3. IAF, should be done on continuous data?
+fprintf('\nEstimating individual alpha frequency...\n');
+EEG = check_restingIAF(EEG);
+
+% 4. Epoch
 fprintf('\nEpoching data...\n');
 EEG = epoch_data(EEG,cfg.trg);
 
-% 4. Common-average referening
+% 5. Common-average referening
 EEG = do_reref(EEG,'aRegular');
 
-% 5A.Traditional baseline correction
+% 6A.Traditional baseline correction
 if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EO') || strcmpi(myPaths.task,'EC')
     EEG = pop_rmbase(EEG,[],[]);
 else
     EEG = pop_rmbase(EEG,[(EEG.xmin)*1000 0],[]);
 end
 
-% 5B. Regression based baseline correction method (recommended?)
+% 6B. Regression based baseline correction method (recommended?)
 % if strcmpi(myPaths.task,'MMN')
 %     condLabel = arrayfun(@(x) ['condition ' num2str(x)],cfg.trg.mmn{1},'Uniformoutput',0);
 %
@@ -212,6 +216,10 @@ else
     fprintf('No EMG-contaminated trials are found.\n');
 end
 
+% Log
+EEG.ALSUTRECHT.epochRejections.InterpTrialInfo = badElecsPerTrial;
+EEG.ALSUTRECHT.epochRejections.InterpReport = report;
+
 % Note the number of trials
 NumberTrials(3) = EEG.trials;
 
@@ -230,9 +238,9 @@ fprintf('\n================================\n');
 fprintf('Final checks\n');
 fprintf('================================\n');
 
-% Channel correlation matrix
-fprintf('Estimating individual alpha frequency...\n');
-EEG = check_restingIAF(EEG);
+% % IAF
+% fprintf('Estimating individual alpha frequency...\n');
+% EEG = check_restingIAF(EEG);
 
 % Median voltage shift
 fprintf('Estimating voltage range...\n');

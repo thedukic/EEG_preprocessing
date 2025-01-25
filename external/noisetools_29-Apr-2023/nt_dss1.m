@@ -1,5 +1,5 @@
-function [todss,pwr0,pwr1,todssX,dX,d]=nt_dss1(x,w,keep1,keep2)
-%[todss,pwr0,pwr1]=nt_dss1(x,w,keep1,keep2) - evoked-biased DSS denoising
+function [todss,pwr0,pwr1,todssX,dX,d] = nt_dss1(x,w,keep1,keep2)
+%[todss,pwr0,pwr1] = nt_dss1(x,w,keep1,keep2) - evoked-biased DSS denoising
 %
 %  todss: denoising matrix
 %  pwr0: power per component (raw)
@@ -31,7 +31,7 @@ x=x(:,:,:); % collapse higher dims
 if isempty(w)   % average over trials (--> bias function for DSS)
     [c0,nc0]=nt_cov(x);
     c0=c0/nc0;
-    [c1,nc1]=nt_cov(mean(x,3)); 
+    [c1,nc1]=nt_cov(mean(x,3));
     c1=c1/nc1;
 else
     % weighted average over trials (--> bias function for DSS)
@@ -40,7 +40,7 @@ else
     % covariance of raw and biased data
     [c0,nc0]=nt_cov(x,[],w);
     c0=c0/nc0;
-    [c1,nc1]=nt_cov(xx,[],ww); 
+    [c1,nc1]=nt_cov(xx,[],ww);
     c1=c1/nc1;
 end
 
@@ -75,8 +75,8 @@ end
 
 % if no output arguments, just plot
 if nargout==0
-    figure(100); clf; 
-    subplot 221; 
+    figure(100); clf;
+    subplot 221;
     plot(pwr1./pwr0,'.-');
     xlabel('component'); ylabel('score');
     z=nt_mmat(x,todss(:,1:3));
@@ -86,7 +86,7 @@ if nargout==0
         title(iComp);
         xlabel('sample');
     end
-    
+
     clear todss pwr0 pwr1
 end
 

@@ -396,7 +396,9 @@ if nargs > 2
                 if size(Value,2)~=3
                     error('Colormap must be a n x 3 matrix')
                 end
-                colormap(Value)
+                % SDukic edit, 2025
+                % Add gca so that it does mess up the whole figure!
+                colormap(gca,Value)
             case 'plotdisk'
                 PLOTDISK = lower(Value);
                 if ~strcmp(PLOTDISK,'on') && ~strcmp(PLOTDISK,'off')
@@ -630,7 +632,9 @@ if isempty(find(strcmp(varargin,'colormap')))
         cmap = parula;
     end
 else
-    cmap = colormap;
+    % SDukic edit, 2025
+    % Add gca so that it does mess up the whole figure!
+    cmap = colormap(gca);
 end
 cmaplen = size(cmap,1);
 
@@ -918,12 +922,12 @@ if ~strcmpi(STYLE,'grid')                     % if not plot grid only
     end
 
     if ~isempty(Values)
-    	if length(Values) == length(Th)  % if as many map Values as channel locs
-    		intValues      = Values(intchans);
-    		intContourVals = ContourVals(intchans);
+        if length(Values) == length(Th)  % if as many map Values as channel locs
+            intValues      = Values(intchans);
+            intContourVals = ContourVals(intchans);
             Values         = Values(pltchans);
-    		ContourVals    = ContourVals(pltchans);
-    	end;
+            ContourVals    = ContourVals(pltchans);
+        end;
     end;   % now channel parameters and values all refer to plotting channels only
 
     allchansind = allchansind(pltchans);
@@ -1513,8 +1517,8 @@ if ~strcmpi(STYLE,'grid')                     % if not plot grid only
         for i = 1:size(labels,1)
             text(double(y(i)),double(x(i)),...
                 ELECTRODE_HEIGHT,labels(i,:),'HorizontalAlignment','center',...
-            	'VerticalAlignment','middle','Color',ECOLOR,...
-            	'FontSize',EFSIZE)
+                'VerticalAlignment','middle','Color',ECOLOR,...
+                'FontSize',EFSIZE)
         end
         %
         %%%%%%%%%%%%%%%%%%%%%%%% Mark electrode locations plus labels %%%%%%%%%%%%%%%%%%%
@@ -1548,7 +1552,7 @@ if ~strcmpi(STYLE,'grid')                     % if not plot grid only
             if size(ECOLOR,1)>1, ec = ECOLOR(i,:); if size(ec,2)==1, ec = 'k'; end, else, ec = ECOLOR; end
             hh(i) = text(double(y(i)+0.01),double(x(i)),...
                 ELECTRODE_HEIGHT,labels(i,:),'HorizontalAlignment','left',...
-          	    'VerticalAlignment','middle','Color', ec,'userdata', num2str(allchansind(i)), ...
+                'VerticalAlignment','middle','Color', ec,'userdata', num2str(allchansind(i)), ...
                 'FontSize',EFSIZE, 'buttondownfcn', ...
                 ['tmpstr = get(gco, ''userdata'');'...
                 'set(gco, ''userdata'', get(gco, ''string''));' ...
@@ -1590,8 +1594,8 @@ if ~strcmpi(STYLE,'grid')                     % if not plot grid only
                 'VerticalAlignment','middle','Color', ec,'userdata', labels(i,:) , ...
                 'FontSize',EFSIZE, 'buttondownfcn', ...
                 ['tmpstr = get(gco, ''userdata'');'...
-       	     'set(gco, ''userdata'', get(gco, ''string''));' ...
-             'set(gco, ''string'', tmpstr); clear tmpstr;'] );
+                'set(gco, ''userdata'', get(gco, ''string''));' ...
+                'set(gco, ''string'', tmpstr); clear tmpstr;'] );
         end
         %
         %%%%%%%%%%%%%%%%%%%%%% Print electrode numbers only %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1600,8 +1604,8 @@ if ~strcmpi(STYLE,'grid')                     % if not plot grid only
         for i = 1:size(labels,1)
             text(double(y(i)),double(x(i)),...
                 ELECTRODE_HEIGHT,int2str(allchansind(i)),'HorizontalAlignment','center',...
-            	'VerticalAlignment','middle','Color',ECOLOR,...
-            	'FontSize',EFSIZE)
+                'VerticalAlignment','middle','Color',ECOLOR,...
+                'FontSize',EFSIZE)
         end
         %
         %%%%%%%%%%%%%%%%%%%%%% Mark emarker2 electrodes only  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%

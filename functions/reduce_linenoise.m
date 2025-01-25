@@ -59,11 +59,11 @@ switch thisMethod
 
         % Split back the blocks
         EEG2 = make_rsmasks(EEG);
-        assert(size(dataeeg,2)==size(EEG2(1).ALSUTRECHT.blockinfo.rs_mask,2));
+        assert(size(dataeeg,2) == size(EEG2(1).ALSUTRECHT.blockinfo.rs_mask,2));
 
         for i = 1:NBLK
             EEG(i).data = dataeeg(:,EEG2(i).ALSUTRECHT.blockinfo.rs_mask(i,:));
-            assert(size(EEG(i).data,2)==EEG(i).pnts);
+            assert(size(EEG(i).data,2) == EEG(i).pnts);
         end
         EEG = eeg_checkset(EEG);
 

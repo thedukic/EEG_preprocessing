@@ -232,8 +232,7 @@ end
 % we want at least 8 segments for proper usage of pwelch
 if winSizeCompleteSpectrum*srate > size(data,1)/8
     winSizeCompleteSpectrum = floor(length(data)/srate/8);
-    warning('Data set is short. Adjusted window size for whole data set spectrum calculation to be 1/8 of the length!')
-
+    warning('Dataset is short. Adjusted window size for whole data set spectrum calculation to be 1/8 of the length!')
 end
 
 if nkeep == 0
@@ -372,11 +371,9 @@ i_noisefreq = 1;
 while i_noisefreq <= length(noisefreqs)
 
     noisefreq = noisefreqs(i_noisefreq);
-
     thisFixedNremove = fixedNremove;
 
     fprintf('Removing noise at %gHz... \n',noisefreq);
-
     figThis = figBase+i_noisefreq;
 
     cleaningDone = 0;
@@ -416,11 +413,8 @@ while i_noisefreq <= length(noisefreqs)
 
         %% find distances
         distances = zeros(nSegments-1,1);
-
         for iSegment = 2:nSegments
-
             distances(iSegment-1) = sum(pdist(covarianceMatrices(:,:,iSegment)-covarianceMatrices(:,:,iSegment-1)))/2;
-
         end
 
         %% find peaks

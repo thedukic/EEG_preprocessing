@@ -10,10 +10,11 @@ function varargout = nt_spect_plot(x,varargin)
 if numel(x) == 0; error('!'); end
 
 N = numel(x);
-ncols = N/size(x,1);
+ncols = N / size(x,1);
 x = reshape(x,size(x,1),ncols);
 
-[pxx,f] = pwelch(x(:,1),varargin{:});
+[pxx, f] = pwelch(x(:,1),varargin{:});
+% [pxx2, f2] = pwelch(x(:,1),512,0,512,256);
 
 for k = 1:ncols
     [a, b] = pwelch(x(:,k),varargin{:});
