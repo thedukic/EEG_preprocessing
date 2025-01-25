@@ -114,6 +114,12 @@ EEG.event = struct('type', cell(1, sum(NTRL)), 'latency', cell(1, sum(NTRL)));
 
 % Generate EO and EC labels
 numEO = sum(EEG.ALSUTRECHT.blockinfo.eo_mask);
+
+% Double-checks
+maskEO = contains(EEG.ALSUTRECHT.subject.datablocks,'_EO');
+assert(sum(maskEO) == numEO);
+assert(all(maskEO(1:numEO)));
+
 EO_labels = arrayfun(@(x) ['EO' num2str(x)], 1:numEO, 'UniformOutput', false);
 EC_labels = arrayfun(@(x) ['EC' num2str(x)], 1:(NBLK - numEO), 'UniformOutput', false);
 

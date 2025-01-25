@@ -37,17 +37,19 @@ eyeBlinkData = do_filteringcore(bh,ah,eyeBlinkData,EEG.event,EEG.srate);
 EOGIQR = iqr(eyeBlinkData);
 EOG75P = prctile(eyeBlinkData,75);
 
-if EOGIQR > 100
-    % If eyeblinks are too frequent and small?
-    treshold = EOG75P + EOGIQR;
-    fprintf('Eye blinks were detected using a treshold of 75PRC+IQR = %1.0fuV.\n',treshold);
-else
-    treshold = EOG75P + 3*EOGIQR;
-    fprintf('Eye blinks were detected using a treshold of 75PRC+2IQR = %1.0fuV.\n',treshold);
-end
+% if EOGIQR > 100
+%     % If eyeblinks are too frequent and small?
+%     treshold = EOG75P + EOGIQR;
+%     fprintf('Eye blinks were detected using a treshold of 75PRC+IQR = %1.0fuV.\n',treshold);
+% else
+%     treshold = EOG75P + 1*EOGIQR;
+%     fprintf('Eye blinks were detected using a treshold of 75PRC+2IQR = %1.0fuV.\n',treshold);
+% end
+treshold = EOG75P + EOGIQR;
+fprintf('Eye blinks were detected using a treshold of 75PRC+IQR = %1.0fuV.\n',treshold);
 
 % Treshold the EOG signal
-BlinkIndexMetric = double(eyeBlinkData>treshold);
+BlinkIndexMetric = double(eyeBlinkData > treshold);
 
 % figure; hold on;
 % plot(EEG.times(1:40*256),dataeog(1:40*256));

@@ -3,7 +3,7 @@ function [slopesChannelsxEpochs, other] = detect_emg(EEG,cfg)
 % Select only EEG
 chaneeg = strcmp({EEG.chanlocs.type},'EEG');
 
-if ndims(EEG.data)==3
+if ndims(EEG.data) == 3
     dataeeg = EEG.data(chaneeg,:,:);
 
     L = EEG.pnts;
@@ -22,11 +22,10 @@ modulus = size(EEG.data(:,:),2) - N*L;
 assert(modulus >= 0);
 
 % Compute (log) power spectra
-[NCHN,NPTS,NTRL]= size(dataeeg);
-NWIN = NPTS;
+[NCHN,NPTS,NTRL] = size(dataeeg);
 psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
 for i = 1:NTRL
-    [psdspectra(:,:,i),freq] = pwelch(dataeeg(:,:,i)',NWIN,0,NWIN,EEG.srate);
+    [psdspectra(:,:,i),freq] = pwelch(dataeeg(:,:,i)',NPTS,0,NPTS,EEG.srate);
 end
 
 % The original reference uses 7-75 Hz and the RELAX toolbox as well, slope treshold >-0.31 or -0.51

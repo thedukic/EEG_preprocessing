@@ -36,7 +36,7 @@ slopesChannelsxEpochs = slopesChannelsxEpochs-muscleSlopeThreshold;
 slopesEpochs = sum(slopesChannelsxEpochs,1,'omitnan');
 
 % Threshold = 0, because all slope values have had the threshold subtracted from them (so the threshold is now 0)
-proportionOfDataShowingMuscleActivityTotal = mean(slopesEpochs>0);
+proportionOfDataShowingMuscleActivityTotal = mean(slopesEpochs > 0);
 
 % Log
 fprintf('Total amount of leftover muscle artifact: %1.2f\n', proportionOfDataShowingMuscleActivityTotal);
@@ -71,16 +71,16 @@ blinkLenght = 500;
 % Find multi-blinks
 multiBlink = detect_multiblinks(eyeBlinksEpochs,0);
 eyeBlinksEpochs(multiBlink,:) = [];
-NTRL = size(eyeBlinksEpochs,1);
+NTRL1 = size(eyeBlinksEpochs,1);
 
-if NTRL>0
+if NTRL1 > 0
     L = mode(diff(eyeBlinksEpochs'))+1;
     timeBlink0 = (0:L-1)./EEG.srate*1000;
     timeBlink1  = timeBlink0-blinkLenght;
 
-    dataeegepoched = NaN(NCHANEEG,L,NTRL);
-    dataeogepoched = NaN(L,NTRL);
-    for i = 1:NTRL
+    dataeegepoched = NaN(NCHANEEG,L,NTRL1);
+    dataeogepoched = NaN(L,NTRL1);
+    for i = 1:NTRL1
         dataeegepoched(:,:,i) = dataeeg(:,eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
         dataeogepoched(:,i)   = dataeog(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
     end
@@ -115,9 +115,9 @@ if NTRL>0
     nexttile(1); hold on;
     plot(timeBlink1,dataeogepoched,'LineWidth',1.2);
     plot(timeBlink1,treshold*ones(size(timeBlink1)),'Color','k');
-    dataCmapTmp = brewermap(NTRL,'Spectral'); % BuGn
+    dataCmapTmp = brewermap(NTRL1,'Spectral'); % BuGn
     set(gca,'ColorOrder',[0 0 0; dataCmapTmp]);
-    title(['Detected blinks, N = ' num2str(NTRL)]);
+    title(['Detected blinks, N = ' num2str(NTRL1)]);
     pbaspect([1.618 1 1]); ylabel('EOG amplitude (\muV)');
 
     dataeegepoched = squeeze(mean(dataeegepoched,2));
@@ -160,16 +160,16 @@ fprintf('Number of detected blinks is %d.\n',size(eyeBlinksEpochs,1));
 fprintf('Number of detected multiple blinks within each evalulation window is %d.\n',sum(multiBlink));
 
 eyeBlinksEpochs(multiBlink,:) = [];
-NTRL = size(eyeBlinksEpochs,1);
+NTRL2 = size(eyeBlinksEpochs,1);
 
 L = mode(diff(eyeBlinksEpochs'))+1;
 timeBlink0 = (0:L-1)./EEG.srate*1000;
-timeBlink1  = timeBlink0-blinkLenght;
+timeBlink1  = timeBlink0 - blinkLenght;
 
-if NTRL>0
-    dataeegepoched = NaN(NCHANEEG,L,NTRL);
-    dataeogepoched = NaN(L,NTRL);
-    for i = 1:NTRL
+if NTRL2 > 0
+    dataeegepoched = NaN(NCHANEEG,L,NTRL2);
+    dataeogepoched = NaN(L,NTRL2);
+    for i = 1:NTRL2
         dataeegepoched(:,:,i) = dataeeg(:,eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
         dataeogepoched(:,i)   = dataeog(eyeBlinksEpochs(i,1):eyeBlinksEpochs(i,2));
     end
@@ -179,13 +179,22 @@ if NTRL>0
     % th = tiledlayout(1,3);
     % th.TileSpacing = 'compact'; th.Padding = 'compact';
 
+    % figure;
+    % hold on;
+    % for i = 1:NTRL
+    %     cla;
+    %     plot(timeBlink1,treshold*ones(size(timeBlink1)),'Color','k');
+    %     plot(timeBlink1,dataeogepoched(:,i),'LineWidth',1.2);
+    %     pause;
+    % end
+
     % 2. Plot
     nexttile(3); hold on;
     plot(timeBlink1,treshold*ones(size(timeBlink1)),'Color','k');
     plot(timeBlink1,dataeogepoched,'LineWidth',1.2);
-    dataCmapTmp = brewermap(NTRL,'Spectral'); % BuGn
+    dataCmapTmp = brewermap(NTRL2,'Spectral'); % BuGn
     set(gca,'ColorOrder',[0 0 0; dataCmapTmp]);
-    title(['Detected blinks, N = ' num2str(NTRL)]);
+    title(['Detected blinks, N = ' num2str(NTRL2)]);
     pbaspect([1.618 1 1]); ylabel('EOG amplitude (\muV)');
 
     % plot([500 500],yrange,'Color',[0 0 0]);
@@ -231,8 +240,8 @@ if NTRL>0
     absolutevaluesblink = abs(dataeegepoched);
 
     % Calculate
-    BlinkAmplitudeRatioAllEpochs = NaN(NCHANEEG,NTRL);
-    for i = 1:NTRL
+    BlinkAmplitudeRatioAllEpochs = NaN(NCHANEEG,NTRL2);
+    for i = 1:NTRL2
         BlinkAmplitudeRatioAllEpochs(:,i) = mean(absolutevaluesblink(:,col_1500ms:col_2500ms,i),2) ./ mean(absolutevaluesblink(:,[1:col_500ms, col_3500ms:col_4000ms],i),2);
     end
     BlinkAmplitudeRatio = mean(BlinkAmplitudeRatioAllEpochs,2)-1;
@@ -279,12 +288,16 @@ EEG.ALSUTRECHT.leftovers.blinksTstat = stats.tstat;
 load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Blinkweights'),'Blinkweights');
 maskChanBlink = ismember({EEG.chanlocs(:).labels},cfg.ica.blinkchans);
 
-blinkTresholdCorr   = 0.75;
+% blinkchans = {'C14','C15','C16','C17','C18','C19','C27','C28','C29'};
+% maskChanBlink = ismember({EEG.chanlocs(:).labels},blinkchans);
+
+blinkTresholdCorr   = 0.7;
 blinkTreshold2Tstat = 4;
 blinkTreshold2Perc  = 0.1;
 
-if ~isnan(BlinkAmplitudeRatioMean) && ~isnan(tstatMean)
-    % 1. Compare the leftover map to the blink IC
+if (~isnan(tstatMean) && NTRL1>5) && (~isnan(BlinkAmplitudeRatioMean) && NTRL2>5)
+    % 1. Compare the leftover maps to the blink IC
+    % But do not do it if there are not enough eyeblinks detected
     BlinkAmplitudeTstatNorm = stats.tstat' ./ norm(stats.tstat);
     BlinkAmplitudeRatioNorm = BlinkAmplitudeRatio ./ norm(BlinkAmplitudeRatio);
     BlinkweightsNorm        = Blinkweights ./ norm(Blinkweights);
@@ -293,57 +306,84 @@ if ~isnan(BlinkAmplitudeRatioMean) && ~isnan(tstatMean)
     BlinkAmplitudeRatioNorm = BlinkAmplitudeRatioNorm - mean(BlinkAmplitudeRatioNorm);
     BlinkweightsNorm        = BlinkweightsNorm - mean(BlinkweightsNorm);
 
-    corrMatTstat = abs(corr(BlinkAmplitudeTstatNorm,BlinkweightsNorm));
-    corrMatPerc  = abs(corr(BlinkAmplitudeRatioNorm,BlinkweightsNorm));
+    % Smoothen to remove noise
+    BlinkAmplitudeTstatNorm = estimate_invlaplacian(BlinkAmplitudeTstatNorm,EEG.chanlocs,1);
+    BlinkAmplitudeRatioNorm = estimate_invlaplacian(BlinkAmplitudeRatioNorm,EEG.chanlocs,1);
+
+    corrMatTstat = abs(corr(BlinkAmplitudeTstatNorm, BlinkweightsNorm));
+    corrMatPerc  = abs(corr(BlinkAmplitudeRatioNorm, BlinkweightsNorm));
 
     % figure;
     % mytopoplot(BlinkAmplitudeRatioNorm,[],[],nexttile);
     % mytopoplot(BlinkweightsNorm,[],[],nexttile);
 
     % Lowered to capture imperfect leftovers
-    flagMWF1a = corrMatTstat>blinkTresholdCorr;
-    flagMWF1b = corrMatPerc>blinkTresholdCorr;
+    flagCorrTstat = corrMatTstat > blinkTresholdCorr;
+    flagCorrPercent = corrMatPerc  > blinkTresholdCorr;
 
     % 2.Frontal electrodes should have high blink leftover
     meanFrontalBlinkLeftoverTstat = mean(stats.tstat(maskChanBlink));
-    flagMWF2a = meanFrontalBlinkLeftoverTstat>blinkTreshold2Tstat;
+    flagMeanTstat = meanFrontalBlinkLeftoverTstat > blinkTreshold2Tstat;
 
     meanFrontalBlinkLeftoverPerc = mean(BlinkAmplitudeRatio(maskChanBlink));
-    flagMWF2b = meanFrontalBlinkLeftoverPerc>blinkTreshold2Perc;
+    flagMeanPercent = meanFrontalBlinkLeftoverPerc>blinkTreshold2Perc;
 
     % Combine
-    flagREDO = (flagMWF1a | flagMWF1b) & (flagMWF2a | flagMWF2b);
+    flagREDO = (flagCorrTstat | flagCorrPercent) & (flagMeanTstat | flagMeanPercent);
 
     % Report
     fprintf('Blink leftover map correlations are %1.2f and %1.2f.\n',corrMatTstat,corrMatPerc);
     fprintf('Average frontal leftovers are %1.2f (T-stat) and %1.2f (%%).\n',meanFrontalBlinkLeftoverTstat,meanFrontalBlinkLeftoverPerc);
 
-elseif ~isnan(tstatMean)
+    EEG.ALSUTRECHT.leftovers.flagCorrTstat   = flagCorrTstat;
+    EEG.ALSUTRECHT.leftovers.flagCorrPercent = flagCorrPercent;
+    EEG.ALSUTRECHT.leftovers.flagMeanTstat   = flagMeanTstat;
+    EEG.ALSUTRECHT.leftovers.flagMeanPercent = flagMeanPercent;
+
+elseif ~isnan(tstatMean) && NTRL1>5
     % 1. Compare the leftover map to the blink IC
+    % But do not do it if there are not enough eyeblinks detected
     BlinkAmplitudeTstatNorm = stats.tstat' ./ norm(stats.tstat);
     BlinkweightsNorm        = Blinkweights ./ norm(Blinkweights);
 
     BlinkAmplitudeTstatNorm = BlinkAmplitudeTstatNorm - mean(BlinkAmplitudeTstatNorm);
     BlinkweightsNorm        = BlinkweightsNorm - mean(BlinkweightsNorm);
 
-    corrMatTstat = abs(corr(BlinkAmplitudeTstatNorm,BlinkweightsNorm));
+    % Smoothen to remove noise
+    BlinkAmplitudeTstatNorm = estimate_invlaplacian(BlinkAmplitudeTstatNorm,EEG.chanlocs,1);
+
+    corrMatTstat = abs(corr(BlinkAmplitudeTstatNorm, BlinkweightsNorm));
+    % figure;
+    % mytopoplot(BlinkAmplitudeTstatNorm,[],[],nexttile);
+    % mytopoplot(icawinvSmooth,[],[],nexttile);
+    % mytopoplot(BlinkweightsNorm,[],[],nexttile);
 
     % Lowered to capture imperfect leftovers
-    flagMWF1 = corrMatTstat>blinkTresholdCorr;
+    flagCorrTstat = corrMatTstat > blinkTresholdCorr;
 
     % 2.Frontal electrodes should have high blink leftover
     meanFrontalBlinkLeftoverTstat = mean(stats.tstat(maskChanBlink));
-    flagMWF2 = meanFrontalBlinkLeftoverTstat>blinkTreshold2Tstat;
+    flagMeanTstat = meanFrontalBlinkLeftoverTstat > blinkTreshold2Tstat;
 
     % Combine
-    flagREDO = flagMWF1 & flagMWF2;
+    flagREDO = flagCorrTstat & flagMeanTstat;
 
     % Report
     fprintf('Blink leftover map correlation is %1.2f.\n',corrMatTstat);
     fprintf('Average frontal leftover is %1.2f (T-stat).\n',meanFrontalBlinkLeftoverTstat);
+
+    EEG.ALSUTRECHT.leftovers.flagCorrTstat   = flagCorrTstat;
+    EEG.ALSUTRECHT.leftovers.flagCorrPercent = NaN;
+    EEG.ALSUTRECHT.leftovers.flagMeanTstat   = flagMeanTstat;
+    EEG.ALSUTRECHT.leftovers.flagMeanPercent = NaN;
 end
 
-% if flagREDO, warning('Blink leftover is too big, wICA will be redone by completely removing the blink ICs...\n'); end
+% %%
+% EEG.ALSUTRECHT.JD.flagREDO = flagREDO;
+% if flagREDO
+%     warning('Blink leftover is too big, joint decorrelation will be done...\n');
+%     EEG = do_jointdecorrelation(EEG,EXT,cfg);
+% end
 
 % Remove (not needed)
 EEG.icaact = [];
@@ -360,8 +400,8 @@ function multiBlink = detect_multiblinks(eyeBlinksEpochs,overlap)
 
 % Narrow down the epoch to get more of them
 % It is okay if they overlap 1s (256 samples)
-eyeBlinksEpochs(:,1) = eyeBlinksEpochs(:,1)+overlap;
-eyeBlinksEpochs(:,2) = eyeBlinksEpochs(:,2)-overlap;
+eyeBlinksEpochs(:,1) = eyeBlinksEpochs(:,1) + overlap;
+eyeBlinksEpochs(:,2) = eyeBlinksEpochs(:,2) - overlap;
 
 createRange = @(row) row(1):row(2);
 rangesCell = arrayfun(@(i) createRange(eyeBlinksEpochs(i,:)), 1:size(eyeBlinksEpochs,1), 'UniformOutput', false);

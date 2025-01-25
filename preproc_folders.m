@@ -22,7 +22,7 @@ myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
 % MMN/SART/RS/MT
 myPaths.task  = 'RS';
 % 'ALS','CONTROL','AFM','PLS','PMA'
-myPaths.group = {'CONTROL'};
+myPaths.group = {'AFM'};
 % 'T1','T2','T3','T4','T5'
 myPaths.visit = {'T1'};
 
@@ -67,6 +67,14 @@ addpath(subFolderPaths{:});
 fprintf('Adding external toolboxes:\n');
 fprintf('%s\n', subFolderPaths{:}); fprintf('\n');
 
+% Check for duplicates to prevent overloading
+% restoredefaultpath % Maybe better not to use it altough it does the job
+check_duplicatefunc('preproc_main.m');
+check_duplicatefunc('preproc_cleaning1.m');
+check_duplicatefunc('preproc_cleaning2.m');
+check_duplicatefunc('eeglab.m');
+check_duplicatefunc('brewermap.m');
+
 % Initialise the toolboxes
 eeglab; close all;
 
@@ -91,7 +99,7 @@ pop_editoptions('option_parallel',flagParallel,'option_single',0,'option_compute
 delete(gcp('nocreate')); parpool("Processes");
 
 % Cant make it work
-% The code is suppsed to be smart about starting the parallel processes 
+% The code is suppsed to be smart about starting the parallel processes
 % pool = gcp('nocreate');
 % if ~isempty(pool)
 %     if ~isempty(pool.Cluster) % pool.Cluster.HasSharedFilesystem && pool.SpmdEnabled
