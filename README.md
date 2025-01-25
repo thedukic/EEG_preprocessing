@@ -3,7 +3,7 @@ EEG preprocessing pipeline v1, ALS Centre UMC Utrecht.
 
 # Get started
 1. Set your paths to MATAB's default:
-```MATLAB
+    ```MATLAB
 	pathtool;
 	```
 	-> Press 'Default' button and confirm (press 'Yes').
