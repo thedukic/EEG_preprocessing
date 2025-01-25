@@ -8,7 +8,6 @@ EEG preprocessing pipeline v1, ALS Centre UMC Utrecht.
 	```
 	-> Press 'Default' button and confirm (press 'Yes').
 
-pathtool
 2. Set folder paths in the preproc_folders.m script:
 	- Root path of the pipeline folder: myPaths.mycodes
 	- Root path of the raw data, which should be organised as on the bulk storage: myPaths.rootrawdata
