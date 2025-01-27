@@ -243,13 +243,16 @@ end
 % =========================================================================
 % Empirical estimates
 warning('The cutoff for spectra spread is tested only for resting-state. It might not be appropriate for other tasks.');
-cutoffSpread = 20; % RS
-cutoffPeak   = 5;
+cutoffKurtosis = 20;    % RS
+cutoffCoefVar  = 0.85;  % RS
+cutoffPeak     = 5;
 
 cnt = 0;
-psdSpreadsAll = NaN(NSUB,1);
-psdPeaksAll   = NaN(NSUB,1);
-psdPromsAll   = NaN(NSUB,1);
+psdSpreadsAll1 = NaN(NSUB,1);
+psdSpreadsAll2 = NaN(NSUB,1);
+psdPeaksAll    = NaN(NSUB,1);
+psdPromsAll    = NaN(NSUB,1);
+psdSpreadAll   = NaN(NSUB,NCHN);
 
 fprintf('Loading %d datasets... Wait...\n',NSUB);
 for i = 1:NSUB
@@ -262,40 +265,43 @@ for i = 1:NSUB
 
     % =================================================================
     % 1. Calculate measure of power spread across EEG electrodes
-    maskFreq  = freq>25 & freq<40;
+    maskFreq  = freq>25 & freq<45;
     % psdSpread = psdspectra ./ sum(psdspectra,1);
+    psdSpread = mean(psdspectra(maskFreq,:),1);
 
     % Spread
-    % psdSpreadsAll(i) = mean(std(psdspectra(maskFreq,:),0,2));
-    psdSpreadsAll(i) = mean(kurtosis(psdspectra(maskFreq,:),1,2));
-    % psdSpreadsAll(i) = std(mean(psdspectra(maskFreq,:),1));
+    psdSpreadsAll1(i) = kurtosis(psdSpread);
+    psdSpreadsAll2(i) = std(psdSpread) ./ mean(psdSpread);
+
+    % Use for clustering/outlier detection
+    psdSpreadAll(i,:) = psdSpread;
 
     % =================================================================
     % 2. Find the number of peaks in the average EEG spectrum
     % psdPeak = mean(psdspectraNorm,2);
     % psdPeak  = psdPeak ./ sum(psdPeak,1);
-    maskFreq      = freq<40;
+    maskFreq      = freq < 40;
     freqTmp       = freq(maskFreq);
-    psdspectraTmp = mean(log10(psdspectra(maskFreq,:)),2);
+    psdspectraTmp = psdspectra ./ sum(psdspectra,1);
+    psdspectraTmp = mean(psdspectraTmp(maskFreq,:),2);
 
     % Initial step
     [qrspeaks, locs, ~, proms] = findpeaks(psdspectraTmp,freqTmp);
     % Guided detection
-    psdPromsAll(i) = quantile(proms,0.2);
-    psdPromsFinal  = max(psdPromsAll(i),0.005);
-    % psdPromsFinal  = psdPromsAll(i);
+    psdPromsAll(i)   = quantile(proms,0.2);
+    % psdPromsFinal  = max(psdPromsAll(i),0.0005);
+    % psdPromsFinal  = min(psdPromsFinal,0.1);
+    psdPromsFinal    = psdPromsAll(i);
     [qrspeaks, locs] = findpeaks(psdspectraTmp,freqTmp,'MinPeakProminence',psdPromsFinal);
-
-    % [qrspeaks, locs] = findpeaks(psdspectraTmp,freqTmp,'MinPeakProminence',0.0005);
-    psdPeaksAll(i) = length(locs);
+    psdPeaksAll(i)   = length(locs);
 
     % =================================================================
     % figure; plot(std(psdspectra(mask,:),0,2))
     % figure; histogram(std(psdspectra(mask,:),0,2))
 
     % Plot and output if it exceeds the cut-off
-    if psdSpreadsAll(i) > cutoffSpread || psdPeaksAll(i) > cutoffPeak
-        fprintf('%s : Spread = %1.3f, Peaks = %d.\n', subjects{i}, psdSpreadsAll(i), psdPeaksAll(i));
+    if psdSpreadsAll1(i) > cutoffKurtosis || psdSpreadsAll2(i) > cutoffCoefVar || psdPeaksAll(i) > cutoffPeak
+        fprintf('%s : Kurtosis = %1.3f, CV = %1.3f, Peaks = %d.\n', subjects{i}, psdSpreadsAll1(i), psdSpreadsAll2(i), psdPeaksAll(i));
 
         cnt = cnt+1;
         if cnt == 1
@@ -324,11 +330,10 @@ for i = 1:NSUB
 
         xticks(unique([locs' 0 5 10 15 20 25 30 50]));
         xlim([freq(1), 60]); ylim([-4 3]); % ylim(dataClim);
-        % title({[subjects{i},', group: ',myPaths.group, ', visit: ', myPaths.visit, ', task: ', myPaths.task], ['Spread: ', num2str(psdSpreadsAll(i), '%.3f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
-        title({subjects{i}, ['Spread: ', num2str(psdSpreadsAll(i), '%.3f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
-      
+        % title({[subjects{i},', group: ',myPaths.group, ', visit: ', myPaths.visit, ', task: ', myPaths.task], ['Spread: ', num2str(psdSpreadsAll1(i), '%.3f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
+        title({subjects{i}, ['Kurtosis: ', num2str(psdSpreadsAll1(i), '%1.1f') ', CV: ', num2str(psdSpreadsAll2(i), '%.2f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
+
         pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
-        
     end
 end
 
@@ -343,22 +348,32 @@ end
 % Plot the distributions of the power spectra characteristics
 % -> Power spectra spread, power spectra peaks
 fh = figure;
-th = tiledlayout(1,3);
+th = tiledlayout(2,2);
 th.TileSpacing = 'compact'; th.Padding = 'compact';
 nexttile;
-hb = histogram(psdSpreadsAll,10);
+hb = histogram(psdSpreadsAll1,10);
 hb.FaceColor = 0.7*ones(1,3);
-pbaspect([1.618 1 1]); xlabel('Power spectra spread');
+pbaspect([1.618 1 1]); xlabel('Power spectra: kurtosis');
+myXlim = xlim; xlim([0 myXlim(2)]);
+nexttile;
+hb = histogram(psdSpreadsAll2,10);
+hb.FaceColor = 0.7*ones(1,3);
+pbaspect([1.618 1 1]); xlabel('Power spectra: coefficient of variation');
+myXlim = xlim; xlim([0 myXlim(2)]);
 nexttile;
 hb = histogram(psdPeaksAll);
 hb.FaceColor = 0.7*ones(1,3);
-pbaspect([1.618 1 1]); xlabel('Power spectra # peaks');
+pbaspect([1.618 1 1]); xlabel('Power peaks');
+myXlim = xlim; xlim([0 myXlim(2)]);
 nexttile;
 hb = histogram(psdPromsAll,10);
 hb.FaceColor = 0.7*ones(1,3);
 pbaspect([1.618 1 1]); xlabel('Power peak prominance');
+myXlim = xlim; xlim([0 myXlim(2)]);
 
-plotX=25; plotY=15;
+% figure; plot(psdPromsAll);
+
+plotX=20; plotY=20;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
 print(fh,fullfile(myPaths.reports,['Summary5_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r300');
@@ -367,5 +382,8 @@ print(fh,fullfile(myPaths.reports,['Summary5_' myPaths.group '_' myPaths.visit '
 % Report table
 save(fullfile(myPaths.reports,['Summary_' myPaths.group '_' myPaths.visit '_' myPaths.task '_' myPaths.proctime]),'tableIssues');
 writetable(tableIssues,fullfile(myPaths.reports,['Summary_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime '.xlsx']),"WriteMode","overwrite");
+
+% Delete later
+save(fullfile(myPaths.reports,['psdSpreadAll_' myPaths.proctime]),'psdSpreadAll');
 
 end

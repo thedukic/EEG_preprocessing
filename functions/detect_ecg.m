@@ -1,4 +1,4 @@
-function [ECGmask, ECGbadEpoch, ECGlatency, ECGdata, plusEstimate] = detect_ecg(EXT,winECG,ECGsignalLabel)
+function [ECGmask, ECGbadEpoch, ECGlatency, ECGdata, pulsEstimate] = detect_ecg(EXT,winECG,ECGsignalLabel)
 %
 % Detect the QRS peaks in the ECG signal
 % SDukic, October 2024
@@ -90,16 +90,16 @@ if any(chanecg)
         ECGbadEpoch = NaN;
         ECGlatency  = NaN;
         ECGdata     = NaN;
-        plusEstimate = NaN;
+        pulsEstimate = NaN;
         return;
     end
 
     % figure; scatter(ECGlatency,ones(size(ECGlatency)));
     % figure; histogram(diff(ECGlatency));
-    plusEstimate = diff(ECGlatency);
-    plusEstimate(plusEstimate<0.5 | plusEstimate>1.5) = [];
-    plusEstimate = mean(plusEstimate)*60;
-    fprintf('Th final number of ECG events detected: %d (average pulse %1.1f per min)\n',NECG,plusEstimate);
+    pulsEstimate = diff(ECGlatency);
+    pulsEstimate(pulsEstimate<0.5 | pulsEstimate>1.5) = [];
+    pulsEstimate = mean(pulsEstimate)*60;
+    fprintf('Th final number of ECG events detected: %d (average pulse %1.1f per min)\n',NECG,pulsEstimate);
 
     % Average ECG
     mECG = mean(ECG,1);
@@ -130,5 +130,5 @@ else
     ECGbadEpoch  = NaN;
     ECGlatency   = NaN;
     ECGdata      = NaN;
-    plusEstimate = NaN;
+    pulsEstimate = NaN;
 end

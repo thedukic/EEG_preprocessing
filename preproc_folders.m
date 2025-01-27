@@ -98,8 +98,8 @@ pop_editoptions('option_parallel',flagParallel,'option_single',0,'option_compute
 % Kill and start again the parallel processes
 delete(gcp('nocreate')); parpool("Processes");
 
-% Cant make it work
-% The code is suppsed to be smart about starting the parallel processes
+% The code is supposed to be smart about killing/starting the parallel processes
+% But cannot make it work
 % pool = gcp('nocreate');
 % if ~isempty(pool)
 %     if ~isempty(pool.Cluster) % pool.Cluster.HasSharedFilesystem && pool.SpmdEnabled
