@@ -258,7 +258,7 @@ fprintf('================================\n');
 
 if ~isempty(EXTTMP)
     % Detect ECG/QRS
-    [ECGmask, ECGepoch, ~, ~, plusEstimate] = detect_ecg(EXTTMP,[-250 450],ECGsignalLabel);
+    [ECGmask, ECGepoch, ~, ~, pulsEstimate] = detect_ecg(EXTTMP,[-250 450],ECGsignalLabel);
 
     if ~isnan(ECGmask)
         [blECG, alECG] = butter(4,16/(EEG.srate/2),'low');
@@ -315,7 +315,7 @@ else
     fprintf('Skipping as the ECG signal is not recorded.\n');
     V = NaN(NICA,1);
     badIC = [];
-    plusEstimate = NaN;
+    pulsEstimate = NaN;
 end
 
 % Log
@@ -324,7 +324,7 @@ EEG.ALSUTRECHT.ica.ctps.bics = badIC;
 EEG.ALSUTRECHT.ica.ctps.cvec = ones(length(EEG.ALSUTRECHT.ica.ctps.bics),1);
 EEG.ALSUTRECHT.ica.ctps.clss = 'ECG';
 
-EEG.ALSUTRECHT.subject.plusEstimate = plusEstimate;
+EEG.ALSUTRECHT.subject.pulsEstimate = pulsEstimate;
 
 %% ========================================================================
 % 4. Detect EMG ICs using freq slopes

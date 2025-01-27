@@ -145,7 +145,7 @@ EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal = proportionOfD
 fprintf('Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF);
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad data for MWF: %1.2f\n',EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF);
 
-if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF>0.05
+if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF > 0.05
     % Parameters
     delayNew = round((12/1000)*EEG.srate);
     delaySpacingNew = round((2/1000)*EEG.srate);
@@ -169,7 +169,6 @@ if EEG.ALSUTRECHT.MWF.R1.proportionMarkedForMWF>0.05
 
         % Return
         EEG.data(chaneeg,:) = cleanEEG;
-
     end
 
     % Log
