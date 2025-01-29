@@ -11,7 +11,7 @@ nt_greetings;
 
 if nargin<2; error('!'); end
 
-if size(x,2)>1; 
+if size(x,2)>1
     error('x should be column vector'); 
 end
 
@@ -25,25 +25,25 @@ THRESH=3; % threshold for robust detrending
 events(find(events<EXTRA))=[];
 events(find(events>size(x,1)-NSAMPLES))=[];
 
-y=x;
-for iEvent=1:numel(events)
-    event=events(iEvent);
+y = x;
+for iEvent = 1:numel(events)
+    event = events(iEvent);
     
     % select portion to fit filter response, remove polynomial trend
-    event_response=x(event-EXTRA:event+NSAMPLES);
-    event_response=nt_detrend(event_response,ORDER,[],[],THRESH); 
-    event_response=event_response(EXTRA+1:end);
+    event_response = x(event-EXTRA:event+NSAMPLES);
+    event_response = nt_detrend(event_response,ORDER,[],[],THRESH); 
+    event_response = event_response(EXTRA+1:end);
        
-    event_response=event_response(2:end); % not sure why...
+    event_response = event_response(2:end); % not sure why...
     
     % estimate filter parameters
-    event_response=[event_response;zeros(size(event_response))]; % helps ensure stable filter  
-    [B,A]=stmcb(event_response,NNUM,NDEN); 
+    event_response = [event_response; zeros(size(event_response))]; % helps ensure stable filter  
+    [B,A] = stmcb(event_response,NNUM,NDEN); 
     
     % estimate filter response to event
-    model=filter(B,A,[1;zeros(NSAMPLES,1)]);
-    y(event+(1:size(model,1)))=x(event+(1:size(model,1))) - model;
-    %figure(1); clf; plot(nt_demean([event_response(1:size(model,1)),model,x(event+(1:size(model,1)))])); pause
+    model = filter(B,A,[1;zeros(NSAMPLES,1)]);
+    y(event+(1:size(model,1))) = x(event+(1:size(model,1))) - model;
+    % figure(1); clf; plot(nt_demean([event_response(1:size(model,1)),model,x(event+(1:size(model,1)))])); pause
 end
 
 if nargout==0

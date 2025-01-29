@@ -38,7 +38,7 @@ nt_greetings;
 
 if nargin<7||isempty(nodemeanflag); demeanflag=1; end
 
-if ~exist('thresh','var');
+if ~exist('thresh','var')
     thresh=10.^-12; 
 end
 

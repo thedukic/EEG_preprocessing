@@ -1,4 +1,4 @@
-function [IDX,TODSS,SCORE,COVS]=nt_cluster_jd(x,dsr,smooth,flags,init,verbose, depth,N)
+function [IDX,TODSS,SCORE,COVS] = nt_cluster_jd(x,dsr,smooth,flags,init,verbose, depth,N)
 %[IDX,todss,SCORE,COVS]=nt_cluster_jd(x,dsr,smooth,flags,init,verbose) - cluster with joint diagonalization
 %
 %  IDX: cluster ownership (IDX{1}: low amp, IDX{2{: high amp)
@@ -29,26 +29,26 @@ if nargin<6||isempty(verbose); verbose=0; end
 if nargin<7||isempty(depth); depth=1; end
 if nargin<8||isempty(N); N=2^depth; end
 
-if ndims(x)>2 || size(x,2) ==1;
+if ndims(x)>2 || size(x,2) ==1
     error('should be 2D matrix');
 end
 
-if depth>1;
+if depth>1
     % split into 2 clusters
     I=nt_cluster_jd(x,dsr,smooth,flags,init,verbose,1);
-    
+
     % recurse on first
-    if numel(I{1})>2*dsr; 
+    if numel(I{1})>2*dsr
         I1=nt_cluster_jd(x(I{1},:),dsr,smooth,flags,init,verbose,depth-1); % recurse
     else
         I1={(1:numel(I{1}))}; % too small
     end
-    
+
     % recurse on second (if exists)
-    if numel(I)>1; 
+    if numel(I)>1
         if numel(I{2})>2*dsr; I2=nt_cluster_jd(x(I{2},:),dsr,smooth,flags,init,verbose,depth-1); else I2={(1:numel(I{2}))}; end
     end
-    
+
     % resolve the cluster indices
     IDX1={};
     for k=1:numel(I1)
@@ -62,8 +62,8 @@ if depth>1;
     end
     IDX=[IDX1 IDX2];
     checkindex(IDX,size(x,1))
-    
-    while numel(IDX)>N;
+
+    while numel(IDX)>N
         % merge clusters
         COVS=[];
         for k=1:numel(IDX)
@@ -72,13 +72,13 @@ if depth>1;
         B=covdists(COVS);
         [a,idx]=min(B(:));
         [k1,k2]=ind2sub([size(B,1), size(B,1)],idx);
-        
+
         %figure(1); clf; nt_imagescc(B);title (num2str([max(B(:)), a, k1, k2, size(B,1)])); pause
-        IDX{k1}=[IDX{k1};IDX{k2}]; 
+        IDX{k1}=[IDX{k1};IDX{k2}];
         IDX(k2)=[];
         checkindex(IDX,size(x,1))
     end
-    if nargout>1;
+    if nargout>1
         c0=nt_cov(x)/size(x,1);
         for k=1:numel(IDX)
             c1=nt_cov(x(IDX{k},:))/size(x(IDX{k},:),1);
@@ -88,7 +88,7 @@ if depth>1;
         end
     end
     return
-end    
+end
 
 %{
  Calculate the time series of cross products (terms of the covariance matrix).
@@ -112,8 +112,8 @@ if find(strcmp(flags,'norm2'))
     xx=norm2(xx,size(x,2),ind);
 end
 
-% subplot 212; 
-% plot(xx); 
+% subplot 212;
+% plot(xx);
 % pause;
 
 xx=nt_smooth(xx,smooth,[],1);
@@ -128,8 +128,8 @@ and use it's cluster index to initialize the first JD analysis.
 if isempty(init)
     [C,A,score]=nt_cluster1D(xx); % cluster all columns of cross products
     [~,idx]=min(score); % select column with best score (tightest clusters)
-    A=A(:,idx); 
-        
+    A=A(:,idx);
+
     % upsample the cluster ownership index so we can apply it to x
     A=repmat(A',[dsr,1]);
     A=A(:);
@@ -146,11 +146,11 @@ if isempty(IDX{1}) % clustering failed, return just one cluster
     COVS{1}=nt_cov(x);
     return
 end
-   
+
 c0=nt_cov(x);
 c1=nt_cov(x(IDX{1},:));
 [todss,pwr0,pwr1]=nt_dss0(c0,c1);
-z=nt_mmat(x,todss(:,[1 end])); % keep only first and last components 
+z=nt_mmat(x,todss(:,[1 end])); % keep only first and last components
 
 PLOT_FIG2=0;
 if PLOT_FIG2
@@ -169,11 +169,11 @@ for k=1:10
 
     [zz,ind]=nt_xprod(z,[],dsr);
     zz=zz(:,1:2);       % keep only the squares
-    
-    if find(strcmp(flags,'pwr')); % cluster in power 
+
+    if find(strcmp(flags,'pwr')); % cluster in power
         [C,A]=nt_cluster1D(zz);
         [~,idx]= max(abs(diff(log2(C+eps)))); % choose first or last
-    elseif find(strcmp(flags,'amp')); % cluster in amplitude 
+    elseif find(strcmp(flags,'amp')); % cluster in amplitude
         [C,A]=nt_cluster1D(sqrt(zz));
         [~,idx]= max(abs(diff(log2(C+eps)))); % choose first or last
     else  % cluster in log domain
@@ -185,15 +185,15 @@ for k=1:10
     C=C(:,idx);
     %disp(C); pause
     if C(1)<C(2); A=1-A; end % ensure that first cluster has low amplitude
-    
+
     A=double(nt_smooth(A,smooth, [],1)>=1/smooth); % extend ownership to include effect of smoothing
 
     % upsample the cluster ownership index so we can apply it to x
-    A=repmat(A',[dsr,1]); % upsample 
-    A=A(:); 
+    A=repmat(A',[dsr,1]); % upsample
+    A=A(:);
     A(end:size(x,1))=A(end);
     IDX{1}=find(A==0); % 0: low values, 1: high values
-    
+
     if isempty(IDX{1}) % clustering failed, return just one cluster
         IDX{1}=1:size(x,1);
         TODSS{1}=nan;
@@ -208,18 +208,18 @@ for k=1:10
     [todss,pwr0,pwr1]=nt_dss0(c0,c1);
     z=nt_mmat(x,todss(:,[1 end])); % keep first and last
 
-    if ~nargout||verbose; 
-        disp(['low amp cluster: ', num2str((100*numel(IDX{1})/size(x,1)), 2), ' % of samples, power ratio: ' num2str(pwr1(end)/pwr0(end), 3)]); 
-        disp(['hi amp cluster: ', num2str((100-100*numel(IDX{1})/size(x,1)), 2), ' % of samples, power ratio: ' num2str(pwr1(1)/pwr0(1), 3)]); 
+    if ~nargout||verbose;
+        disp(['low amp cluster: ', num2str((100*numel(IDX{1})/size(x,1)), 2), ' % of samples, power ratio: ' num2str(pwr1(end)/pwr0(end), 3)]);
+        disp(['hi amp cluster: ', num2str((100-100*numel(IDX{1})/size(x,1)), 2), ' % of samples, power ratio: ' num2str(pwr1(1)/pwr0(1), 3)]);
     end
 
     if PLOT_FIG2
-        figure(2);  
+        figure(2);
         subplot 515; plot(A,'.-'); title('final cluster map'); pause
     end
     if all(size(old_IDX)==size(IDX{1})) && all(old_IDX==IDX{1}); break; end
     old_IDX=IDX{1};
-end 
+end
 IDX{2}=setdiff((1:size(x,1))', IDX{1});
 
 
@@ -235,7 +235,7 @@ COVS{2}=c1;
 SCORE(2,1:numel(pwr1))=pwr1./pwr0;
 
 if nargout==0||verbose;
-    
+
     % no output, just plot
 
     z1=nt_mmat(x,TODSS{1}(:,1));
@@ -253,12 +253,12 @@ if nargout==0||verbose;
     legend('cluster','all'); legend boxoff
     hold off
 
-    z=nt_mmat(x,todss); 
+    z=nt_mmat(x,todss);
     z=nt_normcol(z);
-    subplot 223; nt_imagescc(nt_cov(z(IDX{1},:))); title('cluster 1'); 
+    subplot 223; nt_imagescc(nt_cov(z(IDX{1},:))); title('cluster 1');
     subplot 224; nt_imagescc(nt_cov(z)-nt_cov(z(IDX{1},:))); title('cluster 2');
 
-    
+
     figure(102); clf
     if 0
         subplot 211;
@@ -284,14 +284,14 @@ if nargout==0||verbose;
         nt_sgram(z1,128,1); axis tight
         title('DSS 1');
     end
-    
-    if 0 
+
+    if 0
         figure(105); clf
         nt_sgram(z1,1024,32,[],1);
         title('DSS1');
     end
     if nargout==0; clear IDX SCORE TODSS; end
-    
+
 end
 
 % can't rememember what this is supposed to do...
@@ -315,14 +315,13 @@ for k=1:numel(C)
         B(k,j)=B(j,k);
     end
 end
-    
+
 function checkindex(IDX,n)
 a=zeros(n,1);
 for k=1:numel(IDX)
-    if any(a(IDX{k})); 
+    if any(a(IDX{k}));
         error('!');
     end
     a(IDX{k})=1;
 end
-    
-    
+

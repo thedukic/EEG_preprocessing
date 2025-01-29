@@ -1,7 +1,7 @@
 function [squares,quads,D]=nt_qca(x,npcs,nsmooth,nquads)
 %[squares,quads,D]=nt_qca(x,npcs,nsmooth,nquads) - maximize induced power using quadratic component analysis
 %
-%  squares: linear components closest to most repeatable quadratic component 
+%  squares: linear components closest to most repeatable quadratic component
 %  quads: most reproducible quadratic component(s)
 %  D: eigenvalues
 %
@@ -11,8 +11,8 @@ function [squares,quads,D]=nt_qca(x,npcs,nsmooth,nquads)
 %  nquads: number of quadratic components to return [default: 1]
 %
 %  Usually we are interested in the first component of 'squares'
-%  (component with square closest to best quadratic component). 
-% 
+%  (component with square closest to best quadratic component).
+%
 % See nt_qca0, nt_quad2square.
 % NoiseTools.
 
@@ -24,7 +24,7 @@ if nargin<2; error('!'); end
 
 x=[x,ones(nsamples,1,ntrials)*max(abs(x(:)))]; % append a DC component to absorb DC
 
-if nargout==1;
+if nargout==1
     tosquares=nt_qca0(x,npcs,nsmooth,nquads);
 else
     [tosquares,quads,D]=nt_qca0(x,npcs,nsmooth,nquads);
@@ -40,15 +40,15 @@ if 0
     squares=squares(:,idx,:);
 end
 
-if nargout==0;
+if nargout==0
     disp('no output arguments: plot');
-    figure(100); 
-    subplot 311; 
+    figure(100);
+    subplot 311;
     plot(abs(D), '.-'); xlabel('component'); ylabel('score');
-    subplot 312; 
+    subplot 312;
     nt_bsplot(quads(:,1,:));
     title('best quadratic');
-    subplot 313; 
+    subplot 313;
     nt_bsplot(squares(:,1,:).^2);
     xlabel('samples'); title('closest square');
     clear squares quads D
@@ -58,4 +58,3 @@ end
 
 
 
-    

@@ -4,7 +4,7 @@ if strcmpi(myPaths.group,'AFM')
     % Preprocess only C9 FCOs
     subjects = select_fcos(myPaths);
 
-    % Manually select specific participants
+    % % Manually select specific participants
     % subjects = {'ALS27315'};
 
 else

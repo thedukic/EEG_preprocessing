@@ -53,6 +53,11 @@ for i = 1:length(badElecsPerTrial)
             data(badchans,:,i) = spheric_spline(xelec, yelec, zelec, xbad, ybad, zbad, data(goodchans,:,i));
             listFixed = [listFixed  i];
             % fprintf('Trial %d fixed.\n',i);
+
+            % A = data(badchans,:,i);
+            % B = spheric_spline(xelec, yelec, zelec, xbad, ybad, zbad, data(goodchans,:,i));
+            % figure; hold on; plot(A'); plot(B'); legend('Before','After');
+
         else
             % The trial is too noisy
             % fprintf('Trial %d is too noisy and thus not fixed.\n',i);

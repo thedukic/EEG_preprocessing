@@ -35,7 +35,7 @@ fprintf('\n');
 % =========================================================================
 % Basic post-preprocessing
 % =========================================================================
-% 1. Load cleaned data
+% 0. Load cleaned data
 fileName = fullfile(subject.preproc,subject.clnfile1);
 if exist(fileName, 'file') == 2
     fprintf('%s: Loading the preprocessed data...\n',subject.id);
@@ -44,6 +44,14 @@ else
     warning('%s: Cannot find the preprocessed data. Skipping...\n',subject.id);
     return;
 end
+
+% % 1. Do a bit more of EMG removal
+% slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
+% slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
+% BadEpochs = sum(slopesChannelsxEpochs, 1);
+% if mean(BadEpochs) > 0.05
+%     EEG = denoise_emg(EEG);
+% end
 
 % 2. Filter lowpass, must be done on continuous data
 fprintf('\nLowpass filtering...\n');
@@ -175,14 +183,18 @@ fprintf('\n================================\n');
 fprintf('EMG slopes\n');
 fprintf('================================\n');
 
-% Estimate slopes
+% % 0.
+% slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
+% slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
+% BadEpochs = sum(slopesChannelsxEpochs, 1);
+% if mean(BadEpochs) > 0.05
+%     EEG = denoise_emg(EEG);
+% end
+
+% 1. Interpolate
 slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
 slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
 
-% tmp = any(slopesChannelsxEpochs,2);
-% figure; mytopoplot(ones(1,128), tmp,'',nexttile);
-
-% 1. Interpolate
 % Interpolate trials that do not have a lot of electrodes contaminated by EMG
 badElecsPerTrial = arrayfun(@(col) find(slopesChannelsxEpochs(:, col)), 1:size(slopesChannelsxEpochs, 2), 'UniformOutput', false);
 eegchans = strcmp({EEG.chanlocs.type},'EEG');
@@ -210,10 +222,15 @@ badTrialMuscle(report.listNotFixed) = true;
 %     badTrialMuscle = BadEpochs>badTrialMuscleTreshhold;
 % end
 
-if any(badTrialMuscle)
-    EEG = pop_rejepoch(EEG,badTrialMuscle,0);
+% Check if all trials are still very noisy
+if all(badTrialMuscle)
+    warning('All trials are still very noisy. Skipping...'); return;
 else
-    fprintf('No EMG-contaminated trials are found.\n');
+    if any(badTrialMuscle)
+        EEG = pop_rejepoch(EEG,badTrialMuscle,0);
+    else
+        fprintf('No EMG-contaminated trials are found.\n');
+    end
 end
 
 % Log
@@ -408,7 +425,7 @@ elseif strcmpi(myPaths.task,'RS')
 
     colororder(th,dataCmap); xlim([freq(1), 60]); % ylim(dataClim);
     title([subject.id ', ' num2str(sum(chaneeg)) ' EEG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequnecy (Hz)'); ylabel('Power (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('Power (a.u.)');
 
     th = nexttile;
     hold on; box off;
@@ -421,7 +438,7 @@ elseif strcmpi(myPaths.task,'RS')
 
     colororder(th,dataCmap); xlim(freq([1 end])); ylim(dataClim);
     title([subject.id ', ' num2str(sum(chaneeg)) ' EEG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequnecy (Hz)'); ylabel('log_{10}(Power) (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
 
     plotX=20; plotY=8;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
@@ -449,7 +466,7 @@ elseif strcmpi(myPaths.task,'MT')
 
     colororder(th,dataCmap1); xlim([freq(1), 60]); % ylim(dataClim);
     title([subject.id ', ' num2str(sum(chaneeg)) ' EEG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequnecy (Hz)'); ylabel('Power (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('Power (a.u.)');
 
     % EMG
     th = nexttile;
@@ -458,7 +475,7 @@ elseif strcmpi(myPaths.task,'MT')
 
     colororder(th,dataCmap2); xlim(freq([1 end])); % ylim(dataClim);
     title([subject.id ', ' num2str(sum(chanemg)) ' EMG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequnecy (Hz)'); ylabel('Power (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('Power (a.u.)');
 
     % log(EEG)
     th = nexttile;
@@ -472,7 +489,7 @@ elseif strcmpi(myPaths.task,'MT')
 
     colororder(th,dataCmap1); xlim(freq([1 end])); ylim(dataClim);
     title([subject.id ', ' num2str(sum(chaneeg)) ' EEG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequnecy (Hz)'); ylabel('log_{10}(Power) (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
 
     % log(EMG)
     th = nexttile;
@@ -486,7 +503,7 @@ elseif strcmpi(myPaths.task,'MT')
 
     colororder(th,dataCmap2); xlim(freq([1 end])); ylim(dataClim);
     title([subject.id ', ' num2str(sum(chanemg)) ' EMG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequnecy (Hz)'); ylabel('log_{10}(Power) (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
 
     plotX=20; plotY=14;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);

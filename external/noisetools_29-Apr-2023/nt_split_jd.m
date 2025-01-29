@@ -1,4 +1,4 @@
-function [idx,score_vector,todss]=nt_split_jd(x,thresh,depth);
+function [idx,score_vector,todss]=nt_split_jd(x,thresh,depth)
 %[idx,score_vector,todss]=nt_split_dss(x,thresh,depth) - segmentation based on joint diagonalization
 %
 %  idx: index at which to split
@@ -53,7 +53,7 @@ end
 
 disp(['nt_split_jd nargout: ', num2str(nargout)])
 
-if nargout==0;
+if nargout==0
     disp(['split at ', num2str(idx)]);
     disp(['(%: ', num2str(100*idx/m, '  %.01f'), ')'])
     nd=zeros(1,size(x,1));
@@ -79,11 +79,11 @@ if nargout==0;
     nd0=numel(find( mean(z.^2)/mean(z(:,1).^2)>thresh));drawnow;
     hold on
     plot(nd0*ones(size(x,1),1), 'k--')
-    plot(nd,'b'); 
+    plot(nd,'b');
     xlim([1 size(x,1)]); ylim([0 max([nd0,nd])+1]); drawnow
     nt_mark(idx);
     ylabel('ndims');
-    
+
     subplot 311
     plot(x);  xlim([1 size(x,1)]); drawnow
     nt_mark(idx);

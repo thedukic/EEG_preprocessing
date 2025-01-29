@@ -1,4 +1,4 @@
-function [y,z,mask]=nt_eyeblink(x,eyechans,nremove,sr)
+function [y,z,mask] = nt_eyeblink(x,eyechans,nremove,sr)
 %[y,z,mask]=nt_eyeblink(x,eyechans,nremove) - project out eyeblinks
 %
 %  y: clean data
@@ -25,7 +25,7 @@ if nargout==0
     figure(202); clf;
     subplot 211; plot(mask); title('mask');
     subplot 212; plot(z(:,1:3)); title('eyeblink components 1:3');
-    disp(size(z)); 
+    disp(size(z));
     disp(size(kurtosis(z)));
     figure(203); clf;
     plot(kurtosis(z));
@@ -65,25 +65,18 @@ topcs=nt_pca0(x);
 xx=x*topcs(:,1:min(10,size(x,2)));
 c0=nt_cov(xx);
 c1=nt_cov(nt_demean(bsxfun(@times,xx,mask)));
-[todss,pwr0,pwr1]=nt_dss0(c0,c1); 
-%figure(99); clf; plot(pwr1./pwr0,'.-'); title('nt_eyeblink'); ylabel('score'); xlabel('component');
+[todss,pwr0,pwr1]=nt_dss0(c0,c1);
+% figure(99); clf; plot(pwr1./pwr0,'.-'); title('nt_eyeblink'); ylabel('score'); xlabel('component');
 z=nt_mmat(xx,todss(:,1:nremove));
 
-% figure(10); clf; subplot 211; plot(eyechans);
+% figure(10); clf;
+% subplot 211; plot(eyechans);
 % subplot 212; plot(z);
-% pause
+% % pause
 
-y=nt_tsr(x,z);
+y = nt_tsr(x,z);
 
-% figure(11); clf; subplot 211; plot(x);
+% figure(11); clf;
+% subplot 211; plot(x);
 % subplot 212; plot(nt_tsr(x,y));
-% pause
-
-
-
-
-
-
-
-
-
+% % pause

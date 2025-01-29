@@ -24,7 +24,7 @@ THRESH_RATIO=2;     % ratio of shared-weight and per-channel-weight thresholds
 if nargin<1; error; end
 if nargin<2 || isempty(thresh); thresh=1; end
 if nargin<3; closest=[]; end
-if ~isempty(closest)&&size(closest,1)~=size(x,2);
+if ~isempty(closest)&&size(closest,1)~=size(x,2)
     error('closest array should have as many rows as channels of x'); 
 end
 if nargin<4; w=[]; end

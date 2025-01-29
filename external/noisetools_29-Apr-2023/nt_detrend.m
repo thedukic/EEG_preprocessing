@@ -1,6 +1,6 @@
 function [y,w,r]=nt_detrend(x,order,w0,basis,thresh,niter,wsize)
 %[y,w,r]=nt_detrend(x,order,w,basis,thresh,niter,wsize) - robustly remove trend
-% 
+%
 %  y: detrended data
 %  w: updated weights
 %  r: basis matrix used
@@ -30,8 +30,8 @@ if nargin<7; wsize=[]; end
 if iscell(x)
     if ~isempty(w0); error('not implemented'); end
     y={}; w={}; r={};
-    for iTrial=1:numel(x);
-        [y{iTrial},w{iTrial},r{iTrial}]=nt_detrend(x{iTrial},order,w0,basis,thresh,niter,wsize);
+    for iTrial=1:numel(x)
+        [y{iTrial},w{iTrial},r{iTrial}] = nt_detrend(x{iTrial},order,w0,basis,thresh,niter,wsize);
     end
     return
 end
@@ -52,7 +52,7 @@ if isempty(wsize) || ~wsize
     [y,w,r]=nt_detrend_helper(x,order,w,basis,thresh,niter);
 else
     wsize=2*floor(wsize/2);
-    
+
     % do some sanity checks because many parameters
     if numel(order)>1; error('!'); end
     if ~isempty(w) && ~(size(w,1)==size(x,1)) ; disp(size(w)); error('!'); end
@@ -70,14 +70,12 @@ else
 
     % (1) divide into windows, (2) detrend each, (3) stitch together, (4)
     % estimate w
-
     for iIter=1:niter
-
         y=zeros(size(x));
         trend=zeros(size(x));
         a=zeros(size(x,1),1);
 
-    %     figure(1); clf
+        % figure(1); clf
 
         offset=0;
         while true
@@ -89,7 +87,7 @@ else
             counter=MAXGROW;
             while any( sum(w(start:stop,:)) < wsize )... % smaller than wsize?
                     || any(mean(w(start:stop,:))  < 1/4) % window has less than quarter ones?
-                if counter <= 0 ; break; end 
+                if counter <= 0 ; break; end
                 start=max(1,start-wsize/2);
                 stop=min(size(x,1),stop+wsize/2);
                 counter=counter-1;
@@ -120,14 +118,14 @@ else
             offset=offset+wsize/2;
             if offset>size(x,1)-wsize/2; break; end
         end
-        
-        if stop<size(x,1); y(end,:)=y(end-1,:); a(end,:)=a(end-1,:); end; % last sample can be missed
-        
+
+        if stop<size(x,1); y(end,:)=y(end-1,:); a(end,:)=a(end-1,:); end % last sample can be missed
+
         y=bsxfun(@times,y,1./a); y(find(isnan(y)))=0;
         trend=bsxfun(@times,trend,1./a);  trend(find(isnan(trend)))=0;
 
         % find outliers
-        d=x-trend; 
+        d=x-trend;
 
 
         if ~isempty(w); d=bsxfun(@times,d,w); end
@@ -136,7 +134,7 @@ else
         clear d
 
         % update weights
-        if isempty(w); 
+        if isempty(w)
             w=ww;
         else
             w=min(w,ww);
@@ -144,9 +142,9 @@ else
         clear ww;
 
     end % for iIter...
-    
+
     w=[];r=[]; % not informative
-    
+
 end % if isempty(wsize)...
 
 if ~nargout
@@ -162,7 +160,7 @@ end
 %% Original version of detrend (no windows) is called by new version (windows)
 function [y,w,r]=nt_detrend_helper(x,order,w,basis,thresh,niter)
 %[y,w,r]=nt_detrend(x,order,w,basis,thresh,niter) - robustly remove trend
-% 
+%
 %  y: detrended data
 %  w: updated weights
 %  r: basis matrix used
@@ -178,7 +176,7 @@ function [y,w,r]=nt_detrend_helper(x,order,w,basis,thresh,niter)
 % See nt_regw().
 %
 % The data are fit to the basis using weighted least squares. The weight is
-% updated by setting samples for which the residual is greater than 'thresh' 
+% updated by setting samples for which the residual is greater than 'thresh'
 % times its std to zero, and the fit is repeated at most 'niter'-1 times.
 %
 % The choice of order (and basis) determines what complexity of the trend
@@ -187,7 +185,7 @@ function [y,w,r]=nt_detrend_helper(x,order,w,basis,thresh,niter)
 %
 % Examples:
 % Fit linear trend, ignoring samples > 3*sd from it, and remove:
-%   y=nt_detrend(x,1); 
+%   y=nt_detrend(x,1);
 % Fit/remove polynomial order=5 with initial weighting w, threshold = 4*sd:
 %   y=nt_detrend(x,5,w,[],4);
 % Fit/remove linear then 3rd order polynomial:
@@ -234,30 +232,28 @@ else
     end
 end
 
-
 % remove trends
 % The tricky bit is to ensure that weighted means are removed before
 % calculating the regression (see nt_regw).
-
 for iIter=1:niter
-    
     % weighted regression on basis
     [~,y]=nt_regw(x,r,w);
-    
+
     % find outliers
-    d=x-y; 
+    d=x-y;
     if ~isempty(w); d=bsxfun(@times,d,w); end
     ww=ones(size(x));
     ww(find(abs(d)>thresh*repmat(std(d),size(x,1),1))) = 0;
-     
+
     % update weights
-    if isempty(w); 
+    if isempty(w)
         w=ww;
     else
         w=min(w,ww);
     end
-    clear ww;    
+    clear ww;
 end
+
 y=x-y;
 y=reshape(y,dims);
 w=reshape(w,dims);
@@ -280,7 +276,7 @@ if 0
     WSIZE=30;
     [yy,ww]=nt_detrend2(x,1,[],[],2,[],WSIZE);
     [y,w]=nt_detrend(x,1);
-    figure(1); clf; subplot 211; 
+    figure(1); clf; subplot 211;
     plot([x,y,yy]);
     subplot 212; plot([w,ww],'.-');
 end
@@ -290,7 +286,7 @@ if 0
     WSIZE=200;
     [y1,w1]=nt_detrend(x,1,[]);
     [y2,w2]=nt_detrend(x,1,[],[],[],[],WSIZE);
-    figure(1); clf; 
+    figure(1); clf;
     plot([x,y1,y2]); legend('before', 'global', 'local');
 end
 if 0
@@ -306,7 +302,7 @@ end
 if 0
     [p,x]=nt_read_data('/users/adc/data/meg/theoldmanandthesea/eeg/mc/MC_aespa_speech_43.mat'); x=x'; x=x(:,1:128); %x=x(1:10000,:);
     %[p,x]=nt_read_data('/data/meg/arzounian/ADC_DA_140521_p20/ADC_DA_140521_p20_01_calib'); x=x'; x=x(1:10000,:);
-    
+
     x=nt_demean(x);
     figure(1);
     nt_detrend(x,3);

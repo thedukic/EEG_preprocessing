@@ -3,10 +3,10 @@ function [idx,d]=nt_find_outlier_trials(x,criterion,disp_flag,regress_flag)
 %
 %  idx: indices of trials to keep
 %  d: relative deviations from mean
-%  
+%
 %  x: data (time * channels * trials)
 %  criterion: keep trials less than criterion from mean
-%  disp: if true plot trial deviations before and after 
+%  disp: if true plot trial deviations before and after
 %  regress_flag: if true regress out mean, rather than subtract
 %
 %  For example criterion=2 rejects trials that deviate from the mean by
@@ -18,7 +18,7 @@ if nargin<3; disp_flag=1; end
 if nargin<4; regress_flag=0; end
 if ndims(x)>3; error('x should be 2D or 3D'); end
 
-if ndims(x)==3;
+if ndims(x)==3
     [m,n,o]=size(x);
     x=reshape(x,m*n,o);
 else
@@ -41,32 +41,32 @@ d=d/(sum(x(:).^2)/o);
 
 idx=find(d<criterion(1));
 
-if nargout==0;
+if nargout==0
     % just plot deviations
     plot(d,'.-');
-    xlabel('trial'); ylabel('normalized deviation from mean'); 
+    xlabel('trial'); ylabel('normalized deviation from mean');
     clear idx d mn idx_unsorted
 else
     if disp_flag
         % plot deviations before & after outlier removal
         figure(100); clf
         nt_banner('outlier trials');
-        
-        subplot 121; 
-        plot(d,'.-'); hold on; 
+
+        subplot 121;
+        plot(d,'.-'); hold on;
         plot(setdiff(1:o,idx), d(setdiff(1:o,idx)), '.r');
         xlabel('trial'); ylabel('normalized deviation from mean'); title(['before, ',num2str(numel(d))]);
         drawnow
-        
-        subplot 122; 
+
+        subplot 122;
         [~,dd]=nt_find_outlier_trials(x(:,idx),0,[]);
         plot(dd,'.-');
         xlabel('trial'); ylabel('normalized deviation from mean'); title(['after, ',num2str(numel(idx))]);
         drawnow
     end
-    
+
 end
-     
+
 criterion=criterion(2:end);
 if ~isempty(criterion)
     idx=nt_find_outlier_trials(x(:,idx),criterion,disp_flag,regress_flag);

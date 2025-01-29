@@ -59,7 +59,7 @@ end
 
 % If loaded, then make a folder
 if exist(subject.preproc,'dir') ~= 7
-    mkdir(subject.preproc); 
+    mkdir(subject.preproc);
 else
     warning('The folder already exists, and the new and the old files might be mixed:');
     warning('%s',subject.preproc);
@@ -121,8 +121,8 @@ EEG = reduce_linenoise(EEG);
 % Remove line noise leftovers
 EEG = reduce_linenoiseleftovers(EEG);
 
-% % Remove high-freq spectral peaks
-% EEG = reduce_spectrapeaks(EEG);
+% Remove other spectral peaks
+EEG = reduce_spectrapeaks(EEG);
 
 % Cut block ends
 EEG = remove_datasetends(EEG);

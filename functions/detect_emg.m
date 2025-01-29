@@ -11,7 +11,9 @@ if ndims(EEG.data) == 3
 else
     dataeeg = EEG.data(chaneeg,:);
 
-    % Epoch into 1s (or maybe better into 1s with 0.5 overlap, but OK)
+    % Epoch into 1s
+    % Maybe better into 1s with 0.5 overlap, but be careful!
+    % -> make sure that the data is then not already epoched and overlapping!
     L = EEG.srate;
     N = floor(size(dataeeg,2)/L);
     dataeeg = reshape(dataeeg(:,1:N*L),sum(chaneeg),L,N);
@@ -22,7 +24,7 @@ modulus = size(EEG.data(:,:),2) - N*L;
 assert(modulus >= 0);
 
 % Compute (log) power spectra
-[NCHN,NPTS,NTRL] = size(dataeeg);
+[NCHN, NPTS, NTRL] = size(dataeeg);
 psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
 for i = 1:NTRL
     [psdspectra(:,:,i),freq] = pwelch(dataeeg(:,:,i)',NPTS,0,NPTS,EEG.srate);

@@ -1,10 +1,10 @@
-function [y,idx,w]=nt_tsr(x,ref,shifts,wx,wref,keep,thresh)
+function [y,idx,w] = nt_tsr(x,ref,shifts,wx,wref,keep,thresh)
 %[y,idx,w]=nt_tsr(x,ref,shifts,wx,wref,keep,thresh) - time-shift regression (TSPCA)
 %
-%  y: denoised data 
+%  y: denoised data
 %  idx: x(idx) is aligned with y
 %  w: weights applied by tsr
-% 
+%
 %  x: data to denoise (time * channels * trials)
 %  ref: reference (time * channels * trials)
 %  shifts: array of shifts to apply to ref (default: [0])
@@ -19,17 +19,17 @@ nt_greetings;
 
 % Copyright 2007, 2008 Alain de Cheveigne
 
-% See: 
+% See:
 % de Cheveign\'e, A. and Simon, J. Z. (2007). "Denoising based on
 % Time-Shift PCA." Journal of Neuroscience Methods 165: 297-305.
 %
 % The basic idea is to project the signal X on a basis formed by the
 % orthogonalized time-shifted REF, and remove the projection. Supposing REF
 % gives a good observation of the noise that contaminates X, the noise is
-% removed. By allowing time shifts, the algorithm finds the optimal FIR filter 
+% removed. By allowing time shifts, the algorithm finds the optimal FIR filter
 % to apply to REF so as to compensate for any convolutional mismatch
 % between X and REF.
-% 
+%
 % Implementation issues:
 % - Data are often available as an array of epochs. This implementation
 % caters for 3D data (time * channnels * trials);
@@ -67,7 +67,7 @@ if ~isempty(wref) && sum(wref(:))==0; error('weights on ref are all zero!'); end
 if numel(shifts)>1000; error(['numel(shifts)=',num2str(numel(shifts)), ' (if OK comment out this line)']); end
 
 
-% We need to adjust x and ref to ensure that shifts are non-negative.  
+% We need to adjust x and ref to ensure that shifts are non-negative.
 % If some values of shifts are negative, we increment shifts and truncate x.
 
 % adjust x to make shifts non-negative
@@ -78,8 +78,8 @@ if ~isempty(wx); wx=wx(idx,:,:); end
 shifts=shifts+offset1;                    % shifts are now positive
 
 % adjust size of x
-offset2=max(0,max(shifts)); 
-idx=1: size(ref,1)-offset2; 
+offset2=max(0,max(shifts));
+idx=1: size(ref,1)-offset2;
 x=x(idx,:,:);                           % part of x that overlaps with time-shifted refs
 if ~isempty(wx); wx=wx(idx,:,:); end
 
@@ -90,7 +90,7 @@ if ~isempty(wx); wx=wx(idx,:,:); end
 w=zeros([mx,1,oref]);
 if isempty(wx) && isempty(wref)
     w(1:mx,:,:)=1;
-elseif isempty(wref);
+elseif isempty(wref)
     w(:,:,:)=wx(:,:,:);
 elseif isempty(wx)
     for k=1:ox
@@ -98,7 +98,7 @@ elseif isempty(wx)
         wr=ts_multishift(wr,shifts);
         wr=min(wr,[],2);
         w(:,:,k)=wr;
-    end;
+    end
 else
     for k=1:ox
         wr=wref(:,:,k);
