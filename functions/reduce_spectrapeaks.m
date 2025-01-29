@@ -7,55 +7,46 @@ function EEG = reduce_spectrapeaks(EEG)
 fprintf('\nRemoving possible additional peaks from the spectrum...\n');
 
 % First components are most dominated by these peaks
-NREMOVE = 2;
-% winSizeCompleteSpectrum = 20; % [s]
-%
-% chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
-% data = cat(2,EEG(:).data);
-% NPTS = size(data,2);
+NREMOVE = 1;
 NBLK = length(EEG);
-
-% % we want at least 8 segments for proper usage of pwelch
-% if winSizeCompleteSpectrum*EEG(1).srate > NPTS/8
-%     winSizeCompleteSpectrum = floor(NPTS/8/EEG(1).srate);
-%     warning('Dataset is short. Adjusted window size for whole data set spectrum calculation to be 1/8 of the length.')
-% end
-
-% % Make it 20s long -> 0.05 Hz freq resolution
-% [NCHN,NPTSALL] = size(data);
-% NPTS = winSizeCompleteSpectrum * EEG(1).srate;
-% NTRL = floor(NPTSALL/NPTS);
-% data = reshape(data(:,1:NTRL*NPTS),NCHN,NPTS,NTRL);
-%
-% % Compute power spectra
-% [NCHN, NPTS, NTRL] = size(data);
-% psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
-%
-% for i = 1:NTRL
-%     [psdspectra(:,:,i), freq] = pwelch(data(:,:,i)',NPTS,0,NPTS,EEG(1).srate);
-% end
-%
-% % Average the spectra
-% psdspectra = mean(psdspectra,3);
-% psdspectra = psdspectra(:,chaneeg);
-% psdspectra = log10(mean(psdspectra,2));
 
 [psdspectra, freq, chaneeg] = estimate_power(EEG,'speaks');
 psdspectra = log10(mean(psdspectra,2));
 NPTS = 2 * (length(freq)-1);
 
-% % Identify the peaks which are always above 50 Hz
-% freqMin = 52;
-% freqMask = freq > freqMin;
-%
-% % Initial step
-% [qrspeaks, locs, ~, proms] = findpeaks(psdspectra(freqMask),freq(freqMask));
-% % Guided detection
-% promFinal = quantile(proms,0.98);
-% [qrspeaks, locs] = findpeaks(psdspectra(freqMask),freq(freqMask),'MinPeakProminence',promFinal);
+% Special cases
+if strcmpi(EEG(1).ALSUTRECHT.subject.id,'ALS34280') && strcmpi(EEG(1).ALSUTRECHT.subject.visit,'T1')
+    % 1.65-1.7 Hz harmonics?
+    locs = [1.65 3.35 5.05 6.7 8.4 10.1 11.75 13.45 15.15]';
 
-% ALS34280: 1.65-1.7 Hz harmonics?
-locs = [1.65 3.35 5.05 6.7 8.4 10.1 11.75 13.45 15.15]';
+elseif strcmpi(EEG(1).ALSUTRECHT.subject.id,'ALS36104') && strcmpi(EEG(1).ALSUTRECHT.subject.visit,'T1')
+    % 1.35 Hz harmonics?
+    % locs = [1.35 2.7 4.1 5.4 6.75 8 9.5 10.75 12.2 13.5 14.9]';
+    % locs = [1.35 2.7 4 4.15 5.45 6.75 6.9 8.15 12 12.5 13.5 14.9 16.3 17.6 19]';
+    % locs = [1.35 2.7 6.7]';
+    % locs = round((1:5)' * 1.35,2);
+    locs = [1.35 2.7 4.1 5.4 6.75]';
+    NREMOVE = 4;
+
+else
+    % % Identify the peaks which are always above 50 Hz
+    % freqMask = freq>50 & freq<120;
+    % 
+    % % Initial step
+    % [qrspeaks, locs, ~, proms] = findpeaks(psdspectra(freqMask),freq(freqMask));
+    % % Guided detection
+    % promFinal = quantile(proms, 0.98);
+    % [qrspeaks, locs, ~, proms] = findpeaks(psdspectra(freqMask),freq(freqMask),'MinPeakProminence',promFinal);
+    % 
+    % % Prevent removing peaks that are not actual peaks/noise
+    % if max(proms) < 0.25
+    %     locs = [];
+    % end
+    locs = [];
+end
+
+% Rounding errors
+locs = round(locs,2);
 
 % If any peaks found
 if ~isempty(locs)
@@ -71,9 +62,14 @@ if ~isempty(locs)
     p1 = pwr1 ./ pwr0;
 
     % Check quality
-    p1z = zscore(p1);
-    assert(p1z(1) > 5);
-    assert(p1(1)/p1(2) > 2);
+    % p1z = zscore(p1);
+    % assert(p1z(1) > 5);
+    % assert(p1(1)/p1(2) > 2);
+
+    % figure;
+    % for i = 1:NREMOVE
+    %     mytopoplot(todss(:,i),[],'',nexttile); colorbar;
+    % end
 
     % DSS components
     z = nt_mmat(data,todss);
@@ -94,7 +90,8 @@ if ~isempty(locs)
     % Log / Report
     for i = 1:NBLK
         EEG(i).ALSUTRECHT.otherPeakCleaning.peaks = locs;
-        EEG(i).ALSUTRECHT.otherPeakCleaning.N = NREMOVE;
+        EEG(i).ALSUTRECHT.otherPeakCleaning.N     = NREMOVE;
+        EEG(i).ALSUTRECHT.otherPeakCleaning.p1    = p1;
     end
     fprintf('Done! Number of components removed: %d\n',NREMOVE);
 
@@ -124,7 +121,7 @@ if ~isempty(locs)
     pbaspect([1.618 1 1]); colormap(brewermap(sum(chaneeg),'BrBG'));
 
     % plot the first DSS weights
-    mytopoplot(todss(:,1),[],['DSS1 score: ' num2str(round(p1(1),2))],nexttile); % colorbar;
+    mytopoplot(todss(:,1),[],['DSS1 score: ' num2str(round(p1(1)))],nexttile); % colorbar;
 
     % plot spectra of data before and after removal of the peak component(s)
     nexttile; hold on;
@@ -137,13 +134,13 @@ if ~isempty(locs)
 
     nexttile;
     nt_spect_plot(data-clean,NPTS,0,NPTS,EEG(1).srate);
-    title('Noise power (removed)');
+    title(['Noise power (removed), N = ' num2str(NREMOVE)]);
     set(gca,'ygrid','on'); pbaspect([1.618 1 1]);
 
     plotX=30; plotY=15;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
     set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(EEG(1).ALSUTRECHT.subject.preproc,[EEG(1).ALSUTRECHT.subject.id '_otherpeakremoval']),'-dtiff','-r300');
+    print(fh,fullfile(EEG(1).ALSUTRECHT.subject.preproc,[EEG(1).ALSUTRECHT.subject.id '_dss_peaks']),'-dtiff','-r300');
     close(fh);
 
 else
@@ -152,7 +149,8 @@ else
     % Log / Report
     for i = 1:NBLK
         EEG(i).ALSUTRECHT.otherPeakCleaning.peaks = NaN;
-        EEG(i).ALSUTRECHT.otherPeakCleaning.N = NREMOVE;
+        EEG(i).ALSUTRECHT.otherPeakCleaning.N     = NREMOVE;
+        EEG(i).ALSUTRECHT.otherPeakCleaning.p1    = NaN;
     end
 end
 

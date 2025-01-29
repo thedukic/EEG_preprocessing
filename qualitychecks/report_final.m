@@ -25,6 +25,8 @@ myPaths.reports = fullfile(myPaths.preproc,'reports');
 if exist(myPaths.reports,'dir')~=7, mkdir(myPaths.reports); end
 
 % =========================================================================
+% Preprocessing stats
+% =========================================================================
 N = NaN(NSUB,5);
 NCHN = length(chanlbls);
 Medianvoltageshift = NaN(NCHN,NSUB);
@@ -32,44 +34,48 @@ CorrelationMatrices = NaN(NCHN+2,NCHN+2,NSUB);
 
 fprintf('Loading %d datasets. Wait...\n',NSUB);
 for i = 1:NSUB
-    load(fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']),'EEG');
+    fileName = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']);
+    if exist("fileName","file")
+        load(fileName,'EEG');
 
-    % Record warnings about potential issues
-    EEG = report_issues(EEG);
+        % Record warnings about potential issues
+        EEG = report_issues(EEG);
 
-    % Record warnings for all participants in a single table
-    if i == 1
-        tableIssues = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
-        tableIssues(2:NSUB,:) = cell2table([repmat({''},NSUB-1,1), repmat({NaN},NSUB-1,length(tableIssues.Properties.VariableNames)-1)], 'VariableNames', tableIssues.Properties.VariableNames);
-    else
-        tableIssues(i,:) = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
+        % Record warnings for all participants in a single table
+        if i == 1
+            tableIssues = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
+            tableIssues(2:NSUB,:) = cell2table([repmat({''},NSUB-1,1), repmat({NaN},NSUB-1,length(tableIssues.Properties.VariableNames)-1)], 'VariableNames', tableIssues.Properties.VariableNames);
+        else
+            tableIssues(i,:) = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
+        end
+
+        % Bad electrodes
+        maskelec(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
+        N(i,1) = sum(maskelec(:,i));
+
+        % Epochs: Total possible
+        % N(i,2) = sum([EEG.ALSUTRECHT.eventinfo{:,3}])*4/2; % RS
+        N(i,2) = EEG.ALSUTRECHT.issues_to_check.NumberTrials1;
+        % Epochs: Left after preproc1
+        N(i,3) = EEG.ALSUTRECHT.issues_to_check.NumberTrials2;
+        % Epochs: Left after preproc2
+        N(i,4) = EEG.ALSUTRECHT.issues_to_check.NumberTrials3;
+
+        % Leftover EMG
+        % N(i,5) = EEG.ALSUTRECHT.leftovers.muscle1;  % after proc1
+        N(i,5) = EEG.ALSUTRECHT.leftovers.muscle2;    % after proc2
+
+        % Median voltage range
+        Medianvoltageshift(:,i) = EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal(1:128);
+
+        % Correlation matrix
+        CorrelationMatrices(:,:,i) = EEG.ALSUTRECHT.chanCorr;
     end
-
-    % Bad electrodes
-    maskelec(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
-    N(i,1) = sum(maskelec(:,i));
-
-    % Epochs: Total possible
-    % N(i,2) = sum([EEG.ALSUTRECHT.eventinfo{:,3}])*4/2; % RS
-    N(i,2) = EEG.ALSUTRECHT.issues_to_check.NumberTrials1;
-    % Epochs: Left after preproc1
-    N(i,3) = EEG.ALSUTRECHT.issues_to_check.NumberTrials2;
-    % Epochs: Left after preproc2
-    N(i,4) = EEG.ALSUTRECHT.issues_to_check.NumberTrials3;
-
-    % Leftover EMG
-    % N(i,5) = EEG.ALSUTRECHT.leftovers.muscle1;  % after proc1
-    N(i,5) = EEG.ALSUTRECHT.leftovers.muscle2;    % after proc2
-
-    % Median voltage range
-    Medianvoltageshift(:,i) = EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal(1:128);
-
-    % Correlation matrix
-    CorrelationMatrices(:,:,i) = EEG.ALSUTRECHT.chanCorr;
 end
 
-% =========================================================================
+% ============================
 % Plot
+% ============================
 fh = figure;
 th = tiledlayout(4,1);
 th.TileSpacing = 'compact'; th.Padding = 'compact';
@@ -121,6 +127,8 @@ set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[
 print(fh,fullfile(myPaths.reports,['Summary1_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
 
 % =========================================================================
+% Voltage range/shifts across channels
+% =========================================================================
 % The following checks for participants who show outlying values for the median voltage shift within each epoch:
 % The following detects outlier files in the median amount of their max-min
 % voltage shift within an epoch, after adjusting for the fact that the data
@@ -151,7 +159,10 @@ VoltageShiftsTooHigh = VoltageShiftsTooHigh - UpperBound;
 VoltageShiftsTooHigh(VoltageShiftsTooHigh < 0) = 0;
 CumulativeSeverityOfAmplitudesAboveThreshold = sum(VoltageShiftsTooHigh,1)';
 
-% 2. Plot:
+% ============================
+% Plot
+% ============================
+% Plot 1
 fh = figure; hold on;
 plot(LowerBound,'LineWidth',1.5,'Color','k');
 plot(UpperBound,'LineWidth',1.5,'Color','k');
@@ -167,7 +178,7 @@ set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
 print(fh,fullfile(myPaths.reports,['Summary2_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
 
-% 3. Visualise
+% Plot 2
 maskSubj = find(CumulativeSeverityOfAmplitudesAboveThreshold > 0);
 
 if ~isempty(maskSubj)
@@ -206,6 +217,8 @@ end
 % LoggedMedianVoltageShiftAcrossEpochs = array2table(MedianvoltageshiftwithinepochLogged);
 
 % =========================================================================
+% Channel correlation
+% =========================================================================
 % CorrelationMatricesMean = mean(CorrelationMatrices,3);
 %
 % NCHN = size(CorrelationMatricesMean,1);
@@ -241,10 +254,12 @@ end
 % end
 
 % =========================================================================
-% Empirical estimates
+% Power spectra deviations in gamma-band
+% -> using stat. measusre to detect large spread across channels
+% =========================================================================
 warning('The cutoff for spectra spread is tested only for resting-state. It might not be appropriate for other tasks.');
-cutoffKurtosis = 20;    % RS
-cutoffCoefVar  = 0.85;  % RS
+cutoffKurtosis = Inf; % dont use
+cutoffCoefVar  = 1;   % RS
 cutoffPeak     = 5;
 
 cnt = 0;
@@ -256,87 +271,90 @@ psdSpreadAll   = NaN(NSUB,NCHN);
 
 fprintf('Loading %d datasets... Wait...\n',NSUB);
 for i = 1:NSUB
-    load(fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']),'EEG');
+    fileName = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']);
+    if exist("fileName","file")
+        load(fileName,'EEG');
 
-    % Estimate the spectra
-    [psdspectra, freq, chaneeg] = estimate_power(EEG,'freport');
-    % psdspectra = log10(psdspectra);
-    % psdspectraNorm = psdspectra ./ sum(psdspectra(freq>0,:),1);
+        % Estimate the spectra
+        [psdspectra, freq, chaneeg] = estimate_power(EEG,'freport');
+        % psdspectra = log10(psdspectra);
+        % psdspectraNorm = psdspectra ./ sum(psdspectra(freq>0,:),1);
 
-    % =================================================================
-    % 1. Calculate measure of power spread across EEG electrodes
-    maskFreq  = freq>25 & freq<45;
-    % psdSpread = psdspectra ./ sum(psdspectra,1);
-    psdSpread = mean(psdspectra(maskFreq,:),1);
+        % ============================
+        % 1. Calculate measure of power spread across EEG electrodes
+        % ============================
+        maskFreq  = freq>25 & freq<45;
+        % psdSpread = psdspectra ./ sum(psdspectra,1);
+        psdSpread = mean(psdspectra(maskFreq,:),1);
 
-    % Spread
-    psdSpreadsAll1(i) = kurtosis(psdSpread);
-    psdSpreadsAll2(i) = std(psdSpread) ./ mean(psdSpread);
+        % Spread
+        psdSpreadsAll1(i) = kurtosis(psdSpread);
+        psdSpreadsAll2(i) = std(psdSpread) ./ mean(psdSpread);
 
-    % Use for clustering/outlier detection
-    psdSpreadAll(i,:) = psdSpread;
+        % Use for clustering/outlier detection (later)
+        psdSpreadAll(i,:) = psdSpread;
 
-    % =================================================================
-    % 2. Find the number of peaks in the average EEG spectrum
-    % psdPeak = mean(psdspectraNorm,2);
-    % psdPeak  = psdPeak ./ sum(psdPeak,1);
-    maskFreq      = freq < 40;
-    freqTmp       = freq(maskFreq);
-    psdspectraTmp = psdspectra ./ sum(psdspectra,1);
-    psdspectraTmp = mean(psdspectraTmp(maskFreq,:),2);
+        % ============================
+        % 2. Find the number of peaks in the average EEG spectrum
+        % ============================
+        % psdPeak = mean(psdspectraNorm,2);
+        % psdPeak  = psdPeak ./ sum(psdPeak,1);
+        maskFreq      = freq < 40;
+        freqTmp       = freq(maskFreq);
+        psdspectraTmp = psdspectra ./ sum(psdspectra,1);
+        psdspectraTmp = mean(psdspectraTmp(maskFreq,:),2);
 
-    % Initial step
-    [qrspeaks, locs, ~, proms] = findpeaks(psdspectraTmp,freqTmp);
-    % Guided detection
-    psdPromsAll(i)   = quantile(proms,0.2);
-    % psdPromsFinal  = max(psdPromsAll(i),0.0005);
-    % psdPromsFinal  = min(psdPromsFinal,0.1);
-    psdPromsFinal    = psdPromsAll(i);
-    [qrspeaks, locs] = findpeaks(psdspectraTmp,freqTmp,'MinPeakProminence',psdPromsFinal);
-    psdPeaksAll(i)   = length(locs);
+        % Initial step
+        [qrspeaks, locs, ~, proms] = findpeaks(psdspectraTmp,freqTmp);
+        % Guided detection
+        psdPromsAll(i)   = quantile(proms,0.2);
+        % psdPromsFinal  = max(psdPromsAll(i),0.0005);
+        % psdPromsFinal  = min(psdPromsFinal,0.1);
+        psdPromsFinal    = psdPromsAll(i);
+        [qrspeaks, locs] = findpeaks(psdspectraTmp,freqTmp,'MinPeakProminence',psdPromsFinal);
+        psdPeaksAll(i)   = length(locs);
 
-    % =================================================================
-    % figure; plot(std(psdspectra(mask,:),0,2))
-    % figure; histogram(std(psdspectra(mask,:),0,2))
+        % ============================
+        % Plot and output if it exceeds the cut-off
+        % ============================
+        if psdSpreadsAll1(i) > cutoffKurtosis || psdSpreadsAll2(i) > cutoffCoefVar || psdPeaksAll(i) > cutoffPeak
+            fprintf('%s : Kurtosis = %1.3f, CV = %1.3f, Peaks = %d.\n', subjects{i}, psdSpreadsAll1(i), psdSpreadsAll2(i), psdPeaksAll(i));
 
-    % Plot and output if it exceeds the cut-off
-    if psdSpreadsAll1(i) > cutoffKurtosis || psdSpreadsAll2(i) > cutoffCoefVar || psdPeaksAll(i) > cutoffPeak
-        fprintf('%s : Kurtosis = %1.3f, CV = %1.3f, Peaks = %d.\n', subjects{i}, psdSpreadsAll1(i), psdSpreadsAll2(i), psdPeaksAll(i));
+            cnt = cnt+1;
+            if cnt == 1
+                dataCmap = brewermap(sum(chaneeg),'BrBG');
 
-        cnt = cnt+1;
-        if cnt == 1
-            dataCmap = brewermap(sum(chaneeg),'BrBG');
+                fh = figure;
+                th = tiledlayout("flow");
+                th.TileSpacing = 'compact'; th.Padding = 'compact';
+            end
 
-            fh = figure;
-            th = tiledlayout("flow");
-            th.TileSpacing = 'compact'; th.Padding = 'compact';
+            th = nexttile;
+            hold on; box off;
+
+            % psdspectra  = log10(psdspectra);
+            % dataClim    = 1.1*[min(psdspectra(:)), max(psdspectra(:))];
+            % dataClim(1) = floor(dataClim(1));
+            % dataClim(2) = ceil(dataClim(2));
+            plot(freq,log10(psdspectra),'LineWidth',1.1);
+            colororder(th,dataCmap);
+
+            for j = 1:psdPeaksAll(i)
+                plot(locs(j) * ones(1,2),[-4 3],'LineWidth',1,'Color',0.2*ones(1,3));
+                % scatter(locs,psdspectra(any(freq==locs',2)),'filled','*','MarkerFaceColor',0.2*ones(1,3));
+            end
+
+            xticks(unique([locs' 0 5 10 15 20 25 30 50]));
+            xlim([freq(1), 60]); ylim([-4 3]); % ylim(dataClim);
+            % title({[subjects{i},', group: ',myPaths.group, ', visit: ', myPaths.visit, ', task: ', myPaths.task], ['Spread: ', num2str(psdSpreadsAll1(i), '%.3f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
+            title({subjects{i}, ['Kurtosis: ', num2str(psdSpreadsAll1(i), '%1.1f') ', CV: ', num2str(psdSpreadsAll2(i), '%.2f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
+
+            pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
         end
-
-        th = nexttile;
-        hold on; box off;
-
-        % Plot log power
-        % psdspectra  = log10(psdspectra);
-        % dataClim    = 1.1*[min(psdspectra(:)), max(psdspectra(:))];
-        % dataClim(1) = floor(dataClim(1));
-        % dataClim(2) = ceil(dataClim(2));
-        plot(freq,log10(psdspectra),'LineWidth',1.1);
-        colororder(th,dataCmap);
-
-        for j = 1:psdPeaksAll(i)
-            plot(locs(j) * ones(1,2),[-4 3],'LineWidth',1,'Color',0.2*ones(1,3));
-            % scatter(locs,psdspectra(any(freq==locs',2)),'filled','*','MarkerFaceColor',0.2*ones(1,3));
-        end
-
-        xticks(unique([locs' 0 5 10 15 20 25 30 50]));
-        xlim([freq(1), 60]); ylim([-4 3]); % ylim(dataClim);
-        % title({[subjects{i},', group: ',myPaths.group, ', visit: ', myPaths.visit, ', task: ', myPaths.task], ['Spread: ', num2str(psdSpreadsAll1(i), '%.3f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
-        title({subjects{i}, ['Kurtosis: ', num2str(psdSpreadsAll1(i), '%1.1f') ', CV: ', num2str(psdSpreadsAll2(i), '%.2f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
-
-        pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
     end
 end
 
+% Save
 if cnt > 0
     plotX=25; plotY=25;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
@@ -345,6 +363,9 @@ if cnt > 0
     % close(fh);
 end
 
+% ============================
+% Plot some additional info
+% ============================
 % Plot the distributions of the power spectra characteristics
 % -> Power spectra spread, power spectra peaks
 fh = figure;
@@ -370,20 +391,118 @@ hb = histogram(psdPromsAll,10);
 hb.FaceColor = 0.7*ones(1,3);
 pbaspect([1.618 1 1]); xlabel('Power peak prominance');
 myXlim = xlim; xlim([0 myXlim(2)]);
+% nexttile; plot(psdPromsAll);
 
-% figure; plot(psdPromsAll);
-
+% Save
 plotX=20; plotY=20;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
 print(fh,fullfile(myPaths.reports,['Summary5_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r300');
 
 % =========================================================================
+% Power spectra deviations in gamma-band
+% -> using DBSCAN clustering and Mahalanobis distance
+% =========================================================================
+% Normalise
+psdSpreadAll = psdSpreadAll';
+psdSpreadAll = psdSpreadAll - min(psdSpreadAll(:));
+psdSpreadAll = psdSpreadAll / max(psdSpreadAll(:));
+psdSpreadAll = bsxfun(@minus, psdSpreadAll, mean(psdSpreadAll, 1));
+psdSpreadAll = psdSpreadAll';
+
+% figure; histogram(psdSpreadAll(:));
+
+% =========================================
+% PCA
+[coeff, score, latent, tsquared, explained, mu] = pca(psdSpreadAll);
+
+explained2 = explained ./ sum(explained);
+Nkeep = 3;
+
+fh = figure;
+th = tiledlayout(1,3);
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+nexttile; bar(explained2); title(['PCA1-' num2str(Nkeep) ' = ' num2str(round(sum(explained2(1:Nkeep)),2))]); pbaspect([1.618 1 1]);
+nexttile;
+scatter(score(:,1),score(:,2),'filled');
+xlabel('PCA1'); ylabel('PCA2'); pbaspect([1.618 1 1]);
+nexttile;
+scatter3(score(:,1),score(:,2),score(:,3),'filled');
+xlabel('PCA1'); ylabel('PCA2'); zlabel('PCA3'); pbaspect([1.618 1 1]);
+
+% =========================================
+% DBSCAN
+X = score(:,1:Nkeep);
+clustRes = dbscan(X,0.25,3);
+
+Nclust = length(unique(clustRes));
+myCmap = brewermap(Nclust,'Set2');
+
+assert(Nkeep == 3);
+% assert(Nclust == 2);
+
+figure;
+th = tiledlayout(1,3);
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+
+nexttile; hold on;
+% gscatter(score(:,1),score(:,2),clustRes);
+% xlabel('PCA1'); ylabel('PCA2'); pbaspect([1.618 1 1]);
+
+clustRes2 = clustRes;
+clustRes2(clustRes2>0) = clustRes2(clustRes2>0)+1;
+clustRes2(clustRes2==-1) = 1;
+
+for i = 1:Nclust
+    MyPlotData = X(clustRes2==i, 1:3);
+    plot3(MyPlotData(:,1),MyPlotData(:,2),MyPlotData(:,3),'Color',myCmap(i,:),'LineStyle','none','Marker','.','MarkerSize',10);
+    ThisBoundary = boundary(MyPlotData);
+    if size(MyPlotData,1)==2
+        plot3(MyPlotData(:,1),MyPlotData(:,2),MyPlotData(:,3),'Color',myCmap(i,:),'LineWidth',2);
+    elseif size(MyPlotData,1)==3
+        patch(MyPlotData(:,1),MyPlotData(:,2),MyPlotData(:,3),myCmap(i,:),'Facecolor',myCmap(i,:),'Edgecolor',myCmap(i,:),'FaceAlpha',0.6)
+    else
+        trisurf(ThisBoundary,MyPlotData(:,1),MyPlotData(:,2),MyPlotData(:,3),'Facecolor',myCmap(i,:),'Edgecolor',myCmap(i,:),'FaceAlpha',0.6)
+    end
+end
+grid on; box on; axis vis3d; view(-30,20);
+xlabel('PCA1'); ylabel('PCA2'); zlabel('PCA3');
+
+m = clustRes==-1;
+tmp = mean(psdSpreadAll(m,:),1);
+mytopoplot(tmp,[],['Outliers: ' num2str(sum(m))],nexttile); colorbar;
+m = clustRes>-1;
+tmp = mean(psdSpreadAll(m,:),1);
+mytopoplot(tmp,[],['Rest: ' num2str(sum(m))],nexttile); colorbar;
+
+% =========================================
+% Mahalanobis
+X = score(:,1:Nkeep);
+
+% Calculate the Mahalanobis distance for each subject
+D_M = mahal(X, X);
+
+% Identify potential outliers
+threshold = chi2inv(0.975, size(X, 2)); % 97.5% confidence interval
+outliers = find(D_M > threshold);
+
+disp('Potential outliers:');
+disp(subjects(outliers)');
+
+fh = figure;
+th = tiledlayout(2, ceil(length(outliers)/2));
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+
+for i = 1:length(outliers)
+    tmp = psdSpreadAll(outliers(i),:);
+    mytopoplot(tmp,[],subjects{outliers(i)},nexttile); colorbar;
+end
+
+title(th,{'Participants with high Mahalanobis distance'});
+
+% =========================================================================
 % Report table
 save(fullfile(myPaths.reports,['Summary_' myPaths.group '_' myPaths.visit '_' myPaths.task '_' myPaths.proctime]),'tableIssues');
 writetable(tableIssues,fullfile(myPaths.reports,['Summary_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime '.xlsx']),"WriteMode","overwrite");
-
-% Delete later
-save(fullfile(myPaths.reports,['psdSpreadAll_' myPaths.proctime]),'psdSpreadAll');
 
 end

@@ -2,10 +2,31 @@ function [EEG, flagREDO] = report_leftovers(EEG,EXT,run,cfg)
 %
 % Based on the RELAX toolbox
 % The code might not work very well
-% SDukic, October 2024
 %
 
-%% =========================================================================
+%% ========================================================================
+% [psdspectra, freq] = estimate_power(EEG,'freport');
+%
+% maskFreq  = freq>30 & freq<70;
+% psdspectraGamma = mean(psdspectra(maskFreq,:),1);
+% psdspectraGamma = zscore(psdspectraGamma);
+% badElectrodes   = psdspectraGamma > 6;
+%
+% figure; tiledlayout(1,2);
+% nexttile; plot(freq,log10(psdspectra));
+% mytopoplot(psdspectraGamma,badElectrodes,'',nexttile); colorbar;
+%
+% chanLabelsEEG = {EEG.chanlocs(strcmp({EEG.chanlocs.type},'EEG')).labels};
+% badElectrodes = chanLabelsEEG(badElectrodes);
+% EEG.ALSUTRECHT.leftovers.badElectrodes = badElectrodes;
+%
+% % Interpolate bad electrodes
+% if ~isempty(badElectrodes)
+%     EEG = pop_select(EEG,'nochannel',badElectrodes);
+%     EEG = pop_interp(EEG,chanlocs,'spherical');
+% end
+
+%% ========================================================================
 fprintf('\nChecking muscle activity leftovers...\n');
 muscleSlopeThreshold = cfg.bch.muscleSlopeThreshold;
 muscleSlopeDuration  = cfg.bch.muscleSlopeTime;
@@ -15,9 +36,9 @@ slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
 [NCHANEEG, NTRL] = size(slopesChannelsxEpochs);
 
 % Strong slow drifts are reflected as very steep negative slopes of the power spectrum
-badchn = sum(slopesChannelsxEpochs>muscleSlopeThreshold,2);
-badchn = badchn./NTRL;
-badElectrodes = {EEG.chanlocs(find(badchn>muscleSlopeDuration)).labels};
+badchn = sum(slopesChannelsxEpochs > muscleSlopeThreshold,2);
+badchn = badchn ./ NTRL;
+badElectrodes = {EEG.chanlocs(find(badchn > muscleSlopeDuration)).labels};
 
 % The following replaces all values that aren't above the muscle
 % threshold with NaN, then sums the values that are above the threshold
@@ -48,7 +69,7 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover muscle artifact: %1
 
 EEG.ALSUTRECHT.leftovers.muscle1 = proportionOfDataShowingMuscleActivityTotal;
 
-%% =========================================================================
+%% ========================================================================
 fprintf('\nChecking eye blink letovers...\n');
 
 fh = figure;
@@ -383,6 +404,7 @@ end
 % if flagREDO
 %     warning('Blink leftover is too big, joint decorrelation will be done...\n');
 %     EEG = do_jointdecorrelation(EEG,EXT,cfg);
+%     [y,z,mask] = nt_eyeblink(EEG.data',maskChanBlink,1,EEG.srate);
 % end
 
 % Remove (not needed)
