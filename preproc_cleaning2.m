@@ -224,7 +224,7 @@ badTrialMuscle(report.listNotFixed) = true;
 
 % Check if all trials are still very noisy
 if all(badTrialMuscle)
-    warning('All trials are still very noisy. Skipping...'); return;
+    warning('All trials are still full of EMG activity.'); return;
 else
     if any(badTrialMuscle)
         EEG = pop_rejepoch(EEG,badTrialMuscle,0);
@@ -308,6 +308,12 @@ fprintf('Remaining trials: %d\n',NumberTrials(end));
 % =========================================================================
 % Estimate the spectra
 [psdspectra, freq, chaneeg, chanemg] = estimate_power(EEG,'preproc2');
+freqlog = log10(freq);
+
+% Freq labels
+freqTicks     = [0:6 8 10 15 20 30 50 100];
+freqTicksLog  = log10(freqTicks);
+freqTicksCell = arrayfun(@num2str, freqTicks, 'UniformOutput', false);
 
 % Plots differe per task
 if strcmpi(myPaths.task,'MMN') || strcmpi(myPaths.task,'SART')
@@ -419,14 +425,16 @@ elseif strcmpi(myPaths.task,'RS')
     th = tiledlayout(1,2);
     th.TileSpacing = 'compact'; th.Padding = 'compact';
 
+    % Regular plot
     th = nexttile;
     hold on; box off;
     plot(freq,psdspectra,'LineWidth',1.1);
 
     colororder(th,dataCmap); xlim([freq(1), 60]); % ylim(dataClim);
     title([subject.id ', ' num2str(sum(chaneeg)) ' EEG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('Power (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('Power');
 
+    % Log-log plot
     th = nexttile;
     hold on; box off;
 
@@ -434,11 +442,12 @@ elseif strcmpi(myPaths.task,'RS')
     dataClim    = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
     dataClim(1) = floor(dataClim(1));
     dataClim(2) = ceil(dataClim(2));
-    plot(freq,dataTmp,'LineWidth',1.1);
+    plot(freqlog,dataTmp,'LineWidth',1.1);
 
-    colororder(th,dataCmap); xlim(freq([1 end])); ylim(dataClim);
+    colororder(th,dataCmap); xlim(freqlog([1 end])); ylim(dataClim);
     title([subject.id ', ' num2str(sum(chaneeg)) ' EEG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('log_{10}(Frequency) (Hz)'); ylabel('log_{10}(Power)');
+    xticks(freqTicksLog); xticklabels(freqTicksCell);
 
     plotX=20; plotY=8;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
@@ -466,7 +475,7 @@ elseif strcmpi(myPaths.task,'MT')
 
     colororder(th,dataCmap1); xlim([freq(1), 60]); % ylim(dataClim);
     title([subject.id ', ' num2str(sum(chaneeg)) ' EEG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('Power (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('Power');
 
     % EMG
     th = nexttile;
@@ -475,7 +484,7 @@ elseif strcmpi(myPaths.task,'MT')
 
     colororder(th,dataCmap2); xlim(freq([1 end])); % ylim(dataClim);
     title([subject.id ', ' num2str(sum(chanemg)) ' EMG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('Power (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('Power');
 
     % log(EEG)
     th = nexttile;
@@ -485,11 +494,12 @@ elseif strcmpi(myPaths.task,'MT')
     dataClim    = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
     dataClim(1) = floor(dataClim(1));
     dataClim(2) = ceil(dataClim(2));
-    plot(freq,dataTmp,'LineWidth',1.1);
+    plot(freqlog,dataTmp,'LineWidth',1.1);
 
-    colororder(th,dataCmap1); xlim(freq([1 end])); ylim(dataClim);
+    colororder(th,dataCmap1); xlim(freqlog([1 end])); ylim(dataClim);
     title([subject.id ', ' num2str(sum(chaneeg)) ' EEG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('log_{10}(Frequency) (Hz)'); ylabel('log_{10}(Power)');
+    xticks(freqTicksLog); xticklabels(freqTicksCell);
 
     % log(EMG)
     th = nexttile;
@@ -499,11 +509,12 @@ elseif strcmpi(myPaths.task,'MT')
     dataClim    = 1.1*[min(dataTmp(:)), max(dataTmp(:))];
     dataClim(1) = floor(dataClim(1));
     dataClim(2) = ceil(dataClim(2));
-    plot(freq,dataTmp,'LineWidth',1.1);
+    plot(freqlog,dataTmp,'LineWidth',1.1);
 
-    colororder(th,dataCmap2); xlim(freq([1 end])); ylim(dataClim);
+    colororder(th,dataCmap2); xlim(freqlog([1 end])); ylim(dataClim);
     title([subject.id ', ' num2str(sum(chanemg)) ' EMG, N = ' num2str(NumberTrials(3)) ' trials']);
-    pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
+    pbaspect([1.618 1 1]); xlabel('log_{10}(Frequency) (Hz)'); ylabel('log_{10}(Power)');
+    xticks(freqTicksLog); xticklabels(freqTicksCell);
 
     plotX=20; plotY=14;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);

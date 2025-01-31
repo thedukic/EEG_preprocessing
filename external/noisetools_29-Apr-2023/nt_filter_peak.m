@@ -26,4 +26,3 @@ if ~nargout
     plot(-10:100,filter(B,A,[zeros(10,1);1;zeros(100,1)]));
     xlabel('s / sr');
 end
-   

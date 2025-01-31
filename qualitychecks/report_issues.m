@@ -24,14 +24,14 @@ if isfield(EEG,'data')
     issues_to_check.FlatElectrodesDiscrepancy = EEG.ALSUTRECHT.badchaninfo.flatElectrodesDiscrepancy;
 
     % Bad electrodes
-    if length(EEG.ALSUTRECHT.badchaninfo.badElectrodes)/128>0.2
+    if length(EEG.ALSUTRECHT.badchaninfo.badElectrodes)/128 > 0.2
         issues_to_check.RejectedTooManyElectrodes = length(EEG.ALSUTRECHT.badchaninfo.badElectrodes);
     else
         issues_to_check.RejectedTooManyElectrodes = 0;
     end
 
     % Extreme noise that is exlcluded from the analysis
-    if EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier>0.2
+    if EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier > 0.2
         issues_to_check.HighProportionExcludedAsExtremeOutlier = EEG.ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier;
     else
         issues_to_check.HighProportionExcludedAsExtremeOutlier = 0;
@@ -39,7 +39,7 @@ if isfield(EEG,'data')
 
     if isfield(EEG.ALSUTRECHT, 'MWF')
         % EMG noise before cleaning
-        if EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal>0.5
+        if EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal > 0.5
             issues_to_check.HighProportionOfEMGInitial = EEG.ALSUTRECHT.MWF.R1.ProportionOfDataShowingMuscleActivityTotal;
         else
             issues_to_check.HighProportionOfEMGInitial = 0;
@@ -68,7 +68,7 @@ if isfield(EEG,'data')
     else
         issues_to_check.DataTooShortForValidICA = 1;
     end
-    if EEG.ALSUTRECHT.ica.proportionArtifactICs>0.3
+    if EEG.ALSUTRECHT.ica.proportionArtifactICs > 0.3
         issues_to_check.HighProportionOfArtifactICs = EEG.ALSUTRECHT.ica.proportionArtifactICs;
     else
         issues_to_check.HighProportionOfArtifactICs = 0;
@@ -84,7 +84,7 @@ if isfield(EEG,'data')
         % end
 
         % Data lost due to epoching only
-        if EEG.ALSUTRECHT.blockinfo.dataLostbyEpoching>0.2
+        if EEG.ALSUTRECHT.blockinfo.dataLostbyEpoching > 0.2
             issues_to_check.RSdataLostbyEpoching = EEG.ALSUTRECHT.blockinfo.dataLostbyEpoching;
         else
             issues_to_check.RSdataLostbyEpoching = 0;
@@ -92,7 +92,7 @@ if isfield(EEG,'data')
     end
 
     % Leftovers
-    if EEG.ALSUTRECHT.leftovers.muscle2>0.25
+    if EEG.ALSUTRECHT.leftovers.muscle2 > 0.25
         issues_to_check.MuscleLeftovers = EEG.ALSUTRECHT.leftovers.muscle2;
     else
         issues_to_check.MuscleLeftovers = 0;

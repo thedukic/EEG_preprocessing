@@ -18,7 +18,7 @@ fprintf('\n');
 NSUB = length(subjects);
 chanlocs = readlocs('biosemi128_eeglab.ced');
 chanlbls = {chanlocs.labels};
-maskelec = zeros(length(chanlocs),NSUB);
+maskInterpElec = zeros(length(chanlocs),NSUB);
 
 % Report folder
 myPaths.reports = fullfile(myPaths.preproc,'reports');
@@ -34,9 +34,11 @@ CorrelationMatrices = NaN(NCHN+2,NCHN+2,NSUB);
 
 fprintf('Loading %d datasets. Wait...\n',NSUB);
 for i = 1:NSUB
-    fileName = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']);
-    if exist("fileName","file")
-        load(fileName,'EEG');
+    fileName1 = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'a.mat']);
+    fileName2 = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']);
+    if exist(fileName2,"file") == 2
+        % Load
+        load(fileName2,'EEG');
 
         % Record warnings about potential issues
         EEG = report_issues(EEG);
@@ -50,8 +52,8 @@ for i = 1:NSUB
         end
 
         % Bad electrodes
-        maskelec(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
-        N(i,1) = sum(maskelec(:,i));
+        maskInterpElec(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
+        N(i,1) = sum(maskInterpElec(:,i));
 
         % Epochs: Total possible
         % N(i,2) = sum([EEG.ALSUTRECHT.eventinfo{:,3}])*4/2; % RS
@@ -70,8 +72,39 @@ for i = 1:NSUB
 
         % Correlation matrix
         CorrelationMatrices(:,:,i) = EEG.ALSUTRECHT.chanCorr;
+
+    elseif exist(fileName1,"file") == 2
+        % Then, load the file from preproc1
+        fprintf('%s has noisy data? Their %s data is missing.\n', subjects{i},myPaths.task);
+        load(fileName1,'EEG');
+
+        % Insert manually
+        maskInterpElec(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
+        N(i,1) = sum(maskInterpElec(:,i));
+        N(i,2) = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);
+        N(i,3) = 0; % Not true but OK
+        N(i,4) = 0; % True
+        N(i,5) = 1; % Probably true
+
+    else
+        fprintf('%s does not have any %d data? Their data is missing.\n', subjects{i}, myPaths.task);
+        N(i,:) = NaN;
     end
 end
+
+% Remove those with very bad or missing data
+% -> they have 0 trials after preproc2
+% -> they have NaNs
+maskBad     = N(:,4) == 0;
+maskMissing = isnan(N(:,1));
+maskRemove  = maskBad | maskMissing;
+
+Medianvoltageshift(:,maskRemove)    = [];
+CorrelationMatrices(:,:,maskRemove) = [];
+maskInterpElec(:,maskRemove)        = [];
+
+% % Double-check
+% assert(~any(isnan(N(:))));
 
 % ============================
 % Plot
@@ -86,7 +119,7 @@ myCmap2 = brewermap(3,'YlOrRd');
 myCmap3 = brewermap(12,'Paired');
 
 nexttile(1);
-topoplot(mean(maskelec,2),chanlocs,'maplimits',[0 0.25],'headrad',0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','shading','interp');
+topoplot(mean(maskInterpElec,2),chanlocs,'maplimits',[0 0.25],'headrad',0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','shading','interp');
 axis tight; title([myPaths.group ', N = ' num2str(NSUB)]);
 hcb = colorbar;
 hcb.Title.String = "%";
@@ -271,8 +304,10 @@ psdSpreadAll   = NaN(NSUB,NCHN);
 
 fprintf('Loading %d datasets... Wait...\n',NSUB);
 for i = 1:NSUB
+    % Do this only if data is fully preprocessed
     fileName = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']);
-    if exist("fileName","file")
+    if exist(fileName,"file") == 2
+        % Load
         load(fileName,'EEG');
 
         % Estimate the spectra
@@ -301,16 +336,25 @@ for i = 1:NSUB
         % psdPeak  = psdPeak ./ sum(psdPeak,1);
         maskFreq      = freq < 40;
         freqTmp       = freq(maskFreq);
-        psdspectraTmp = psdspectra ./ sum(psdspectra,1);
-        psdspectraTmp = mean(psdspectraTmp(maskFreq,:),2);
+        % psdspectraTmp = psdspectra ./ sum(psdspectra,1);
+        % psdspectraTmp = mean(psdspectra(maskFreq,:),2);
+        psdspectraTmp = mean(psdspectra,2);
+        psdspectraTmp = psdspectraTmp ./ max(psdspectraTmp);
+        psdspectraTmp = psdspectraTmp(maskFreq);
+
+        % figure; hold on;
+        % plot(freqTmp,psdspectraTmp);
+        % psdspectraTmp = movmean(psdspectraTmp,2);
+        % plot(freqTmp,psdspectraTmp);
 
         % Initial step
         [qrspeaks, locs, ~, proms] = findpeaks(psdspectraTmp,freqTmp);
         % Guided detection
-        psdPromsAll(i)   = quantile(proms,0.2);
+        psdPromsAll(i)   = mean(proms);
+        % psdPromsAll(i)   = quantile(proms,0.2);
         % psdPromsFinal  = max(psdPromsAll(i),0.0005);
         % psdPromsFinal  = min(psdPromsFinal,0.1);
-        psdPromsFinal    = psdPromsAll(i);
+        psdPromsFinal    = 0.025;
         [qrspeaks, locs] = findpeaks(psdspectraTmp,freqTmp,'MinPeakProminence',psdPromsFinal);
         psdPeaksAll(i)   = length(locs);
 

@@ -63,8 +63,10 @@ mask=min(mask,tmp(round(size(mask,1)*quantile))); % avoid extreme weight
 % DSS to emphasize eyeblink components
 topcs=nt_pca0(x);
 xx=x*topcs(:,1:min(10,size(x,2)));
+
 c0=nt_cov(xx);
 c1=nt_cov(nt_demean(bsxfun(@times,xx,mask)));
+
 [todss,pwr0,pwr1]=nt_dss0(c0,c1);
 % figure(99); clf; plot(pwr1./pwr0,'.-'); title('nt_eyeblink'); ylabel('score'); xlabel('component');
 z=nt_mmat(xx,todss(:,1:nremove));

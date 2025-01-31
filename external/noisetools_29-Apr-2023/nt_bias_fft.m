@@ -32,7 +32,7 @@ else
     error('freq should have one or two rows');
 end
 
-filt=[filt;flipud(filt(2:end-1))];
+filt=[filt; flipud(filt(2:end-1))];
 
 %plot(filt); pause
 

@@ -32,7 +32,7 @@ fprintf('\n================================\n');
 fprintf('ECG/VEOG/HEOG: Correlations with the external electrodes\n');
 fprintf('================================\n');
 
-chanecg  = find(strcmp({EXT.chanlocs.labels},'ECG')); % if it was recorded!
+chanecg  = find(strcmp({EXT.chanlocs.labels},'ECG'));
 chanveog = find(strcmp({EXT.chanlocs.labels},'VEOG'));
 chanheog = find(strcmp({EXT.chanlocs.labels},'HEOG'));
 % maskExt  = [chanecg, chanveog, chanheog];
@@ -41,7 +41,8 @@ chanheog = find(strcmp({EXT.chanlocs.labels},'HEOG'));
 % an approximate reconstruciton (ICA-like) weights
 if isempty(chanecg)
     warning('ECG signal was not recorded. Some heart IC detections cannot be done.');
-    EXTdataECG = []; EXTTMP = [];
+    EXTdataECG = [];
+    ECGsignalLabel = 'Missing';
 
     % warning('ECG signals was not recorded, but we can try to estimate it from the EEG data...');
     % load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Heartweights'),'Heartweights');
@@ -55,13 +56,11 @@ if isempty(chanecg)
     % ECGsignalLabel = 'Estimated';
 else
     EXTdataECG = EXT.data(chanecg,:);
-
-    EXTTMP = EXT;
     ECGsignalLabel = 'Recorded';
 end
 
+% EOG signlas
 EXTdataEOG = EXT.data([chanveog chanheog],:);
-extLabels  = {'ECG','VEOG','HEOG'};
 
 % Temporarily filter for better detection
 % It is fine that it will be double-filtered
@@ -102,7 +101,8 @@ else
 end
 
 % Combine: ECG / VEOG / HEOG
-EXTdata = [EXTdataECG; EXTdataEOG]';
+extLabels  = {'ECG','VEOG','HEOG'};
+EXTdata    = [EXTdataECG; EXTdataEOG]';
 clearvars EXTdataECG EXTdataEOG
 
 % Correlation
@@ -256,9 +256,9 @@ fprintf('\n================================\n');
 fprintf('ECG: Cross-trial phase statistics\n');
 fprintf('================================\n');
 
-if ~isempty(EXTTMP)
+if strcmpi(ECGsignalLabel,'Recorded')
     % Detect ECG/QRS
-    [ECGmask, ECGepoch, ~, ~, pulsEstimate] = detect_ecg(EXTTMP,[-250 450],ECGsignalLabel);
+    [ECGmask, ECGepoch, ~, ~, pulsEstimate] = detect_ecg(EXT,[-250 450],ECGsignalLabel);
 
     if ~isnan(ECGmask)
         [blECG, alECG] = butter(4,16/(EEG.srate/2),'low');

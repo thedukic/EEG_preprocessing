@@ -8,7 +8,7 @@
 % 1. Turn off figure visibility while plotting 
 % 2. ZipLine that exlcudes other peaks basides the line noise EEG/EMG
 % 3. When checking leftovers in step1, interpolate the outlier channels
-% 4. Fix subj ignoring in report_final
+% 4. 
 % =========================================================================
 
 close all; fclose all; clear all; clc;
