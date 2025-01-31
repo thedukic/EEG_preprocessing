@@ -121,7 +121,9 @@ if ~isempty(locs)
     pbaspect([1.618 1 1]); colormap(brewermap(sum(chaneeg),'BrBG'));
 
     % plot the first DSS weights
-    mytopoplot(todss(:,1),[],['DSS1 score: ' num2str(round(p1(1)))],nexttile); % colorbar;
+    fromdss = pinv(todss);
+    % mytopoplot(todss(:,1),[],['DSS1 score: ' num2str(round(p1(1)))],nexttile); % colorbar;
+    mytopoplot(fromdss(1,:),[],['DSS1 score: ' num2str(round(p1(1)))],nexttile); % colorbar;
 
     % plot spectra of data before and after removal of the peak component(s)
     nexttile; hold on;
