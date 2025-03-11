@@ -83,7 +83,7 @@ for iTrial=1:numel(x)
 end
 
 % cross-validated CCA
-shifts=[0]; 
+shifts=0; 
 [AA,BB,~]=nt_cca_crossvalidate(x2,y2,shifts);
 
 % select reduced number of CCs

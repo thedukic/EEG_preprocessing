@@ -5,6 +5,10 @@ function EEG = make_rsmasks(EEG)
 % 000 111 000
 % 000 000 111
 
+fprintf('\n================================\n');
+fprintf('Making resting-state block masks\n');
+fprintf('================================\n');
+
 % Mark start/stop of each block
 N = cellfun(@(x,y) size(x,2),{EEG(:).data});
 NBLK = length(N);
@@ -29,5 +33,7 @@ for i = 1:NBLK
     EEG(i).ALSUTRECHT.blockinfo.eo_mask = eo_mask;
     EEG(i).ALSUTRECHT.blockinfo.rs_mask = rs_mask;
 end
+
+fprintf('Done!\n');
 
 end

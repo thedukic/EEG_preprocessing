@@ -1,6 +1,8 @@
 function EEG = detect_badcomponents2(EEG,EXT,cfg)
 
-fprintf('\nDetecting bad ICs...\n\n');
+fprintf('\n================================\n');
+fprintf('Detecting bad ICs\n');
+fprintf('================================\n');
 
 % Double-check
 EEG = eeg_checkset(EEG,'ica');
@@ -12,9 +14,9 @@ NICA       = size(ICAdata,1);
 
 %% ========================================================================
 % 1. ICLabel
-fprintf('\n================================\n');
+fprintf('\n--------------------------------\n');
 fprintf('ICLabel\n');
-fprintf('================================\n');
+fprintf('--------------------------------\n');
 
 EEG = iclabel(EEG);
 
@@ -28,9 +30,9 @@ EEG.ALSUTRECHT.ica.ICLabel.clss = EEG.etc.ic_classification.ICLabel.classes;
 
 %% ========================================================================
 % 2. Correlation with external channels (ECG / VEOG / HEOG)
-fprintf('\n================================\n');
+fprintf('\n--------------------------------\n');
 fprintf('ECG/VEOG/HEOG: Correlations with the external electrodes\n');
-fprintf('================================\n');
+fprintf('--------------------------------\n');
 
 chanecg  = find(strcmp({EXT.chanlocs.labels},'ECG'));
 chanveog = find(strcmp({EXT.chanlocs.labels},'VEOG'));
@@ -252,9 +254,9 @@ EEG.ALSUTRECHT.ica.corr.clss = extLabels;
 % 3. Cross-trial phase statistics for ECG detection
 % https://mne.tools/stable/generated/mne.preprocessing.ICA.html#mne.preprocessing.ICA.find_bads_ecg
 % https://sci-hub.st/https://ieeexplore.ieee.org/document/4536072
-fprintf('\n================================\n');
+fprintf('\n--------------------------------\n');
 fprintf('ECG: Cross-trial phase statistics\n');
-fprintf('================================\n');
+fprintf('--------------------------------\n');
 
 if strcmpi(ECGsignalLabel,'Recorded')
     % Detect ECG/QRS
@@ -328,9 +330,9 @@ EEG.ALSUTRECHT.subject.pulsEstimate = pulsEstimate;
 
 %% ========================================================================
 % 4. Detect EMG ICs using freq slopes
-fprintf('\n================================\n');
+fprintf('\n--------------------------------\n');
 fprintf('EMG: Power slopes\n');
-fprintf('================================\n');
+fprintf('--------------------------------\n');
 
 % options.muscleFreqIn       = [7, 70];
 % options.muscleSlopeThreshold = -0.5;
@@ -402,9 +404,9 @@ EEG.ALSUTRECHT.ica.emg.clss  = 'EMG';
 
 %% ========================================================================
 % 5. Use icablinkmetrics for eyeblinks
-fprintf('\n================================\n');
+fprintf('\n--------------------------------\n');
 fprintf('VEOG: icablinkmetrics plugin\n');
-fprintf('================================\n');
+fprintf('--------------------------------\n');
 
 % Blink / VEOG channel
 EOGdata = mean(EEG.data(ismember({EEG.chanlocs.labels},cfg.ica.blinkchans),:),1);
@@ -439,9 +441,11 @@ catch
 end
 
 % Prevent obvious missclasifications, not sure why this happens
-load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Blinkweights'),'Blinkweights'); % template
-falseVEOG = abs(corr(EEG.icawinv(:,icablinkmetricsout.identifiedcomponents),Blinkweights,"type","Spearman")) < 0.8;
-icablinkmetricsout.identifiedcomponents(falseVEOG) = [];
+if ~isempty(icablinkmetricsout.identifiedcomponents)
+    load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Blinkweights'),'Blinkweights'); % template
+    falseVEOG = abs(corr(EEG.icawinv(:,icablinkmetricsout.identifiedcomponents),Blinkweights,"type","Spearman")) < 0.8;
+    icablinkmetricsout.identifiedcomponents(falseVEOG) = [];
+end
 
 % Remove (not needed)
 EEG.icaact = [];
@@ -454,9 +458,9 @@ EEG.ALSUTRECHT.ica.icablinkmetrics.clss = 'Blink';
 
 %% ========================================================================
 % 6. Use spatial characteristics for channel pops and wobbles
-fprintf('\n================================\n');
+fprintf('\n--------------------------------\n');
 fprintf('Channel: Spatial characteristics\n');
-fprintf('================================\n');
+fprintf('--------------------------------\n');
 
 % Estimate spatial smootheness
 [spatialSmoothness, badIC, spatialTreshold] = estimate_spatialsmoothnes(EEG);
@@ -503,9 +507,9 @@ EEG.ALSUTRECHT.ica.spatialSmoothness.clss = 'Channel';
 
 %% ========================================================================
 % 7. Use blink IC template for blinks
-fprintf('\n================================\n');
+fprintf('\n--------------------------------\n');
 fprintf('VEOG: Blink IC template\n');
-fprintf('================================\n');
+fprintf('--------------------------------\n');
 
 % Load the template
 load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Blinkweights'),'Blinkweights');
@@ -539,9 +543,9 @@ EEG.ALSUTRECHT.ica.blinkTemplateCorr.clss = 'Blink';
 
 %% ========================================================================
 % 8. Use Saccade IC template for Saccade
-fprintf('\n================================\n');
+fprintf('\n--------------------------------\n');
 fprintf('HEOG: Saccade IC template\n');
-fprintf('================================\n');
+fprintf('--------------------------------\n');
 
 % Load the template
 load(fullfile(EEG.ALSUTRECHT.subject.mycodes,'files','Saccadeweights'),'Saccadeweights');

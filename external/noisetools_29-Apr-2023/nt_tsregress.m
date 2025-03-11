@@ -24,7 +24,7 @@ if nargin<7; threshold=[]; end
 if size(x,1) ~= size(y,1); error('!'); end
 % shifts must be non-negative
 mn=min(shifts);
-if mn<0;
+if mn<0
     shifts=shifts-mn;
     x=x(-mn+1:end,:,:);
     y=y(-mn+1:end,:,:);

@@ -5,20 +5,20 @@ function report_final(myPaths,subjects)
 %
 % =========================================================================
 % SDukic edits
-% v1, January 2025
+% v1, March 2025
 % =========================================================================
 
-fprintf('\n');
-disp('==================================================================');
+fprintf('\n==================================================================\n');
 fprintf('Generating the final report for %s. This may take a bit...\n',myPaths.group);
-disp('==================================================================');
-fprintf('\n');
+fprintf('==================================================================\n');
 
 % =========================================================================
 NSUB = length(subjects);
 chanlocs = readlocs('biosemi128_eeglab.ced');
 chanlbls = {chanlocs.labels};
-maskInterpElec = zeros(length(chanlocs),NSUB);
+
+maskInterpElec1 = zeros(length(chanlocs),NSUB);
+maskInterpElec2 = maskInterpElec1;
 
 % Report folder
 myPaths.reports = fullfile(myPaths.preproc,'reports');
@@ -27,7 +27,7 @@ if exist(myPaths.reports,'dir')~=7, mkdir(myPaths.reports); end
 % =========================================================================
 % Preprocessing stats
 % =========================================================================
-N = NaN(NSUB,5);
+N = NaN(NSUB,6);
 NCHN = length(chanlbls);
 Medianvoltageshift = NaN(NCHN,NSUB);
 CorrelationMatrices = NaN(NCHN+2,NCHN+2,NSUB);
@@ -51,21 +51,30 @@ for i = 1:NSUB
             tableIssues(i,:) = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
         end
 
-        % Bad electrodes
-        maskInterpElec(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
-        N(i,1) = sum(maskInterpElec(:,i));
+        % Bad electrodes (whole interpolated)
+        maskInterpElec1(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
+
+        % Bad electrodes (trials interpolated)
+        interpChanTrials = cat(1,EEG.ALSUTRECHT.epochRejections.InterpTrialInfo{:});
+        interpChanTrials = unique(interpChanTrials);
+        maskInterpElec2(interpChanTrials,i) = 1;
+
+        % Number of interpolated channels
+        N(i,1) = sum(maskInterpElec1(:,i)) / 128;
+        % Number of interpolated trials
+        N(i,2) = EEG.ALSUTRECHT.epochRejections.interpEpochs / length(EEG.ALSUTRECHT.epochRejections.InterpTrialInfo);
 
         % Epochs: Total possible
-        % N(i,2) = sum([EEG.ALSUTRECHT.eventinfo{:,3}])*4/2; % RS
-        N(i,2) = EEG.ALSUTRECHT.issues_to_check.NumberTrials1;
+        % N(i,3) = sum([EEG.ALSUTRECHT.eventinfo{:,3}])*4/2; % RS
+        N(i,3) = EEG.ALSUTRECHT.issues_to_check.NumberTrials1;
         % Epochs: Left after preproc1
-        N(i,3) = EEG.ALSUTRECHT.issues_to_check.NumberTrials2;
+        N(i,4) = EEG.ALSUTRECHT.issues_to_check.NumberTrials2;
         % Epochs: Left after preproc2
-        N(i,4) = EEG.ALSUTRECHT.issues_to_check.NumberTrials3;
+        N(i,5) = EEG.ALSUTRECHT.issues_to_check.NumberTrials3;
 
         % Leftover EMG
         % N(i,5) = EEG.ALSUTRECHT.leftovers.muscle1;  % after proc1
-        N(i,5) = EEG.ALSUTRECHT.leftovers.muscle2;    % after proc2
+        N(i,6) = EEG.ALSUTRECHT.leftovers.muscle2;    % after proc2
 
         % Median voltage range
         Medianvoltageshift(:,i) = EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal(1:128);
@@ -79,12 +88,13 @@ for i = 1:NSUB
         load(fileName1,'EEG');
 
         % Insert manually
-        maskInterpElec(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
-        N(i,1) = sum(maskInterpElec(:,i));
-        N(i,2) = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);
-        N(i,3) = 0; % Not true but OK
-        N(i,4) = 0; % True
-        N(i,5) = 1; % Probably true
+        maskInterpElec1(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
+        N(i,1) = sum(maskInterpElec1(:,i));
+        N(i,2) = 0; % True
+        N(i,3) = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);
+        N(i,4) = 0; % Not true but OK
+        N(i,5) = 0; % True
+        N(i,6) = 1; % Probably true
 
     else
         fprintf('%s does not have any %d data? Their data is missing.\n', subjects{i}, myPaths.task);
@@ -95,13 +105,14 @@ end
 % Remove those with very bad or missing data
 % -> they have 0 trials after preproc2
 % -> they have NaNs
-maskBad     = N(:,4) == 0;
+maskBad     = N(:,5) == 0;
 maskMissing = isnan(N(:,1));
 maskRemove  = maskBad | maskMissing;
 
 Medianvoltageshift(:,maskRemove)    = [];
 CorrelationMatrices(:,:,maskRemove) = [];
-maskInterpElec(:,maskRemove)        = [];
+maskInterpElec1(:,maskRemove)       = [];
+maskInterpElec2(:,maskRemove)       = [];
 
 % % Double-check
 % assert(~any(isnan(N(:))));
@@ -110,8 +121,9 @@ maskInterpElec(:,maskRemove)        = [];
 % Plot
 % ============================
 fh = figure;
-th = tiledlayout(4,1);
+th = tiledlayout(5,2);
 th.TileSpacing = 'compact'; th.Padding = 'compact';
+title(th,[myPaths.group ', N = ' num2str(NSUB)]);
 
 % Plot 1: Which channels are usually interpoalted
 myCmap1 = brewermap(128,'RdPu');
@@ -119,30 +131,44 @@ myCmap2 = brewermap(3,'YlOrRd');
 myCmap3 = brewermap(12,'Paired');
 
 nexttile(1);
-topoplot(mean(maskInterpElec,2),chanlocs,'maplimits',[0 0.25],'headrad',0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','shading','interp');
-axis tight; title([myPaths.group ', N = ' num2str(NSUB)]);
+topoplot(mean(maskInterpElec1,2),chanlocs,'maplimits',[0 0.25],'headrad',0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','shading','interp');
+axis tight; title('Interp. chans: preproc1');
+hcb = colorbar;
+hcb.Title.String = "%";
+
+nexttile(2);
+topoplot(mean(maskInterpElec2,2),chanlocs,'maplimits',[0 0.7],'headrad',0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','shading','interp');
+axis tight; title('Interp. chans: preproc2');
 hcb = colorbar;
 hcb.Title.String = "%";
 
 % Plot 2: Interpolated channels per person
-nexttile; hold on;
+nexttile([1 2]); hold on;
 plot([0 NSUB+1],[0.15 0.15],'LineWidth',1.2,'Color',0.6*ones(1,3));
-bar(N(:,1)/128,'FaceColor',myCmap1(end/2,:)); ylim([0 1]); box on;
+bar(N(:,1),'FaceColor',myCmap1(end/2,:)); ylim([0 1]); box on;
 
-ylabel('Interp. chans (%)');
+ylabel('Interp. chans preproc1 (%)');
+xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
+
+% Plot 2: Interpolated channels per person
+nexttile([1 2]); hold on;
+plot([0 NSUB+1],[0.15 0.15],'LineWidth',1.2,'Color',0.6*ones(1,3));
+bar(N(:,2),'FaceColor',myCmap1(end/2,:)); ylim([0 1]); box on;
+
+ylabel('Interp. trials preproc2 (%)');
 xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
 
 % Plot 3: EMG lefovers from preprocessing
-nexttile; hold on;
+nexttile([1 2]); hold on;
 plot([0 NSUB+1],[0.25 0.25],'LineWidth',1.2,'Color',0.6*ones(1,3));
-bar(N(:,5),'FaceColor',myCmap3(12,:)); ylim([0 1]); box on;
+bar(N(:,6),'FaceColor',myCmap3(12,:)); ylim([0 1]); box on;
 
 xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
 ylabel('EMG leftover (%)');
 
 % Plot 4: Number of trials overview
-nexttile;
-Ntmp = [N(:,4), N(:,3)-N(:,4), N(:,2)-N(:,3)];
+nexttile([1 2]);
+Ntmp = [N(:,5), N(:,4)-N(:,5), N(:,3)-N(:,4)];
 bh = bar(Ntmp,'stacked');
 bh(1).FaceColor = myCmap2(3,:);
 bh(2).FaceColor = myCmap2(2,:);
@@ -227,7 +253,7 @@ if ~isempty(maskSubj)
     % myClim = [mean(LowerBound), mean(UpperBound)];
 
     for i = 1:NSUBhv
-        maskChan = VoltageShiftsTooHigh(:,maskSubj(i))>0;
+        maskChan = VoltageShiftsTooHigh(:,maskSubj(i)) > 0;
         str = strjoin(chanlbls(maskChan),', ');
         fprintf('%s: %s\n',subjects{maskSubj(i)},str);
 
@@ -362,7 +388,7 @@ for i = 1:NSUB
         % Plot and output if it exceeds the cut-off
         % ============================
         if psdSpreadsAll1(i) > cutoffKurtosis || psdSpreadsAll2(i) > cutoffCoefVar || psdPeaksAll(i) > cutoffPeak
-            fprintf('%s : Kurtosis = %1.3f, CV = %1.3f, Peaks = %d.\n', subjects{i}, psdSpreadsAll1(i), psdSpreadsAll2(i), psdPeaksAll(i));
+            fprintf('%d. %s : Kurtosis = %1.3f, CV = %1.3f, Peaks = %d\n', i, subjects{i}, psdSpreadsAll1(i), psdSpreadsAll2(i), psdPeaksAll(i));
 
             cnt = cnt+1;
             if cnt == 1
@@ -393,7 +419,7 @@ for i = 1:NSUB
             % title({[subjects{i},', group: ',myPaths.group, ', visit: ', myPaths.visit, ', task: ', myPaths.task], ['Spread: ', num2str(psdSpreadsAll1(i), '%.3f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
             title({subjects{i}, ['Kurtosis: ', num2str(psdSpreadsAll1(i), '%1.1f') ', CV: ', num2str(psdSpreadsAll2(i), '%.2f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
 
-            pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)');
+            pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)'); drawnow;
         end
     end
 end

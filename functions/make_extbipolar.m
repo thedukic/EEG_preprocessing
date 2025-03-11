@@ -1,15 +1,17 @@
 function EEG = make_extbipolar(EEG)
-%
 % Put all external electrodes as type EXT?
-%
+
 bipolarEMG = false;
 
-fprintf('Making EOG and ECG channels bipolar...\n');
+fprintf('\n================================\n');
+fprintf('Making EOG/ECG channels bipolar\n');
+fprintf('================================\n');
+
 if strcmpi(EEG(1).ALSUTRECHT.subject.task,'MT')
     if bipolarEMG
-        fprintf('Making EMG channels bipolar...\n');
+        fprintf('Making EMG channels bipolar.\n');
     else
-        fprintf('Keeping EMG channels monopolar...\n');
+        fprintf('Keeping EMG channels monopolar.\n');
     end
 end
 
@@ -107,7 +109,9 @@ for i = 1:NBLK
     EEG(i).nbchan = size(EEG(i).data,1);
     EEG(i) = eeg_checkset(EEG(i),'loaddata');
 
-    % assert(size(EEG(i).data,1)==EEG(i).nbchan);
+    % assert(size(EEG(i).data,1) == EEG(i).nbchan);
 end
+
+fprintf('Done!\n');
 
 end

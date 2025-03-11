@@ -5,10 +5,11 @@
 % SDukic, January 2025
 %
 % TODO
-% 1. Turn off figure visibility while plotting 
-% 2. ZipLine that exlcudes other peaks basides the line noise EEG/EMG
+% 1. Turn off figure visibility while plotting (speed up the code)
+% 2. ZipLine that exlcudes other peaks basides the line noise
 % 3. When checking leftovers in step1, interpolate the outlier channels
-% 4. 
+% 4. Deal with files that have diff tasks in them, like MMN+SART
+% 5.
 % =========================================================================
 
 close all; fclose all; clear all; clc;

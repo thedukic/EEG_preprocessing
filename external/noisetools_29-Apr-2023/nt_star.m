@@ -1,5 +1,5 @@
-function [x,w,ww] = nt_star(x,thresh,closest,depth)
-% [y,w,ww]=nt_star(x,thresh,closest,depth) - sensor noise suppression
+function [x, w, ww] = nt_star(x,thresh,closest,depth,PCA_THRESH)
+% [y,w,ww] = nt_star(x,thresh,closest,depth) - sensor noise suppression
 %
 %  y: denoised data
 %  w: 0 for parts that needed fixing, 1 elsewhere (time*1)
@@ -11,25 +11,26 @@ function [x,w,ww] = nt_star(x,thresh,closest,depth)
 %  depth: maximum number of channels to fix at each sample (default 1)
 %
 % See also: nt_sns, nt_proximity
+% nt_greetings;
 
-nt_greetings;
+% PCA_THRESH=10^-15; % threshold for discarding weak PCs - original
+% NSMOOTH = 10;        % samples, smoothing to apply to excentricity - original
+NSMOOTH = 64;        % samples, smoothing to apply to excentricity - SDukic, February 2025 (too short -> too sensitive)
+MINPROP = 0.3;       % minimum proportion of artifact free at first iteration
+NITER   = 3;         % iterations to refine c0
+VERBOSE = 1;         % set to 0 to shut up
 
-PCA_THRESH=10^-15;  % threshold for discarding weak PCs
-NSMOOTH=10;         % samples, smoothing to apply to excentricity
-MINPROP=0.3;        % minimum proportion of artifact free at first iteration
-NITER=3;            % iterations to refine c0
-VERBOSE=1;          % set to 0 to shut up
-
-if nargin<1; error; end
+if nargin<1; error('More inputs needed.'); end
 if nargin<2 || isempty(thresh); thresh=1; end
 if nargin<3; closest=[]; end
-if ~isempty(closest)&&size(closest,1)~=size(x,2)
+if ~isempty(closest) && size(closest,1) ~= size(x,2)
     error('closest array should have as many rows as channels of x');
 end
 if nargin<4 || isempty(depth); depth=1; end
+if any(closest<=0, "all"), error('Ivalid channel indices.'); end
 
-if nargout==0 % plot, don't return result
-    [y,w,ww]=nt_star(x,thresh,closest,depth);
+if nargout == 0 % plot, don't return result
+    [y,w,ww] = nt_star(x,thresh,closest,depth);
     disp([mean(w(:)), mean(ww(:))])
     figure(1); clf;
     subplot 311; plot(x);
@@ -39,16 +40,15 @@ if nargout==0 % plot, don't return result
     return
 end
 
+[nsample,nchan,~] = size(x);
+x = nt_unfold(x);
 
-[nsample,nchan,~]=size(x);
-x=nt_unfold(x);
-
-p0=nt_wpwr(x);
-mn=mean(x); % save means
-x=nt_demean(x);
-nn=sqrt(mean(x.^2)); % save norm
-x=nt_normcol(x);
-p00=nt_wpwr(x);
+p0  = nt_wpwr(x);
+mn  = mean(x); % save means
+x   = nt_demean(x);
+nn  = sqrt(mean(x.^2)); % save norm
+x   = nt_normcol(x);
+p00 = nt_wpwr(x);
 
 % NaN and zero channels are set to rand, which effectively excludes them
 iNan=find(all(isnan(x)));
@@ -63,55 +63,52 @@ c0=nt_cov(x); % initial covariance estimate
 Find time intervals where at least one channel is excentric --> w==0.
 %}
 
-iIter=NITER;
-while iIter>0
+iIter = NITER;
+while iIter > 0
 
-
-    w=ones(size(x,1),1);
-    for iChan=1:nchan
-
+    w = ones(size(x,1),1);
+    for iChan = 1:nchan
         % other channels
         if ~isempty(closest)
-            oChan=closest(iChan,:);
+            oChan = closest(iChan,:);
         else
-            oChan=setdiff(1:nchan,iChan);
+            oChan = setdiff(1:nchan,iChan);
         end
-        oChan(oChan>nchan)=[];
+        oChan(oChan>nchan) = [];
 
         % PCA other channels to remove weak dimensions
-        [topcs,eigenvalues]=nt_pcarot(c0(oChan,oChan)); % PCA
-        idx=find(eigenvalues/max(eigenvalues) > PCA_THRESH); % discard weak dims
-        topcs=topcs(:,idx);
+        [topcs,eigenvalues] = nt_pcarot(c0(oChan,oChan)); % PCA
+        idx = eigenvalues/max(eigenvalues) > PCA_THRESH;  % discard weak dims
+        topcs = topcs(:,idx);
 
         % project this channel on other channels
-        b=c0(iChan,oChan)*topcs/(topcs'*c0(oChan,oChan)*topcs); % projection matrix
-        y=x(:,oChan)*(topcs*b'); % projection
-        dx=abs(y-x(:,iChan));   % difference from projection
-        dx=dx+eps;              % avoids error on simulated data
+        b = c0(iChan,oChan)*topcs/(topcs'*c0(oChan,oChan)*topcs); % projection matrix
+        y = x(:,oChan)*(topcs*b'); % projection
+        dx = abs(y-x(:,iChan));    % difference from projection
+        dx = dx+eps;               % avoids error on simulated data
 
-        d=dx/mean(dx(find(w))); % excentricity measure
-        if NSMOOTH>0
-            d=filtfilt(ones(NSMOOTH,1)/NSMOOTH,1,d);
+        d = dx / mean(dx(find(w)));  % excentricity measure
+        if NSMOOTH > 0
+            d = filtfilt(ones(NSMOOTH,1)/NSMOOTH,1,d);
         end
 
-        d=d/thresh;
-        w=min(w,(d<1)); % w==0 for artifact part
-
+        d = d / thresh;
+        w = min(w,d<1); % w==0 for artifact part
     end
 
-    prop=mean(w);
+    prop = mean(w);
     if VERBOSE>0; disp(['proportion artifact free: ', num2str(prop)]); end
 
     if iIter==NITER && prop<MINPROP
-        thresh=thresh*1.1;
+        thresh = 1.1 * thresh;
         if VERBOSE>0; disp(['Warning: nt_star increasing threshold to ', num2str(thresh)]); end
-        w=ones(size(w));
+        w = ones(size(w));
     else
-        iIter=iIter-1;
+        iIter = iIter-1;
     end
 
-    x=nt_demean(x,w);
-    c0=nt_cov(x,[],w); % restrict covariance estimate to non-artifact part
+    x = nt_demean(x,w);
+    c0 = nt_cov(x,[],w); % restrict covariance estimate to non-artifact part
 end
 
 %{
@@ -125,33 +122,34 @@ Here we use an excentricity measure based on the absolute value of the signal,
 rather than the difference between signal and projection.
 %}
 
-xx=abs(x);
-xx=bsxfun(@times,xx, 1 ./ sqrt(mean(xx(find(w),:).^2))); % divide by std over non-artifact part
-if NSMOOTH>0;
-    xx=filtfilt(ones(NSMOOTH,1)/NSMOOTH,1,xx);
+xx = abs(x);
+xx = bsxfun(@times,xx, 1 ./ sqrt(mean(xx(find(w),:).^2))); % divide by std over non-artifact part
+if NSMOOTH>0
+    xx = filtfilt(ones(NSMOOTH,1)/NSMOOTH,1,xx);
 end
-[~,rank]=sort(xx','descend');
-rank=rank';
-rank(find(w),:)=0;      % exclude parts that were not judged excentric
 
-depth=min(depth,nchan-1);
-ww=ones(size(x));
-for iDepth=1:depth
+% [~, rank] = sort(xx','descend');
+% rank = rank';
+[~, rank] = sort(xx,2,'descend');
+rank(find(w),:) = 0; % exclude parts that were not judged excentric
 
+depth = min(depth,nchan-1);
+ww = ones(size(x));
+for iDepth = 1:depth
     %{
     Fix each channel by projecting on other channels.
     %}
 
     iFixed=nchan;
     nFixed=0;
-    for iChan=1:nchan
+    for iChan = 1:nchan
 
-        bad_samples=find(iChan==rank(:,iDepth)); % samples where this channel is the most excentric
-        if iDepth ~=1
-            bad_samples(find(xx(bad_samples,iChan)<thresh)) =[]; % exclude if not very bad
+        bad_samples = find(iChan==rank(:,iDepth)); % samples where this channel is the most excentric
+        if iDepth ~= 1
+            bad_samples(xx(bad_samples,iChan) < thresh) = []; % exclude if not very bad
         end
 
-        nFixed=nFixed+numel(bad_samples);
+        nFixed = nFixed+numel(bad_samples);
         if isempty(bad_samples)
             iFixed=iFixed-1;
             continue;
@@ -160,16 +158,16 @@ for iDepth=1:depth
 
         % other channels
         if ~isempty(closest)
-            oChan=closest(iChan,:);
+            oChan = closest(iChan,:);
         else
-            oChan=setdiff(1:nchan,iChan);
+            oChan = setdiff(1:nchan,iChan);
         end
-        oChan(oChan>nchan)=[]; % in case closest includes channels not in data
+        oChan(oChan>nchan) = []; % in case closest includes channels not in data
 
         % PCA other channels to remove weak dimensions
-        [topcs,eigenvalues]=nt_pcarot(c0(oChan,oChan)); % PCA
-        idx=find(eigenvalues/max(eigenvalues) > PCA_THRESH); % discard weak dims
-        topcs=topcs(:,idx);
+        [topcs,eigenvalues] = nt_pcarot(c0(oChan,oChan)); % PCA
+        idx = eigenvalues/max(eigenvalues) > PCA_THRESH; % discard weak dims
+        topcs = topcs(:,idx);
 
         % project this channel on other channels
         b=c0(iChan,oChan)*topcs/(topcs'*c0(oChan,oChan)*topcs); % projection matrix
@@ -193,10 +191,9 @@ x=nt_fold(x,nsample);
 w=nt_fold(w,nsample);
 ww=nt_fold(ww,nsample);
 
-
-
-
 x(:,iNan)=nan;
 x(:,iZero)=0;
 
 if VERBOSE>0; disp(['power ratio: ', num2str(nt_wpwr(x)/p0)]); end
+
+end

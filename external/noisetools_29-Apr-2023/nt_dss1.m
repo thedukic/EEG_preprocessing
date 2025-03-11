@@ -21,7 +21,7 @@ if nargin<3; keep1=[]; end
 if nargin<2; w=[]; end
 if nargin<1; error('!'); end
 
-if ndims(x)<3; error('x should be 3D'); end
+if ismatrix(x); error('x should be 3D'); end
 if ~isa(x,'double'); warning('x is not double precision'); end
 
 x=x(:,:,:); % collapse higher dims
@@ -45,7 +45,7 @@ else
 end
 
 % derive DSS matrix
-[todss,pwr0,pwr1]=nt_dss0(c0,c1,keep1,keep2);
+[todss,pwr0,pwr1] = nt_dss0(c0,c1,keep1,keep2);
 
 % crossvalidated
 if nargout>3

@@ -2,7 +2,7 @@ function x=nt_smooth(x,T,nIterations,nodelayflag)
 %y=nt_smooth(x,T,nIterations,nodelayflag) - smooth by convolution with square window
 %
 %  y: smoothed data
-% 
+%
 %  x: data to smooth
 %  T: samples, size of window (can be fractionary)
 %  nIterations: number of iterations of smoothing operation (large --> gaussian kernel)
@@ -28,7 +28,7 @@ end
 mn=mean(x(1:(integ+1),:,:),1);
 x=bsxfun(@minus,x,mn);
 
-if nIterations==1 && frac==0;
+if nIterations==1 && frac==0
     % faster
     x=cumsum(x);
     x(T+1:end,:)=x(T+1:end,:)-x(1:end-T,:);
@@ -39,14 +39,13 @@ else
     for k=1:nIterations-1
         B=conv(B,[ones(integ,1);frac]/T);
     end
-    x=filter(B,1,x);    
+    x=filter(B,1,x);
 end
 
 if nodelayflag
     shift=round(T/2*nIterations); %[shift n*T]
     x=[x(shift+1:end,:,:,:); zeros(shift,size(x,2),size(x,3),size(x,4))];
 end
-
 
 % restore DC
 x=bsxfun(@plus,x,mn);

@@ -10,7 +10,9 @@ function [EEG, badElectrodes] = remove_flatelectrodes(EEG,cfg)
 % ALS37840 ALS T1: B2
 % ALS37793 CON T1: A32
 
-fprintf('\nChecking if there are any flat electrodes...\n');
+fprintf('\n================================\n');
+fprintf('Checking if there are any flat electrodes\n');
+fprintf('================================\n');
 
 % Minimum "flat" duration in [s]
 if isempty(cfg.flatDuration)

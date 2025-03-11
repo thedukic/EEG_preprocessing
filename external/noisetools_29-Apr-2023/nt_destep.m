@@ -1,4 +1,4 @@
-function [y,stepList]=nt_destep(x,thresh,guard,depth,minstep);
+function [y,stepList]=nt_destep(x,thresh,guard,depth,minstep)
 %[y,stepList]=nt_destep(x,thresh,guard,depth,minstep) - remove step glitch from MEG data
 %
 %  y: step-removed data

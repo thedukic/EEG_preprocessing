@@ -1,4 +1,4 @@
-function [topcs,pwr,y]=nt_pca0(x,shifts,nkeep,threshold,w)
+function [topcs,pwr,y] = nt_pca0(x,shifts,nkeep,threshold,w)
 %[topcs,pwr,y]=nt_pca0(x,shifts,nkeep,threshold,w) - time-shift pca
 %
 %  topcs: matrix to convert data to PCs
@@ -13,9 +13,8 @@ function [topcs,pwr,y]=nt_pca0(x,shifts,nkeep,threshold,w)
 %
 % mean is NOT removed prior to processing
 
-
 if nargin<1; error('!'); end
-if nargin<2||isempty(shifts); shifts=[0]; end
+if nargin<2||isempty(shifts); shifts=0; end
 if nargin<3; nkeep=[]; end
 if nargin<4||isempty(threshold); threshold=0; end
 if nargin<5; w=[]; end
@@ -26,7 +25,7 @@ if nargin<5; w=[]; end
 %x=fold(demean(unfold(x)),size(x,1));
 
 % covariance
-if isempty(w);
+if isempty(w)
     c=nt_cov(x,shifts);
 else
     c=nt_cov(x,shifts,w);
@@ -54,26 +53,26 @@ if nargout>2
     y=nt_mmat(x,topcs);
 end
 
-%% test code
-if 0
-    x=randn(1000,10);
-    [topcs,pwr,y]=nt_pca0(x);
-    figure(1); plot(pwr);
-    figure(2); subplot 121; plot(y); subplot 122; plot(x*topcs);
-end
-if 0
-    x=zeros(1000,10);
-    [topcs,pwr,y]=nt_pca0(x);
-    figure(1); plot(pwr);
-    figure(2); subplot 121; plot(y); subplot 122; plot(x*topcs);
-end
-if 0 
-    x=sin(2*pi*3*(1:1000)'/1000)*randn(1,10);
-    x=2*x + randn(size(x));
-     [topcs,pwr,y]=nt_pca0(x);
-    figure(1); plot(pwr);
-    figure(2); subplot 121; plot(x); subplot 122; plot(x*topcs);
-end   
+% %% test code
+% if 0
+%     x=randn(1000,10);
+%     [topcs,pwr,y]=nt_pca0(x);
+%     figure(1); plot(pwr);
+%     figure(2); subplot 121; plot(y); subplot 122; plot(x*topcs);
+% end
+% if 0
+%     x=zeros(1000,10);
+%     [topcs,pwr,y]=nt_pca0(x);
+%     figure(1); plot(pwr);
+%     figure(2); subplot 121; plot(y); subplot 122; plot(x*topcs);
+% end
+% if 0 
+%     x=sin(2*pi*3*(1:1000)'/1000)*randn(1,10);
+%     x=2*x + randn(size(x));
+%      [topcs,pwr,y]=nt_pca0(x);
+%     figure(1); plot(pwr);
+%     figure(2); subplot 121; plot(x); subplot 122; plot(x*topcs);
+% end   
 
 
 

@@ -1,4 +1,4 @@
-function [y,w,r]=nt_detrend(x,order,w0,basis,thresh,niter,wsize)
+function [y,w,r] = nt_detrend(x,order,w0,basis,thresh,niter,wsize)
 %[y,w,r]=nt_detrend(x,order,w,basis,thresh,niter,wsize) - robustly remove trend
 %
 %  y: detrended data
@@ -17,41 +17,44 @@ function [y,w,r]=nt_detrend(x,order,w0,basis,thresh,niter,wsize)
 % applied to smaller overlapping windows, which are then stitched together
 % using overlap-add. This is not described in the paper.
 
-nt_greetings;
+% nt_greetings;
 
 %% arguments
 if nargin<2||isempty(order); error('!'); end
 if nargin<3; w0=[]; end
-if nargin<4||isempty(basis); basis='polynomials'; end
+if nargin<4||isempty(basis);  basis='polynomials'; end
 if nargin<5||isempty(thresh); thresh=3; end
-if nargin<6||isempty(niter); niter=3; end
+if nargin<6||isempty(niter);  niter=3; end
 if nargin<7; wsize=[]; end
 
 if iscell(x)
     if ~isempty(w0); error('not implemented'); end
-    y={}; w={}; r={};
-    for iTrial=1:numel(x)
-        [y{iTrial},w{iTrial},r{iTrial}] = nt_detrend(x{iTrial},order,w0,basis,thresh,niter,wsize);
+    
+    NTRL = length(x);
+    y=cell(1,NTRL); w=y; r=y;
+
+    for iTrial = 1:NTRL
+        [y{iTrial}, w{iTrial}, r{iTrial}] = nt_detrend(x{iTrial},order,w0,basis,thresh,niter,wsize);
     end
-    return
+    return;
 end
 
-w=w0;
+w = w0;
 if ~isempty(w)
-    w=w(:);
-    if numel(w)<size(x,1)
+    w = w(:);
+    if numel(w) < size(x,1)
         % assume that w contains indices, set them to 1
-        idx=w;
-        w=zeros(size(x,1),1);
-        w(idx)=1;
+        idx = w;
+        w = zeros(size(x,1),1);
+        w(idx) = 1;
     end
 end
 
 if isempty(wsize) || ~wsize
     % standard detrending (trend fit to entire data)
-    [y,w,r]=nt_detrend_helper(x,order,w,basis,thresh,niter);
+    [y,w,r] = nt_detrend_helper(x,order,w,basis,thresh,niter);
 else
-    wsize=2*floor(wsize/2);
+    wsize = 2*floor(wsize/2);
 
     % do some sanity checks because many parameters
     if numel(order)>1; error('!'); end
@@ -68,8 +71,10 @@ else
     if size(w,2)==1; w=repmat(w,1,size(x,2)); end
 
 
-    % (1) divide into windows, (2) detrend each, (3) stitch together, (4)
-    % estimate w
+    % (1) divide into windows, 
+    % (2) detrend each, 
+    % (3) stitch together, 
+    % (4) estimate w
     for iIter=1:niter
         y=zeros(size(x));
         trend=zeros(size(x));
@@ -121,17 +126,16 @@ else
 
         if stop<size(x,1); y(end,:)=y(end-1,:); a(end,:)=a(end-1,:); end % last sample can be missed
 
-        y=bsxfun(@times,y,1./a); y(find(isnan(y)))=0;
-        trend=bsxfun(@times,trend,1./a);  trend(find(isnan(trend)))=0;
+        y=bsxfun(@times,y,1./a); y(isnan(y))=0;
+        trend=bsxfun(@times,trend,1./a);  trend(isnan(trend))=0;
 
         % find outliers
         d=x-trend;
 
-
         if ~isempty(w); d=bsxfun(@times,d,w); end
         ww=ones(size(x));
-        ww(find(abs(d)>thresh*repmat(std(d),size(x,1),1))) = 0;
-        clear d
+        ww(abs(d) > thresh*repmat(std(d),size(x,1),1)) = 0;
+        clearvrs d;
 
         % update weights
         if isempty(w)
@@ -139,7 +143,7 @@ else
         else
             w=min(w,ww);
         end
-        clear ww;
+        clearvars ww;
 
     end % for iIter...
 
@@ -155,10 +159,11 @@ if ~nargout
     subplot 414; nt_imagescc(w'); title('weight');
     clear y w r
 end
+
 end
 
 %% Original version of detrend (no windows) is called by new version (windows)
-function [y,w,r]=nt_detrend_helper(x,order,w,basis,thresh,niter)
+function [y,w,r] = nt_detrend_helper(x,order,w,basis,thresh,niter)
 %[y,w,r]=nt_detrend(x,order,w,basis,thresh,niter) - robustly remove trend
 %
 %  y: detrended data
@@ -192,7 +197,7 @@ function [y,w,r]=nt_detrend_helper(x,order,w,basis,thresh,niter)
 %   [y,w]=nt_detrend(x,1);
 %   [yy,ww]=nt_detrend(y,3);
 %
-nt_greetings;
+% nt_greetings;
 
 % arguments
 if nargin<2; error('!'); end
@@ -203,29 +208,29 @@ if nargin<6||isempty(niter); niter=3; end
 
 if thresh==0; error('thresh=0 is not what you want...'); end % common mistake
 
-dims=size(x);
-x=x(:,:); % concatenates dims >= 2
-w=w(:,:);
+dims = size(x);
+x = x(:,:); % concatenates dims >= 2
+w = w(:,:);
 
 if size(w,2)==1; w=repmat(w,1,size(x,2)); end
 
 %% regressors
 if isnumeric(basis)
-    r=basis;
+    r = basis;
 else
     switch basis
         case 'polynomials'
-            r=zeros(size(x,1),numel(order));
-            lin=linspace(-1,1,size(x,1));
-            for k=1:order
-                r(:,k)=lin.^k;
+            r = zeros(size(x,1),numel(order));
+            lin = linspace(-1,1,size(x,1));
+            for k = 1:order
+                r(:,k) = lin.^k;
             end
         case 'sinusoids'
-            r=zeros(size(x,1),numel(order)*2);
-            lin=linspace(-1,1,size(x,1));
-            for k=1:order
-                r(:,2*k-1)=sin(2*pi*k*lin/2);
-                r(:,2*k)=cos(2*pi*k*lin/2);
+            r = zeros(size(x,1),numel(order)*2);
+            lin = linspace(-1,1,size(x,1));
+            for k = 1:order
+                r(:,2*k-1) = sin(2*pi*k*lin/2);
+                r(:,2*k)   = cos(2*pi*k*lin/2);
             end
         otherwise
             error('!');
@@ -235,23 +240,23 @@ end
 % remove trends
 % The tricky bit is to ensure that weighted means are removed before
 % calculating the regression (see nt_regw).
-for iIter=1:niter
+for iIter = 1:niter
     % weighted regression on basis
-    [~,y]=nt_regw(x,r,w);
+    [~,y] = nt_regw(x,r,w);
 
     % find outliers
-    d=x-y;
-    if ~isempty(w); d=bsxfun(@times,d,w); end
-    ww=ones(size(x));
-    ww(find(abs(d)>thresh*repmat(std(d),size(x,1),1))) = 0;
+    d = x-y;
+    if ~isempty(w); d = bsxfun(@times,d,w); end
+    ww = ones(size(x));
+    ww(abs(d) > thresh*repmat(std(d),size(x,1),1)) = 0;
 
     % update weights
     if isempty(w)
-        w=ww;
+        w = ww;
     else
-        w=min(w,ww);
+        w = min(w,ww);
     end
-    clear ww;
+    clearvars ww;
 end
 
 y=x-y;
@@ -261,55 +266,53 @@ w=reshape(w,dims);
 end
 
 %% test code
-function test_me
-if 0
-    % basic
-    x=(1:100)'; x=x+ randn(size(x));
-    WSIZE=30;
-    y=nt_detrend2(x,1,[],[],[],[],WSIZE);
-    figure(1); clf; plot([x,y]);
-end
-if 0
-    % basic
-    x=(1:100)'; x=x+ randn(size(x));
-    x(40:50)=0;
-    WSIZE=30;
-    [yy,ww]=nt_detrend2(x,1,[],[],2,[],WSIZE);
-    [y,w]=nt_detrend(x,1);
-    figure(1); clf; subplot 211;
-    plot([x,y,yy]);
-    subplot 212; plot([w,ww],'.-');
-end
-if 0
-    % detrend biased random walk
-    x=cumsum(randn(1000,1)+0.1);
-    WSIZE=200;
-    [y1,w1]=nt_detrend(x,1,[]);
-    [y2,w2]=nt_detrend(x,1,[],[],[],[],WSIZE);
-    figure(1); clf;
-    plot([x,y1,y2]); legend('before', 'global', 'local');
-end
-if 0
-    % weights
-    x=linspace(0,100,1000)';
-    x=x+3*randn(size(x));
-    x(1:100,:)=100;
-    w=ones(size(x)); w(1:100,:)=0;
-    y=nt_detrend2(x,3,[],[],[],[],WSIZE);
-    yy=nt_detrend2(x,3,w,[],[],[],WSIZE);
-    figure(1); clf; plot([x,y,yy]); legend('before', 'unweighted','weighted');
-end
-if 0
-    [p,x]=nt_read_data('/users/adc/data/meg/theoldmanandthesea/eeg/mc/MC_aespa_speech_43.mat'); x=x'; x=x(:,1:128); %x=x(1:10000,:);
-    %[p,x]=nt_read_data('/data/meg/arzounian/ADC_DA_140521_p20/ADC_DA_140521_p20_01_calib'); x=x'; x=x(1:10000,:);
-
-    x=nt_demean(x);
-    figure(1);
-    nt_detrend(x,3);
-    figure(2);
-    WSIZE=1000;
-    nt_detrend2(x(:,:),3,[],[],[],[],WSIZE);
-end
-end
-
-
+% function test_me
+% if 0
+%     % basic
+%     x=(1:100)'; x=x+ randn(size(x));
+%     WSIZE=30;
+%     y=nt_detrend2(x,1,[],[],[],[],WSIZE);
+%     figure(1); clf; plot([x,y]);
+% end
+% if 0
+%     % basic
+%     x=(1:100)'; x=x+ randn(size(x));
+%     x(40:50)=0;
+%     WSIZE=30;
+%     [yy,ww]=nt_detrend2(x,1,[],[],2,[],WSIZE);
+%     [y,w]=nt_detrend(x,1);
+%     figure(1); clf; subplot 211;
+%     plot([x,y,yy]);
+%     subplot 212; plot([w,ww],'.-');
+% end
+% if 0
+%     % detrend biased random walk
+%     x=cumsum(randn(1000,1)+0.1);
+%     WSIZE=200;
+%     [y1,w1]=nt_detrend(x,1,[]);
+%     [y2,w2]=nt_detrend(x,1,[],[],[],[],WSIZE);
+%     figure(1); clf;
+%     plot([x,y1,y2]); legend('before', 'global', 'local');
+% end
+% if 0
+%     % weights
+%     x=linspace(0,100,1000)';
+%     x=x+3*randn(size(x));
+%     x(1:100,:)=100;
+%     w=ones(size(x)); w(1:100,:)=0;
+%     y=nt_detrend2(x,3,[],[],[],[],WSIZE);
+%     yy=nt_detrend2(x,3,w,[],[],[],WSIZE);
+%     figure(1); clf; plot([x,y,yy]); legend('before', 'unweighted','weighted');
+% end
+% if 0
+%     [p,x]=nt_read_data('/users/adc/data/meg/theoldmanandthesea/eeg/mc/MC_aespa_speech_43.mat'); x=x'; x=x(:,1:128); %x=x(1:10000,:);
+%     %[p,x]=nt_read_data('/data/meg/arzounian/ADC_DA_140521_p20/ADC_DA_140521_p20_01_calib'); x=x'; x=x(1:10000,:);
+% 
+%     x=nt_demean(x);
+%     figure(1);
+%     nt_detrend(x,3);
+%     figure(2);
+%     WSIZE=1000;
+%     nt_detrend2(x(:,:),3,[],[],[],[],WSIZE);
+% end
+% end

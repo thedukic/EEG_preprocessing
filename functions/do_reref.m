@@ -1,11 +1,13 @@
-function EEG = do_reref(EEG,typeRef)
+function EEG = do_reref(EEG,typeMethod)
 
-fprintf('\nRereferencing the data (%s)...\n',typeRef);
+fprintf('\n================================\n');
+fprintf('Rereferencing data (%s)\n',typeMethod);
+fprintf('================================\n');
 
 chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
 NBLK = length(EEG);
 
-switch typeRef
+switch typeMethod
     case 'aRobust'
         for i = 1:NBLK
             NDIM = ndims(EEG(i).data);
@@ -29,9 +31,11 @@ switch typeRef
         end
 
     case 'aRegular2'
-        error('Not supported!');
+        error('Method not supported!');
         % EEG.data = EEG.data - (sum(EEG.data,1)/(EEG.nbchan+1));
         % EEG.ref  = 'average';
 end
+
+fprintf('Done!\n');
 
 end

@@ -1,4 +1,4 @@
-function [c,tw]=nt_cov(x,shifts,w)
+function [c, tw] = nt_cov(x,shifts,w)
 %[c,tw]=nt_cov(x,shifts,w) - time shift covariance
 %
 %  c: covariance matrix
@@ -25,23 +25,23 @@ function [c,tw]=nt_cov(x,shifts,w)
 %% arguments
 if nargin<3; w=[]; end
 if nargin<2||isempty(shifts); shifts=0; end
-if prod(size(x))==0; error('data empty'); end
-shifts=shifts(:);           % --> column vector
-nshifts=numel(shifts);
+if numel(x)==0; error('data empty'); end
 
-if isempty(x); error('data empty'); end
+shifts  = shifts(:);           % --> column vector
+nshifts = numel(shifts);
 
 if isempty(w)
     % no weights
     if isnumeric(x)
         % matrix
-        [m,n,o]=size(x);
-        c=zeros(n*nshifts);
-        for k=1:o
-            xx=nt_multishift(x(:,:,k),shifts);
-            c=c+xx'*xx;
+        [m,n,o] = size(x);
+        c = zeros(n*nshifts);
+        for k = 1:o
+            xx = nt_multishift(x(:,:,k),shifts);
+            c  = c + xx'*xx;
         end
-        tw=size(xx,1)*o;
+        tw = size(xx,1) * o;
+
     elseif iscell(x)
         % cell array
         [m,n]=size(x{1});
@@ -53,7 +53,10 @@ if isempty(w)
             c=c+xx'*xx;
         end
         tw=size(xx,1)*o;
-    else error('!'); end
+    else
+        error('Unknown input.');
+    end
+
 else
     % weights
     if isnumeric(x)
@@ -61,7 +64,7 @@ else
         [m,n,o]=size(x);
         c=zeros(n*nshifts);
         for k=1:o
-            if ~all(shifts == [0])
+            if ~all(shifts == 0)
                 xx=nt_multishift(x(:,:,k),shifts);
                 ww=nt_multishift(w(:,:,k),shifts);
                 ww=min(ww,[],2);
@@ -78,7 +81,7 @@ else
         [m,n]=size(x{1});
         o=length(x);
         for k=1:o
-            if ~all(shifts == [0])
+            if ~all(shifts == 0)
                 xx=nt_multishift(x{k}(:,:),shifts);
                 ww=nt_multishift(w{k}(:,:),shifts);
                 ww=min(ww,[],2);

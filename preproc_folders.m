@@ -5,25 +5,24 @@ function myPaths = preproc_folders
 %
 % =========================================================================
 % SDukic edits
-% v1, January 2025
+% v1, March 2025
 % =========================================================================
 
 % Preprocessing code version
 myPaths.rnum = '1';
 
-% Set paths
+% Define
 myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\Preprocessing';                                                        % Pipeline
 % myPaths.rootrawdata = 'L:\onderzoeksarchief\19-462_ALS-Electrode_BS\E_ResearchData\2_ResearchData\1_RAW\EEG_DATA'; % Input
 % myPaths.rootpreproc = 'L:\onderzoeksarchief\19-462_ALS-Electrode_BS\E_ResearchData\2_ResearchData\2_PREPROCESSED'; % Output
 myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
 myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
 
-% Set task/group/visit
-% MMN/SART/RS/MT
+% Task: MMN/SART/RS/MT
 myPaths.task  = 'RS';
-% 'ALS','CONTROL','AFM','PLS','PMA'
+% Group: ALS / CONTROL / AFM / PLS/ PMA
 myPaths.group = {'AFM'};
-% 'T1','T2','T3','T4','T5'
+% Visit: T1/ T2 / T3 / T4 / T5
 myPaths.visit = {'T1'};
 
 % =========================================================================

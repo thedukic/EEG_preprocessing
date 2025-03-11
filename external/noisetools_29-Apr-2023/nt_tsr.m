@@ -14,9 +14,7 @@ function [y,idx,w] = nt_tsr(x,ref,shifts,wx,wref,keep,thresh)
 %  thresh: ignore shifted-ref PCs smaller than thresh (default: 10.^-12)
 %
 % NoiseTools
-nt_greetings;
-
-
+% nt_greetings;
 % Copyright 2007, 2008 Alain de Cheveigne
 
 % See:

@@ -11,7 +11,7 @@
 %
 %
 % Noisetools.
-nt_greetings;
+% nt_greetings;
 
 PCA_THRESH=10^-15;
 nClosest=min(10,size(x,2)-1); % limit the number of neighbors to consider
@@ -88,11 +88,11 @@ for iIter=1:niter
         sim=repmat(sim,nPatterns,1);    % replicate so each pattern has own list
         sim((~ww))=0;                   % for each list, give bad channels a low score
         [~,closest]=sort(abs(sim),2,'descend');     % sort each list by decreasing similarity
-        for k=1:size(closest,1);
+        for k=1:size(closest,1)
             closest(k,find(sim(k,closest(k,:))==0))=0;     % mark bad channels as 0
         end
-        for k=1:size(closest,1);
-            if closest(k,1)==iChan; 
+        for k=1:size(closest,1)
+            if closest(k,1)==iChan
                 closest(k,1:end-1)=closest(k,2:end);
              else
                 % iChan was bad so not first
@@ -159,7 +159,7 @@ for iIter=1:niter
             %figure(3); clf; plot (iBothValid); title([iChan oChan]);
 
             %%% --> we should be able to avoid this situation
-            if isempty(xxx); 
+            if isempty(xxx)
                 disp([iChan, iPattern]); disp('empty'); 
                 continue; % we won't estimate or fix anything
             end

@@ -4,7 +4,9 @@ function EEG = reduce_spectrapeaks(EEG)
 % 2. The check how well DSS is done, like ratios DSS1/DSS2 > X
 
 % Use DSS to isolate the peaks
-fprintf('\nRemoving possible additional peaks from the spectrum...\n');
+fprintf('\n================================\n');
+fprintf('Removing additional peaks from the spectrum\n');
+fprintf('================================\n');
 
 % First components are most dominated by these peaks
 NREMOVE = 1;

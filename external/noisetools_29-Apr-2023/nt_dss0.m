@@ -11,7 +11,7 @@ function [todss,pwr0,pwr1] = nt_dss0(c0,c1,keep1,keep2)
 % keep2: ignore PCs smaller than keep2 (default: 10.^-9)
 %
 % NoiseTools
-nt_greetings;
+% nt_greetings;
 
 if nargin<4||isempty(keep2); keep2=10.^-9; end
 if nargin<3; keep1=[]; end

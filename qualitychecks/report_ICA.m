@@ -1,7 +1,8 @@
 function EEG = report_ICA(EEG)
-%
-% IC topoplots
-%
+
+fprintf('\n================================\n');
+fprintf('Generating ICA reports\n');
+fprintf('================================\n');
 
 % =========================================================================
 % Normalised variance of all ICs
@@ -36,11 +37,11 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'ICA\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
 if 30*(NICA^2)>prod(size(EEG.data,[2 3]))
     EEG.ALSUTRECHT.ica.DataLengthForValidICA = 'NOK';
-    warning('EEG data might be too short for ICA!');
+    warning('EEG might have been too short for ICA!');
     fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data might be too short for the ICA!\n');
 else
     EEG.ALSUTRECHT.ica.DataLengthForValidICA = 'OK';
-    fprintf('\nEEG data is long enough for the ICA.\n');
+    fprintf('EEG was long enough for ICA.\n');
     fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data is long enough for the ICA.\n');
 end
 

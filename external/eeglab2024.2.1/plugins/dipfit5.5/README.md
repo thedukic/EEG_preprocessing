@@ -6,10 +6,13 @@ A major obstacle to using EEG data to visualize macroscopic brain dynamics is th
 
 Documentation
 ====
-For documentation see https://eeglab.org/tutorials/09_source/DIPFIT.html
+For documentation see [https://eeglab.org/tutorials/09_source/DIPFIT.html](https://eeglab.org/tutorials/09_source/DIPFIT.html)
 
 Version history
 =====
+v5.5
+- Force unit to mm for Leadfield Matrix computation
+
 v5.4
 - Adding Neuromag coordinate format
 - Better support to exclude channels

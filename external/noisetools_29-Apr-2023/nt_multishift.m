@@ -5,10 +5,10 @@ function [z,zz]=nt_multishift(x,shifts,pad)
 %
 %   x: matrix to shift (time X channels)
 %   shifts: array of shifts (must be nonnegative)
-% 
+%
 % X is shifted column by column (all shifts of 1st column, then all
 % shifts of second column, etc).
-% 
+%
 % X may be 1D, 2D or 3D. See also convmtx, nt_multismooth, nt_mfilt.
 %
 % NoiseTools
@@ -24,7 +24,7 @@ if nargout==2
 end
 
 if iscell(x)
-    for iCell=1:length(x);
+    for iCell=1:length(x)
         z{iCell}=nt_multishift(x{iCell},shifts);
     end
     return;
@@ -34,13 +34,13 @@ if size(x,1)<max(shifts); error('shifts should be no larger than nrows'); end
 if min(shifts)<0; error('shifts should be nonnegative'); end
 shifts=shifts(:)';
 nshifts=numel(shifts);
-if nshifts==1 && shifts(1)==0; 
+if nshifts==1 && shifts(1)==0
     z=x;
     return
 end
 
 % array of shift indices
-N=size(x,1)-max(shifts); 
+N=size(x,1)-max(shifts);
 shiftarray=nt_vecadd(nt_vecmult(ones(N,nshifts),shifts),(1:N)');
 [m,n,o]=size(x);
 z=zeros(N,n*nshifts,o);

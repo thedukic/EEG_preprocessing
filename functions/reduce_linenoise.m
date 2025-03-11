@@ -6,42 +6,44 @@ function EEG = reduce_linenoise(EEG)
 %
 
 thisMethod = 'Zaplineplus';
-fprintf('\n%s 50Hz noise cleaning...\n',thisMethod);
+
+fprintf('\n================================\n');
+fprintf('Removing 50 Hz noise (%s)\n',thisMethod);
+fprintf('================================\n');
 fprintf('Make sure that none of the channels are bipolar!\n');
 
 NBLK = length(EEG);
-
 switch thisMethod
     case 'Zapline'
         % fh = figure('visible','off');
         % th = tiledlayout(NBLK,2);
         % th.TileSpacing = 'compact'; th.Padding = 'compact';
-        % 
+        %
         % % Normalised line frequnecy
         % freqLine = 50/EEG(1).srate;
-        % 
+        %
         % % Remove line noise only from EEG channels (?)
         % % eegchan = strcmp({EEG(1).chanlocs.type},'EEG');
         % eegchan = 1:EEG(1).nbchan;
-        % 
+        %
         % % Function parameters
         % params = [];
         % params.nfft        = 4*EEG(1).srate; % default: 1024
         % params.nkeep       = [];             % [] == use all PCs
         % params.niterations = 1;
-        % 
+        %
         % % Remove line noise
         % % Improve: Check automaticaly how many components should be removed
         % for i = 1:NBLK
         %     fprintf('Cleaning block: %1d\n', i);
-        % 
+        %
         %     params.fig1 = nexttile(2*i-1);
         %     params.fig2 = nexttile(2*i);
-        % 
+        %
         %     % nt_zapline(EEG(i).data',fline);
         %     EEG(i).data(eegchan,:) = nt_zapline(EEG(i).data(eegchan,:)',freqLine,2,params,true)';
         % end
-        % 
+        %
         % % Save
         % plotX=25; plotY=25;
         % set(fh,'InvertHardCopy','Off','Color',[1 1 1]);

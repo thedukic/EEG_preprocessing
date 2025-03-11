@@ -1,66 +1,181 @@
-function EEG_cleaned = detect_badepochs(EEG)
-% Detect bad epochs using variance and the G-ESD method
+function [EEG, NumberTrials] = detect_badepochs(EEG,cfg)
+
+% =========================================================================
+% Data quaility checks
+% =========================================================================
+
+fprintf('\n================================\n');
+fprintf('Detecting bad epochs\n');
+fprintf('================================\n');
+
+% Note the number of trials
+NumberTrials = NaN(4,1);
+NumberTrials(1) = size(EEG.data,3);
+
+% =============================================
+% A. EEGLAB-based rejection
+% Any one of these functions can be commented out to ignore those artifacts when creating the mask
+% This section uses traditional amplitude, improbable voltage distributions within epochs, and kurtosis to reject epochs
+
+% ROIidx = 1:128; % Use only EEG electrodes!
+% fprintf('\n--------------------------------\n');
+% fprintf('Max. amplitude (>abs(%d uV))\n',cfg.epoch.rejectAmp);
+% fprintf('--------------------------------\n');
+% EEG = pop_eegthresh(EEG,1,ROIidx,-cfg.epoch.rejectAmp,cfg.epoch.rejectAmp,EEG.xmin,EEG.xmax,1,0);
 %
-% MAYBE DO NO USE IT.
-% AS ANY OTHER STATISTICAL APPROACH THAT TRIES TO IDENTIFY *ANY* TYPE OF
-% ARTIFACT IN TRIALS, THIS ONE ALSO IS PRONE TO FALSE POSITIVES
-% -> TRUE STRONG (ALPHA) OSCILLATIONS
+% fprintf('\n--------------------------------\n');
+% fprintf('Improbable data\n');
+% fprintf('--------------------------------\n');
+% EEG = pop_jointprob(EEG,1,ROIidx,cfg.epoch.singleChannelImprobableDataThreshold,cfg.epoch.allChannelImprobableDataThreshold,1,0);
 %
+% fprintf('\n--------------------------------\n');
+% fprintf('Kurtosis\n');
+% fprintf('--------------------------------\n');
+% EEG = pop_rejkurt(EEG,1,ROIidx,cfg.epoch.singleChannelKurtosisThreshold,cfg.epoch.allChannelKurtosisThreshold,1,0);
+%
+% fprintf('\n--------------------------------\n');
+% fprintf('Combining and rejecting\n');
+% fprintf('--------------------------------\n');
+% EEG = eeg_rejsuperpose(EEG, 1, 0, 1, 1, 1, 1, 1, 1);
+% EEG = pop_rejepoch(EEG, EEG.reject.rejglobal, 0);
 
-% Do not include other channels, this will cause false positives/negatives
-chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-EEGdata = EEG.data(chaneeg,:,:);
-assert(ndims(EEGdata) == 3);
+fprintf('\n--------------------------------\n');
+fprintf('Max. amplitude (>abs(%d uV))\n',cfg.epoch.rejectAmp);
+fprintf('--------------------------------\n');
+% It could be that some people have very strong oscillations
+% Example: Resting-state alpha oscillations
+% We do not want to exclude these data
+% -> bandstop filter 5-25 Hz
+% -> EOG <5 Hz
+% -> EMG >25 Hz
+freqStop = [2 20]; % Hz
 
-% Step 1: Calculate Variance Across Channels for Each Trial
-% Get the number of trials
-num_trials = size(EEGdata, 3);
+fprintf('Temporarily bandstop filtering [%d-%d Hz] the data.\n',freqStop);
+fprintf('This prevents removal of trials with strong brain oscillations.\n');
+eegchans = strcmp({EEG.chanlocs.type},'EEG');
+dataTmp  = double(EEG.data(eegchans,:));
+[b, a]   = butter(5, freqStop / (EEG.srate / 2), 'stop');
+assert(isstable(b,a), 'Bandstop filter unstable.');
+dataTmp  = filtfilt(b, a, dataTmp')';
+dataTmp  = dataTmp - mean(dataTmp,1);
+dataTmp  = dataTmp - mean(dataTmp,2);
+dataTmp  = reshape(dataTmp, size(EEG.data(eegchans,:,:)));
+badTrialTreshold = squeeze(any(abs(dataTmp) > cfg.epoch.rejectAmp, [1 2]));
 
-% Initialize variance array
-variance_per_trial = zeros(1, num_trials);
-
-% Calculate variance across channels for each trial
-for trial_idx = 1:num_trials
-    trial_data = EEGdata(:, :, trial_idx);
-    variance_per_trial(trial_idx) = mean(var(trial_data, 0, 1));
-end
-
-% Step 2: Use MATLAB's G-ESD Function to Detect Outliers
-max_outliers1 = isoutlier(variance_per_trial, 'gesd');
-
-% Step 3: Compute Temporal Derivative and Repeat
-% Compute the temporal derivative of EEG data along the time axis (2nd dimension)
-EEG_derivative = diff(EEGdata, 1, 2);
-
-% Initialize variance array for the derivative data
-variance_per_trial_derivative = zeros(1, num_trials);
-
-% Calculate variance across channels for each trial (on the derivative data)
-for trial_idx = 1:num_trials
-    trial_data_derivative = EEG_derivative(:, :, trial_idx);
-    % Note: EEG_derivative will have 1 fewer time point due to diff, but this should be fine
-    variance_per_trial_derivative(trial_idx) = mean(var(trial_data_derivative, 0, 1));
-end
-
-% Apply G-ESD to the variance of the derivative data
-max_outliers2 = isoutlier(variance_per_trial_derivative, 'gesd');
-
-% Step 4: Combine Results and Mark Bad Trials
-% Combine bad trials from both the original data and the derivative
-combined_bad_trials = max_outliers1 | max_outliers2;
-assert(length(combined_bad_trials) == num_trials);
-
-% % Check
+% badTrialTmp = find(badTrialTreshold);
 % figure; tiledlayout(1,2);
-% mytopoplot(mean(EEGdata(:,:,max_outliers1).^2,[2 3]),[],'',nexttile);
-% mytopoplot(mean(EEGdata(:,:,max_outliers2).^2,[2 3]),[],'',nexttile);
+% mytopoplot(mean(dataTmp(:,:,badTrialTmp).^2,[2 3]),[],'Filtered',nexttile); colorbar;
+% dataTmp = double(EEG.data(eegchans,:,:));
+% mytopoplot(mean(dataTmp(:,:,badTrialTmp).^2,[2 3]),[],'Raw',nexttile); colorbar;
+% disp(sum(badTrialTreshold));
+%
+% [NCHN,NPTS,NTRL]= size(dataTmp);
+% for i = 1:NTRL
+%     [psdspectra(:,:,i), freq] = pwelch(dataTmp(:,:,i)',NPTS,0,NPTS,EEG.srate);
+% end
+% figure; plot(freq, mean(psdspectra,3));
 
-% Display the total number of bad trials
-fprintf('Low freq. bad trials: %d\n', sum(max_outliers1));
-fprintf('High freq. bad trials: %d\n', sum(max_outliers2));
-fprintf('Total bad trials: %d/%d\n', sum(combined_bad_trials),num_trials);
+if any(badTrialTreshold)
+    EEG = pop_rejepoch(EEG,badTrialTreshold,0);
+else
+    fprintf('No high voltage trials are found.\n');
+end
 
-% Optional: Remove bad trials from EEG struct if necessary
-EEG_cleaned = pop_select(EEG, 'notrial', find(combined_bad_trials));
+% Note the number of trials
+NumberTrials(2) = EEG.trials;
+
+% =============================================
+% B. EMG-slope-based rejection
+fprintf('\n--------------------------------\n');
+fprintf('EMG slopes\n');
+fprintf('--------------------------------\n');
+
+% % 0.
+% slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
+% slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
+% BadEpochs = sum(slopesChannelsxEpochs, 1);
+% if mean(BadEpochs) > 0.05
+%     EEG = denoise_emg(EEG);
+% end
+
+% 1. Interpolate
+slopesChannelsxEpochs = detect_emg(EEG,cfg.bch);
+slopesChannelsxEpochs = slopesChannelsxEpochs > cfg.bch.muscleSlopeThreshold;
+
+% Interpolate trials that do not have a lot of electrodes contaminated by EMG
+if any(slopesChannelsxEpochs,"all")
+    % Organise input for interpolation
+    badElecsPerTrial = arrayfun(@(x) find(slopesChannelsxEpochs(:,x)), 1:EEG.trials, 'UniformOutput', false);
+    eegchans = strcmp({EEG.chanlocs.type},'EEG');
+    chanLocs = EEG.chanlocs(eegchans);
+
+    % Max number of contaminated electrodes
+    fprintf('The maximum number of EMG-contaminated electrodes: %d\n', cfg.epoch.NinterpMax);
+    [data, report] = interpolate_epochs(EEG.data(eegchans,:,:),chanLocs,badElecsPerTrial,[],cfg.epoch.NinterpMax);
+
+    % EEGNEW = EEG;
+    % EEGNEW.data(eegchans,:,:) = data;
+    % vis_artifacts(EEGNEW,EEG);
+
+    % Return the data to the struct
+    EEG.data(eegchans,:,:) = data;
+
+    % These are too noisy to be saved
+    badTrialMuscle = false(1,EEG.trials);
+    badTrialMuscle(report.listRemove) = true;
+
+    % Check if all trials are still very noisy
+    if all(badTrialMuscle)
+        warning('All trials are still full of EMG activity. Consider excluding this participant.'); return;
+    elseif any(badTrialMuscle)
+        EEG = pop_rejepoch(EEG,badTrialMuscle,0);
+    else
+        fprintf('Nice, there are no very contaminated trials for rejection.\n');
+    end
+
+else
+    fprintf('Nice, no EMG found in the data. Skipping trial/channel interpolation.\n');
+    badElecsPerTrial = cell(1,EEG.trials);
+    report = [];
+    report.listFixed  = [];
+    report.listRemove = [];
+end
+
+% 2. Remove all
+% BadEpochs = sum(slopesChannelsxEpochs, 1);
+% badTrialMuscleTreshhold = 0;
+% badTrialMuscle = BadEpochs>badTrialMuscleTreshhold;
+%
+% while sum(badTrialMuscle) > 0.5*EEG.trials
+%     warning('Increasing the minimum number of allowed EMG-contaminated channels: %d -> %d!',badTrialMuscleTreshhold,badTrialMuscleTreshhold+1);
+%     badTrialMuscleTreshhold = badTrialMuscleTreshhold+1;
+%     badTrialMuscle = BadEpochs>badTrialMuscleTreshhold;
+% end
+
+% Log
+EEG.ALSUTRECHT.epochRejections.InterpTrialInfo = badElecsPerTrial;
+EEG.ALSUTRECHT.epochRejections.InterpReport    = report;
+EEG.ALSUTRECHT.epochRejections.interpEpochs    = length(report.listFixed);
+
+% Note the number of trials
+NumberTrials(3) = EEG.trials;
+
+% =============================================
+% C. Detection using variance and the G-ESD method
+fprintf('\n--------------------------------\n');
+fprintf('G-ESD method with variance\n');
+fprintf('--------------------------------\n');
+% EEG = do_gsd(EEG);
+fprintf('Not done.\n');
+
+% Note the number of trials
+NumberTrials(4) = EEG.trials;
+
+% Log
+EEG.ALSUTRECHT.epochRejections.initialEpochs       = NumberTrials(1);
+EEG.ALSUTRECHT.epochRejections.afterEEGLABEpochs   = NumberTrials(2);
+EEG.ALSUTRECHT.epochRejections.afterEMGSlopeEpochs = NumberTrials(3);
+EEG.ALSUTRECHT.epochRejections.remainingEpochs     = NumberTrials(4);
+EEG.ALSUTRECHT.epochRejections.proportionOfEpochsRejected = (EEG.ALSUTRECHT.epochRejections.initialEpochs - EEG.ALSUTRECHT.epochRejections.remainingEpochs) / EEG.ALSUTRECHT.epochRejections.initialEpochs;
 
 end

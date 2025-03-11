@@ -1,4 +1,4 @@
-function x=nt_sns1(x,nneighbors,skip,w,threshold)
+function x = nt_sns1(x,nneighbors,skip,w,threshold)
 % y=nt_sns1(x,nneigbors,skip,w,threshold) - sensor noise suppression
 %
 %   y: denoised matrix
@@ -10,7 +10,6 @@ function x=nt_sns1(x,nneighbors,skip,w,threshold)
 %   threshold: sharedness threshold (default: 2)
 %  
 %  This version of SNS first regresses out major shared components.
-
 
 if nargin<5 || isempty(threshold); threshold=2; end
 if nargin<4; w=[]; end

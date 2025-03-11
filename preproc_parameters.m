@@ -16,9 +16,6 @@ function cfg = preproc_parameters
 % !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! IMPORTANT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 %
 %
-%
-%
-%
 % =========================================================================
 % IIR Butterworth filters
 % =========================================================================
@@ -30,12 +27,12 @@ function cfg = preproc_parameters
 % lp: lowpass
 
 % MMN/SART (ERP) filter
-cfg.flt.erp.hp = [0.5, 4];
+cfg.flt.erp.hp = [0.3, 4];
 cfg.flt.erp.lp = [60, 4];
 
 % RS filter
 cfg.flt.rs.hp = [0.5, 4];
-cfg.flt.rs.lp = [60, 4];
+cfg.flt.rs.lp = [];
 
 % MT filter
 cfg.flt.mt.hp = [1, 4];
@@ -57,7 +54,7 @@ cfg.flt.emg.lp = [];
 % Flat electrode duration
 cfg.bch.flatDuration                = 4;    % default: 4 [s]
 
-% PREP: settings
+% PREP: Settings
 cfg.bch.robustDeviationThreshold    = 5;    % default: 5
 cfg.bch.highFrequencyNoiseThreshold = 5;    % default: 5
 cfg.bch.correlationThreshold        = 0.40; % default: 0.4; higher values -> more stringent
@@ -83,8 +80,11 @@ cfg.bch.muscleSlopeFreq        = [7 45]; % 7-45 or 7-70/75
 cfg.bch.muscleSlopeTime        = 0.50;
 cfg.bch.maxProportionOfBadElec = 0.10;   % that can be deleted using this EMG detection only
 
-% % EEGLAB: ASR
-% cfg.bch.asr = 20; % recommandation: 20-30
+% MWF
+cfg.mwf.do = false;
+
+% % ASR
+% cfg.asr.std = 20; % recommandation: 20-30
 
 % =========================================================================
 % ICA
@@ -93,11 +93,11 @@ cfg.bch.maxProportionOfBadElec = 0.10;   % that can be deleted using this EMG de
 gpuCount = gpuDeviceCount;
 if gpuCount > 0
     % disp('GPU is available. The preprocessing will be quicker as CUDAICA will be used.');
-    cfg.ica.type1    = 'CUDAICA';
+    % cfg.ica.type1    = 'CUDAICA';
     cfg.ica.type2    = 'CUDAICA'; % AMICA
 else
     % disp('No GPU available. The preprocessing will be slower as RUNICA will be used instead of CUDAICA.');
-    cfg.ica.type1    = 'RUNICA';
+    % cfg.ica.type1    = 'RUNICA';
     cfg.ica.type2    = 'RUNICA'; % AMICA
 end
 
@@ -111,7 +111,7 @@ cfg.ica.iclabel = ...
     0.4 1;     % Eye (VEOG+HEOG) - used
     NaN NaN;   % Heart           - not used (not very good anyway)
     NaN NaN;   % Line noise      - not needed
-    NaN NaN;   % Channel noise   - not used
+    0.8 1;     % Channel noise   - used
     NaN NaN];  % Other
 
 % cfg.ica.blinkchans = {'C8','C9','C10','C14','C15','C16','C17','C18','C19','C27','C28','C29','C30','C31','C32','C26','C20','C13','C21'};
@@ -129,8 +129,9 @@ cfg.ica.emgfilt = 15; % [Hz]
 % Event triggers
 % =========================================================================
 cfg.trg.mmn   = {[12 17],[-0.2 0.5]};
-cfg.trg.sart1 = {[3 6],[-0.2 0.9]};
-cfg.trg.sart2 = {[1 11],[-0.4 0.4]};
+% cfg.trg.sart1 = {[3 6],[-0.2 0.9]};
+cfg.trg.sart1 = {[3 6],[-1.1 1.1]};
+cfg.trg.sart2 = {1,[-1.2 1]};
 cfg.trg.mt    = {[21 31 51],[-5 10]};
 cfg.trg.rs    = {2,0.5}; % length, overlap
 

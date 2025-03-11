@@ -1,4 +1,4 @@
-function y=nt_mmat(x,m)
+function y = nt_mmat(x,m)
 %y=nt_mmat(x,m) -  matrix multiplication (with convolution)
 %
 %  y: result
@@ -11,13 +11,13 @@ function y=nt_mmat(x,m)
 if nargin<2; error('!'); end
 
 if iscell(x)
-    for iCell=1:length(x)
+    for iCell = 1:length(x)
         y{iCell}=nt_mmat(x{iCell},m);
     end
     return;
 end
 
-if ndims(x)>3
+if ndims(x) > 3
     % concatenate the last dimensions, process, then de-concatenate
     sz=size(x);
     x=reshape(x,[sz(1),sz(2),prod(sz(3:end))]);
@@ -27,7 +27,7 @@ if ndims(x)>3
 else
     if ismatrix(m)
         % no convolution
-        y=nt_mmat0(x,m);
+        y = nt_mmat0(x,m);
 
     else
         % does anyone use this ?????
@@ -46,5 +46,5 @@ else
     end
 end
 
-function x=nt_mmat0(x,m)
-x=nt_fold(nt_unfold(x)*m,size(x,1));
+function x = nt_mmat0(x,m)
+x = nt_fold(nt_unfold(x)*m,size(x,1));

@@ -1,11 +1,16 @@
 function DATA = do_filtering(DATA,thisFiltering,cfg)
 
+fprintf('\n================================\n');
+fprintf('Filtering data (%s)\n',thisFiltering);
+fprintf('================================\n');
+
 thisTask = DATA(1).ALSUTRECHT.subject.task;
 chaneeg  = find(strcmp({DATA(1).chanlocs.type},'EEG'));
 chanext  = find(strcmp({DATA(1).chanlocs.type},'EXT'));
 chanemg  = find(strcmp({DATA(1).chanlocs.type},'EMG'));
 fprintf('Using fitler settings for the %s tasks.\n',thisTask);
 
+% Make sure that the params are not used (just in case)
 if strcmpi(thisFiltering,'highpass')
     cfg.rs.lp  = [];
     cfg.mt.lp  = [];
@@ -29,6 +34,7 @@ if any(chaneeg)
     fprintf('EEG singals:\n');
     if strcmpi(thisTask,'SART') || strcmpi(thisTask,'MMN')
         DATA = filter_signal(DATA,cfg.erp.lp,cfg.erp.hp,chaneeg,'eeglab');
+        % DATA = remove_trends(DATA);
 
         % EXT will be treated as EEG
         cfg.ext.lp = cfg.erp.lp;
@@ -46,7 +52,7 @@ if any(chaneeg)
         cfg.ext.lp = cfg.rs.lp;
         cfg.ext.hp = cfg.rs.hp;
     else
-        error('Something went wrong.');
+        error('Unknown task.');
     end
 end
 

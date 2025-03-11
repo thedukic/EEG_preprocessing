@@ -7,11 +7,11 @@ function [B,A] = nt_filter_peak(Wo,Q)
 % NoiseTools
 
 if nargin<2; error('!'); end
-if Wo>1; error('Normalized centre frequency should be < 1'); end
+if Wo>1; error('Normalised centre frequency should be < 1'); end
 
 BW = Wo/Q;
 
-% frequencies are normalized by pi.
+% frequencies are normalized by pi
 BW = BW*pi;
 Wo = Wo*pi;
 

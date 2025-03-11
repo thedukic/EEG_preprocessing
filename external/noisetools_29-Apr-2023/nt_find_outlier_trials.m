@@ -1,4 +1,4 @@
-function [idx,d]=nt_find_outlier_trials(x,criterion,disp_flag,regress_flag)
+function [idx,d] = nt_find_outlier_trials(x,criterion,disp_flag,regress_flag)
 %[idx,d,mn,idx_unsorted]=nt_find_outlier_trials(x,criterion,plot,regress_flag) - find outlier trials
 %
 %  idx: indices of trials to keep
@@ -18,28 +18,30 @@ if nargin<3; disp_flag=1; end
 if nargin<4; regress_flag=0; end
 if ndims(x)>3; error('x should be 2D or 3D'); end
 
-if ndims(x)==3
-    [m,n,o]=size(x);
-    x=reshape(x,m*n,o);
+if ndims(x) == 3
+    [m,n,o] = size(x);
+    x = reshape(x,m*n,o);
 else
-    [~,o]=size(x);
+    [~,o] = size(x);
 end
 
 if regress_flag; error('need to take nt_tsregress.m out of DISUSE'); end
 
-mn=mean(x,2);
+mn = mean(x,2);
 if regress_flag
-    mn=nt_tsregress(x,mean(x,2));  % regression
+    mn = nt_tsregress(x,mean(x,2)); % regression
 else
-    mn=repmat(mn(:),1,o);       % mean
+    mn = repmat(mn(:),1,o); % mean
 end
-d=x-mn; % difference from mean
-dd=zeros(1,size(d,2));
-for k=1:size(d,2); dd(k)=sum(d(:,k).^2); end
-d=dd; clear dd;
-d=d/(sum(x(:).^2)/o);
 
-idx=find(d<criterion(1));
+d = x - mn; % difference from mean
+dd = zeros(1,size(d,2));
+
+for k = 1:size(d,2); dd(k) = sum(d(:,k).^2); end
+d = dd; clear dd;
+d = d / (sum(x(:).^2)/o);
+
+idx = find(d < criterion(1));
 
 if nargout==0
     % just plot deviations
@@ -67,8 +69,8 @@ else
 
 end
 
-criterion=criterion(2:end);
+criterion = criterion(2:end);
 if ~isempty(criterion)
-    idx=nt_find_outlier_trials(x(:,idx),criterion,disp_flag,regress_flag);
+    idx = nt_find_outlier_trials(x(:,idx),criterion,disp_flag,regress_flag);
     idx = idx(idx2); % otherwise, idx doesn?t correspond to original matrix anymore
 end
