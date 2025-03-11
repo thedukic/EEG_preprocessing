@@ -15,7 +15,7 @@ nshift  = round((1-epochOverlap)*nsmp);
 if nshift<=0, error('the overlap is too large'); end
 
 % Extract the RS masks
-maskGood = ~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1;
+maskGood = ~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochsRSFinal;
 maskRS = EEG.ALSUTRECHT.blockinfo.rs_mask;
 
 % % Not needed, this is now done immediately when the extreme epochs are removed
@@ -28,8 +28,8 @@ maskRS = EEG.ALSUTRECHT.blockinfo.rs_mask;
 % % 1   1   1   1   1   1   0   0   1   1 ---> 6
 % maskGood(jumpStop) = false;
 %
-% maskGood(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
-% maskRS(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochs1) = [];
+% maskGood(EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochsRSFinal) = [];
+% maskRS(:,EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochsRSFinal) = [];
 
 % assert(length(jumpStop) == sum(~maskGood));
 assert(size(EEG.data,2) == length(maskGood));

@@ -1,5 +1,9 @@
 function EEG = do_ICA(EEG,cfg)
 
+fprintf('\n================================\n');
+fprintf('ICA\n');
+fprintf('================================\n');
+
 % Check the rank
 rankData = get_rank(EEG.data(:,:));
 rankICA  = cfg.ica.icMax;

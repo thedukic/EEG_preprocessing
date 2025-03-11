@@ -4,6 +4,10 @@ function [EEG, flagREDO] = report_leftovers(EEG,EXT,run,cfg)
 % The code might not work very well
 %
 
+fprintf('\n================================\n');
+fprintf('Detecting leftovers\n');
+fprintf('================================\n');
+
 %% ========================================================================
 % [psdspectra, freq] = estimate_power(EEG,'freport');
 %
@@ -27,7 +31,7 @@ function [EEG, flagREDO] = report_leftovers(EEG,EXT,run,cfg)
 % end
 
 %% ========================================================================
-fprintf('\nChecking muscle activity leftovers...\n');
+fprintf('Checking muscle activity leftovers...\n');
 muscleSlopeThreshold = cfg.bch.muscleSlopeThreshold;
 muscleSlopeDuration  = cfg.bch.muscleSlopeTime;
 

@@ -1,5 +1,9 @@
 function EEG = check_restingIAF(EEG)
 
+fprintf('\n================================\n');
+fprintf('Individual alpha frequency estimation\n');
+fprintf('================================\n');
+
 % select data, set remaining params
 eegchans = strcmp({EEG.chanlocs.type},'EEG');
 dataTmp  = double(EEG.data(eegchans,:));

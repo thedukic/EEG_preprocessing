@@ -1,4 +1,11 @@
 function EEG = detect_dropouts(EEG)
+% This function detects CMS/DRL dropouts.
+% As a side effect, it also excludes data with large deviations,
+% such as large movements or coughing.
+
+fprintf('\n================================\n');
+fprintf('Detecting CMS/DRL drop-outs\n');
+fprintf('================================\n');
 
 fprintf('Temporarily filtering the EEG electrodes for better detection of CMS out of range.\n');
 eegchan = strcmp({EEG(1).chanlocs.type},'EEG');
@@ -19,7 +26,7 @@ for i = 1:NBLK
     % figure; histogram(tmp(:));
 
     % 1. Extreme voltage: CMS out of range
-    maskBadVoltage = abs(tmpData1)>350;
+    maskBadVoltage = abs(tmpData1) > 350;
     maskBadVoltage = sum(maskBadVoltage,1);
     maskBadVoltage = movmean(maskBadVoltage,smoothFactor);
     maskBadVoltage = maskBadVoltage>10;

@@ -1,7 +1,10 @@
 function output = merge_eeglabsets(varargin)
-%
+% Order:
 % EEG (+ EMG) + EXT
-%
+
+fprintf('\n================================\n');
+fprintf('Merging signals (EEG/EMG/EXT)\n');
+fprintf('================================\n');
 
 output = varargin{1};
 for i = 2:numel(varargin)
@@ -28,7 +31,7 @@ output.chaninfo.removedchans = [];
 % Check
 output = eeg_checkset(output);
 
-% Remove (not needed)
 output.icaact = [];
+fprintf('Done!\n');
 
 end

@@ -5,7 +5,7 @@ function preproc_cleaning1(myPaths,id)
 %
 % =========================================================================
 % SDukic edits
-% v1, January 2025
+% v1, March 2025
 % =========================================================================
 
 % Load preprocessing settings
@@ -23,46 +23,26 @@ subject.preproc = fullfile(myPaths.preproc, subject.id);
 subject.icadata = fullfile(subject.preproc, upper(cfg.ica.type2));
 subject.clnfile = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'a.mat'];
 
-% Find datasets
-[subject.datablocks, NBLK] = list_datasets(subject.rawdata,myPaths.task);
+% Find files
+subject.datablocks = list_datasets(subject.rawdata,myPaths.task);
 
 % Report
-fprintf('\n');
-disp('==================================================================');
+fprintf('\n==================================================================\n');
 fprintf('%s | %s | %s dataset | processing part 1\n',myPaths.group,subject.id,myPaths.task);
-disp('==================================================================');
-fprintf('\n');
+fprintf('==================================================================\n');
 
 % Load data
 if ~isempty(subject.datablocks)
-    if strcmpi(myPaths.task,'MT')
-        EEG = pop_biosig(subject.datablocks,'channels',1:168);
-        EEG = pop_select(EEG,'rmchannel',[131 132 143:160]);
-    else
-        EEG = pop_biosig(subject.datablocks,'channels',1:136);
-
-        % Rare cases of RS datasets recorded with 168 channels
-        if any([EEG(:).srate] == 2048)
-            pop_editoptions('option_parallel', 0);
-            maskfs2k = [EEG(:).srate] == 2048;
-            EEG(maskfs2k) = pop_biosig(subject.datablocks(maskfs2k),'channels',1:168);
-            EEG(maskfs2k) = pop_select(EEG(maskfs2k),'channel',[1:128 161:168]);
-            EEG(maskfs2k) = pop_resample(EEG(maskfs2k),512);
-            pop_editoptions('option_parallel', 1);
-            assert(all([EEG(:).srate] == 512));
-        end
-    end
+    EEG = load_biosemidata(subject,myPaths);
 else
-    warning([subject.id ' is missing ' myPaths.task ' data!']);
-    return;
+    warning([subject.id ' is missing ' myPaths.task ' data. Skipping...']); return;
 end
 
-% If loaded, then make a folder
+% Make a folder
 if exist(subject.preproc,'dir') ~= 7
     mkdir(subject.preproc);
 else
-    warning('The folder already exists, and the new and the old files might be mixed:');
-    warning('%s',subject.preproc);
+    warning('The folder already exists. The new and the old files might be mixed:'); warning('%s',subject.preproc);
 end
 
 % Open a report
@@ -74,46 +54,32 @@ fprintf(subject.fid,'%s | %s | %s dataset\n\n',myPaths.group,subject.id,myPaths.
 fprintf(subject.fid,'Code version %s\n',myPaths.rnum);
 fprintf(subject.fid,'Started: %s\n',t0);
 
-% Manually fix datasets
-% C48 is very strage - low quality data?
-if strcmp(subject.id,'C50') && strcmpi(myPaths.task,'SART')
-    warning([subject.id 'has swapped C- and B- set. Fixing that now...']);
-    for i = 1:NBLK
-        EEG(i).data(33:96,:) = [EEG(i).data(65:96,:); EEG(i).data(33:64,:)];
-    end
-end
-EEG = eeg_checkset(EEG,'loaddata');
+% Manually fix some datasets
+EEG = do_manualfix(EEG,subject,myPaths);
 
-% Channel locations
-chanlocs = readlocs('biosemi128_eeglab.ced');
-EEG = fix_chanlocs(EEG,chanlocs);
+% Add subject/channel info
+EEG = add_info(EEG,subject,cfg);
 
-% Add subject info
-for i = 1:NBLK
-    EEG(i).ALSUTRECHT.subject = subject;
-    EEG(i).ALSUTRECHT.cfg = cfg;
-end
-
-% Remove CMS drop-outs (blue light flashing)
+% Remove CMS drop-outs
 EEG = detect_dropouts(EEG);
 
-% Demean
-EEG = pop_rmbase(EEG,[]);
-
-% Resample to 256 Hz
-EEG = pop_resample(EEG,256);
-
-% Keep event info
-EEG = extract_eventinfo(EEG,cfg.trg);
+% Resample
+EEG = do_resampling(EEG,256);
 
 % Detect flat channels
 EEG = remove_flatelectrodes(EEG,cfg.bch);
 
-% Reference
-EEG = do_reref(EEG,'aRobust');
+% Remove extremely bad epochs
+EEG = remove_extremeperiods2(EEG);
+
+% Keep event info
+EEG = extract_eventinfo(EEG,cfg.trg);
 
 % Filter highpass only
 EEG = do_filtering(EEG,'highpass',cfg.flt);
+
+% Reference
+EEG = do_reref(EEG,'aRobust');
 
 % Remove line noise
 EEG = reduce_linenoise(EEG);
@@ -124,8 +90,8 @@ EEG = reduce_linenoiseleftovers(EEG);
 % Remove other spectral peaks
 EEG = reduce_spectrapeaks(EEG);
 
-% Cut block ends
-EEG = remove_datasetends(EEG);
+% % Cut block ends - not needed
+% EEG = remove_datasetends(EEG);
 
 % Make EXT bipolar
 EEG = make_extbipolar(EEG);
@@ -135,8 +101,11 @@ if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EO') || strcmpi(myPaths.t
     EEG = make_rsmasks(EEG);
 end
 
-% Merge datasets
-EEG = pop_mergeset(EEG,1:NBLK);
+% Merge blocks
+EEG = merge_eeglabblocks(EEG);
+
+% Reduce sparse artifacts
+EEG = reduce_sparseartifacts(EEG);
 
 % Check if EC has eye blinks; Currently too sensitive?
 if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EC')
@@ -158,24 +127,23 @@ end
 % Make a copy
 % EEGRAW = EEG;
 
-% Remove electrode wobbles and pops
-% EEG = remove_electrodewobbles(EEG,lower(cfg.ica.type1));
-
 % Remove noisy electrodes
 EEG = remove_noisyelectrodes(EEG,cfg.bch);
 
 % Log/report bad channel
 EEG = report_badelectrodes(EEG);
 
-% Remove extremely bad epochs
-if ~strcmpi(myPaths.task,'MT')
-    EEG = remove_extremeperiods(EEG);
-else
-    [EEG, EMG] = remove_extremeperiods(EEG,EMG);
-end
+% % Remove extremely bad epochs
+% if ~strcmpi(myPaths.task,'MT')
+%     EEG = remove_extremeperiods(EEG);
+% else
+%     [EEG, EMG] = remove_extremeperiods(EEG,EMG);
+% end
 
 % Reduce artifacts
-EEG = reduce_artifacts(EEG,cfg.bch);
+if cfg.mwf.do
+    EEG = reduce_artifacts(EEG,cfg.bch);
+end
 
 % Separate EXT channels before ICA
 chanext = {EEG.chanlocs(strcmp({EEG.chanlocs.type},'EXT')).labels};
@@ -183,9 +151,7 @@ EXT = pop_select(EEG,'channel',chanext);
 EEG = pop_select(EEG,'rmchannel',chanext);
 
 % Interpolate bad electrodes
-if ~isempty(EEG.ALSUTRECHT.badchaninfo.badElectrodes)
-    EEG = pop_interp(EEG,chanlocs,'spherical');
-end
+EEG = do_channelinterp(EEG,'spherical');
 
 % Reference
 EEG = do_reref(EEG,'aRegular');
@@ -211,7 +177,7 @@ EEG = report_ICA(EEG);
 % Visually check the cleaning
 % compare_visually(EEG,EEGRAW,cfg.trg);
 
-% Merge channels
+% Merge channels/sets
 EEG = merge_eeglabsets(EEG,EXT);
 if strcmpi(myPaths.task,'MT'), EEG = merge_eeglabsets(EEG,EMG); end
 clearvars EXT EMG

@@ -42,6 +42,11 @@ function EEG = reduce_artifacts(EEG,cfgbch)
 % which introduces the counterintuitive signal power increase. I reported it for the cases of ASR and independent component analysis
 % -> Better then to first do ASR and try to mitigate these increases with MWF?
 
+
+fprintf('\n================================\n');
+fprintf('Reducing artifacts (MWF / ASR)\n');
+fprintf('================================\n');
+
 % % Remove external electrodes
 % % EEG0 = pop_select(EEG,'nochannel',{EEG.chanlocs(~strcmp({EEG.chanlocs.type},'EEG')).labels});
 % EEG0 = EEG;

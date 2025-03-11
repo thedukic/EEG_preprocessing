@@ -15,6 +15,10 @@ function [EEG, badElectrodes1] = remove_noisyelectrodes(EEG,cfgbch)
 %
 % =========================================================================
 
+fprintf('\n================================\n');
+fprintf('Detecting noisy channels\n');
+fprintf('================================\n');
+
 % Detect which channels are EEG/EXT
 chaneeg = strcmp({EEG.chanlocs.type},'EEG');
 chanext = {EEG.chanlocs(~chaneeg).labels};

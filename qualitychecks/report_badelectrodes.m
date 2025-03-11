@@ -1,5 +1,9 @@
 function EEG = report_badelectrodes(EEG)
 
+fprintf('\n================================\n');
+fprintf('Generating bad channel reports\n');
+fprintf('================================\n');
+
 % First check if ICA for wobble/pop detection was done
 if ~isfield(EEG.ALSUTRECHT.badchaninfo,'wica')
     flagwICAdone = false;

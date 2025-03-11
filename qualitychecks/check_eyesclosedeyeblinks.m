@@ -2,7 +2,9 @@ function EEG = check_eyesclosedeyeblinks(EEG)
 %
 % SDukic, January 2025
 
-fprintf('\nDetecting eye blinks in the eyes closed resting-state recording...\n');
+fprintf('\n================================\n');
+fprintf('Detecting eye blinks in the eyes closed resting-state recording\n');
+fprintf('================================\n');
 
 % Select these
 chaneeg  = strcmp({EEG.chanlocs.type},'EEG'); % & contains({EEG.chanlocs.labels},'C');
