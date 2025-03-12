@@ -59,14 +59,17 @@ switch thisMethod
         % Clean all blocks at once
         [dataeeg, ~, analyticsResults, fh] = clean_data_with_zapline_plus(cat(2,EEG(:).data),EEG(1).srate,'noisefreqs',50,'winSizeCompleteSpectrum',20,'plotResults',true);
 
-        % Split back the blocks
-        EEG2 = make_rsmasks(EEG);
-        assert(size(dataeeg,2) == size(EEG2(1).ALSUTRECHT.blockinfo.rs_mask,2));
+        % Split back into blocks
+        maskRS = make_rsmasks(EEG);
+        maskRS = maskRS(1).ALSUTRECHT.blockinfo.rs_mask;
+        assert(size(dataeeg,2) == size(maskRS,2));
 
         for i = 1:NBLK
-            EEG(i).data = dataeeg(:,EEG2(i).ALSUTRECHT.blockinfo.rs_mask(i,:));
+            EEG(i).data = dataeeg(:,maskRS(i,:));
             assert(size(EEG(i).data,2) == EEG(i).pnts);
         end
+
+        % Check
         EEG = eeg_checkset(EEG);
 
         % Save

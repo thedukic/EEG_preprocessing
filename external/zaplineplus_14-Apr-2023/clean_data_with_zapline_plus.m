@@ -389,14 +389,14 @@ while i_noisefreq <= length(noisefreqs)
         chunkIndices(end+1) = length(data)+1;
     else
         disp('Using adaptive chunk length!')
-        %% find chunk indices
+        % find chunk indices
         data_narrowfilt = bandpass(data,[noisefreq-detectionWinsize/2 noisefreq+detectionWinsize/2],srate);
 
         nSegments = max(floor(size(data_narrowfilt,1)/srate/segmentLength),1);
 
         covarianceMatrices = zeros(size(data_narrowfilt,2),size(data_narrowfilt,2),nSegments);
 
-        %% compute covmatrices
+        % compute covmatrices
         for iSegment = 1:nSegments
 
             if iSegment ~= nSegments
@@ -411,18 +411,17 @@ while i_noisefreq <= length(noisefreqs)
 
         end
 
-        %% find distances
+        % find distances
         distances = zeros(nSegments-1,1);
         for iSegment = 2:nSegments
             distances(iSegment-1) = sum(pdist(covarianceMatrices(:,:,iSegment)-covarianceMatrices(:,:,iSegment-1)))/2;
         end
 
-        %% find peaks
+        % find peaks
         [pks,locs,widths,proms] = findpeaks(distances);
         [pks,locs] = findpeaks(distances,'MinPeakProminence',quantile(proms,prominenceQuantile),'MinPeakDistance',minChunkLength);
 
-        %% plot
-
+        % plot
         %         figure('color','w');
         %         plot(distances)
         %
@@ -433,7 +432,7 @@ while i_noisefreq <= length(noisefreqs)
         %         legend(l,'chunk segmentations')
         %         xlabel('time [seconds]')
 
-        %% create final chunk indices
+        % create final chunk indices
 
         chunkIndices = ones(length(pks)+2,1);
 
@@ -892,12 +891,9 @@ while i_noisefreq <= length(noisefreqs)
                 [num2str(noisefreq-11,'%4.0f') ' - ' num2str(noisefreq-1,'%4.0f') 'Hz power removed: ' num2str(proportionRemovedBelowNoise*100,'%4.2f') '%']})
             pbaspect([1 1.618 1]);
             drawnow;
-
-            %%
         end
 
         % decide if redo cleaning (plot needs to be before because it shows incorrect sigma otherwise)
-
         cleaningDone = 1;
 
         if adaptiveNremove && adaptiveSigma

@@ -1,33 +1,31 @@
 function myPaths = preproc_folders
+% =========================================================================
 %
 % Script for setting up the paths and labels of data for preprocessing
 % ALS Centre, University Medical Centre Utrecht
 %
-% =========================================================================
-% SDukic edits
-% v1, March 2025
 % =========================================================================
 
 % Preprocessing code version
 myPaths.rnum = '1';
 
 % Define
-myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\Preprocessing';                                                        % Pipeline
-% myPaths.rootrawdata = 'L:\onderzoeksarchief\19-462_ALS-Electrode_BS\E_ResearchData\2_ResearchData\1_RAW\EEG_DATA'; % Input
-% myPaths.rootpreproc = 'L:\onderzoeksarchief\19-462_ALS-Electrode_BS\E_ResearchData\2_ResearchData\2_PREPROCESSED'; % Output
-myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
-myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
+myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\Preprocessing';   % Pipeline
+myPaths.rootrawdata = 'D:\1_EEG_DATA';          % Input
+myPaths.rootpreproc = 'D:\3_PREPROCESSED_DATA'; % Output
 
 % Task: MMN/SART/RS/MT
 myPaths.task  = 'RS';
 % Group: ALS / CONTROL / AFM / PLS/ PMA
-myPaths.group = {'AFM'};
+myPaths.group = {'ALS'};
 % Visit: T1/ T2 / T3 / T4 / T5
 myPaths.visit = {'T1'};
 
 % =========================================================================
 % The script below does not need changing
 % =========================================================================
+% set(0, 'DefaultFigureVisible', 'off'); % not tested yet
+warning on; warning('off','backtrace');
 
 fprintf('\n');
 disp('==================================================================');

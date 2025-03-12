@@ -7,7 +7,7 @@ fprintf('================================\n');
 % =========================================================================
 % Normalised variance of all ICs
 varICs = EEG.ALSUTRECHT.ica.varICs;
-varAICsNorm = varICs./sum(varICs);
+varAICsNorm = varICs ./ sum(varICs);
 
 % Evaluate only the first K ICs,
 % They carry the most power and thus relevance
@@ -32,17 +32,24 @@ varKICs = sum(varAICsNorm(1:NICArel));
 % 70 PCs    ^2*30 /256/60 ~ 9.5 min
 % See: https://sccn.ucsd.edu/wiki/Makoto's_preprocessing_pipeline#What_is_the_minimum_length_of_data_to_perform_ICA.3F_.2807.2F04.2F2022_added.29
 
+dataLength = prod(size(EEG.data,[2 3]));
+NICAmax = estim_optimalN(dataLength);
+
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'ICA\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
-if 30*(NICA^2)>prod(size(EEG.data,[2 3]))
-    EEG.ALSUTRECHT.ica.DataLengthForValidICA = 'NOK';
-    warning('EEG might have been too short for ICA!');
-    fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data might be too short for the ICA!\n');
-else
+
+% It should always be OK, becase of the way the pipeline was written
+if dataLength > estim_dataneeded(NICA)
     EEG.ALSUTRECHT.ica.DataLengthForValidICA = 'OK';
-    fprintf('EEG was long enough for ICA.\n');
-    fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data is long enough for the ICA.\n');
+    fprintf('EEG was long enough for ICA with N = %d ICs (max = %d).\n',NICA,NICAmax);
+    fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data was long enough for ICA with N = %d ICs (max = %d).\n',NICA,NICAmax);
+
+else
+    EEG.ALSUTRECHT.ica.DataLengthForValidICA = 'NOK';
+    warning('EEG might have been too short for ICA with N = %d ICs (max = %d)!',NICA,NICAmax);
+    fprintf(EEG.ALSUTRECHT.subject.fid,'EEG data might have been too short for ICA with N = %d ICs (max = %d)!\n',NICA,NICAmax);
+
 end
 
 % =========================================================================
@@ -335,4 +342,15 @@ EEG.ALSUTRECHT.ica.ProportionVariance_was_OtherICs        = OtherVariance/TotalV
 % Remove (not needed)
 EEG.icaact = [];
 
+end
+
+% =========================================================================
+% Helper function
+% =========================================================================
+function L = estim_dataneeded(NICA)
+L = 30 * (NICA^2);
+end
+
+function NICA = estim_optimalN(L)
+NICA = round(sqrt((L/30)));
 end

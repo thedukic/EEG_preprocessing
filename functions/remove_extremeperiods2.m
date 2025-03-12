@@ -1,4 +1,4 @@
-function [EEG, EMG] = remove_extremeperiods2(EEG,EMG)
+function [EEG, flagExclude] = remove_extremeperiods2(EEG)
 %
 % Find extreme periods based on:
 % 1. Very high amplitudes (e.g. >350 uV)
@@ -264,15 +264,21 @@ for i_blk = 1:NBLK
 
     % Find start/stop of good periods
     jump = find(diff([false, maskGoodRS, false])~=0);
-    jumpStop = jump(2:2:end)-1; jumpStop(end) = [];
+    if ~isempty(jump)
+        jumpStop = jump(2:2:end)-1;
+        jumpStop(end) = [];
 
-    % Mark one sample just before the bad segment
-    % 1   1   1   1   1   1   0   0   1   1 ---> 6
-    maskGoodRS(jumpStop) = false;
-    maskGoodRS(extremeMaskFinal) = [];
+        % Mark one sample just before the bad segment
+        % 1   1   1   1   1   1   0   0   1   1 ---> 6
+        maskGoodRS(jumpStop) = false;
+        maskGoodRS(extremeMaskFinal) = [];
 
-    % Double-check
-    assert(length(jumpStop) == sum(~maskGoodRS));
+        % Double-check
+        assert(length(jumpStop) == sum(~maskGoodRS));
+    else
+        % The whole data block is bad!
+        maskGoodRS(extremeMaskFinal) = [];
+    end
 
     % =====================================================================
     % Log
@@ -309,17 +315,38 @@ report_badsegments(EEG,extremeMaskFinalVisual,'extremeperiods');
 % Remove bad chunks
 % =========================================================================
 % If any found, then remove them
+maskRemoveblock = false(NBLK,1);
+
 if any(~cellfun(@isempty, extremeMaskFinalVisual))
     fprintf('Extremely bad chunks detected. Removing them now...\n');
 
     for i_blk = 1:NBLK
+        maskBlockTmp1 = EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochs3;
+        maskBlockTmp2 = EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochsRS;
+
         % Remove if not empty
-        if ~isempty(EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochs3)
-            EEG(i_blk) = eeg_eegrej(EEG(i_blk), EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochs3);
+        if ~isempty(maskBlockTmp1)
+            if isempty(maskBlockTmp2)
+                assert(diff(maskBlockTmp1)+1 == EEG(i_blk).pnts);
+                maskRemoveblock(i_blk) = true;
+            else
+                EEG(i_blk) = eeg_eegrej(EEG(i_blk), maskBlockTmp1);
+            end
         end
 
-        % Make sure that the (RS) mask is the right size
-        assert(size(EEG(i_blk).data,2) == length(EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochsRS));
+        % Make sure that the block masks are the right size
+        % -> Only needed for RS data
+        if ~maskRemoveblock(i_blk)
+            assert(size(EEG(i_blk).data,2) == length(EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochsRS));
+        end
+    end
+
+    % Deal with very bad blocks of data
+    if any(maskRemoveblock)
+        warning('Removing %d complete recording blocks!', sum(maskRemoveblock));
+        EEG(maskRemoveblock) = [];
+        NBLK = length(EEG);
+
     end
 else
     fprintf('Great, no extreme noise found at all!\n');
@@ -334,8 +361,8 @@ L = NaN(NBLK,1);
 for i_blk = 1:NBLK
     maskTmp    = EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochsRS;
     maskTmp(1) = true;
-    maskRS = [maskRS, maskTmp];
-    L(i_blk) = EEG(i_blk).pnts;
+    maskRS     = [maskRS, maskTmp];
+    L(i_blk)   = EEG(i_blk).pnts;
 end
 
 % Make sure that the total mask is the same length as the total data
@@ -344,7 +371,25 @@ assert(length(maskRS) == sum(L));
 % Store
 for i_blk = 1:NBLK
     EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochsRSFinal = maskRS;
-    EEG(i_blk).ALSUTRECHT.extremeNoise.extremeBadChannels = badChans;
+    EEG(i_blk).ALSUTRECHT.extremeNoise.extremeBadChannels        = badChans;
+    EEG(i_blk).ALSUTRECHT.extremeNoise.maskRemoveblock           = maskRemoveblock;
+end
+
+% =========================================================================
+% Check if there is enough data for further analysis
+% =========================================================================
+% This code tries to prevents the pipeline from breaking if data is very bad
+% This should never be the case but it can happen
+Ndata = 0;
+for i_blk = 1:NBLK
+    Ndata = Ndata + EEG(i_blk).pnts;
+end
+
+% Minimum of 90s of data
+if Ndata < 90 * EEG(1).srate
+    flagExclude = true;
+else
+    flagExclude = false;
 end
 
 end

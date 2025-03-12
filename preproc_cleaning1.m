@@ -1,11 +1,9 @@
 function preproc_cleaning1(myPaths,id)
+% =========================================================================
 %
 % Script for EEG data preprocessing
 % ALS Centre, University Medical Centre Utrecht
 %
-% =========================================================================
-% SDukic edits
-% v1, March 2025
 % =========================================================================
 
 % Load preprocessing settings
@@ -33,6 +31,7 @@ fprintf('==================================================================\n');
 
 % Load data
 if ~isempty(subject.datablocks)
+    % Report if only EC or EO are found for RS proc
     EEG = load_biosemidata(subject,myPaths);
 else
     warning([subject.id ' is missing ' myPaths.task ' data. Skipping...']); return;
@@ -57,6 +56,9 @@ fprintf(subject.fid,'Started: %s\n',t0);
 % Manually fix some datasets
 EEG = do_manualfix(EEG,subject,myPaths);
 
+% Fix events
+EEG = fix_events(EEG);
+
 % Add subject/channel info
 EEG = add_info(EEG,subject,cfg);
 
@@ -70,7 +72,11 @@ EEG = do_resampling(EEG,256);
 EEG = remove_flatelectrodes(EEG,cfg.bch);
 
 % Remove extremely bad epochs
-EEG = remove_extremeperiods2(EEG);
+[EEG, flagExclude] = remove_extremeperiods2(EEG);
+
+if flagExclude
+    warning([subject.id ' is has very noisy data. Skipping...']); return;
+end
 
 % Keep event info
 EEG = extract_eventinfo(EEG,cfg.trg);
@@ -107,10 +113,10 @@ EEG = merge_eeglabblocks(EEG);
 % Reduce sparse artifacts
 EEG = reduce_sparseartifacts(EEG);
 
-% Check if EC has eye blinks; Currently too sensitive?
-if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EC')
-    EEG = check_eyesclosedeyeblinks(EEG);
-end
+% % Check if EC has eye blinks; Currently too sensitive?
+% if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EC')
+%     EEG = check_eyesclosedeyeblinks(EEG);
+% end
 
 % % Clean EMG
 % if strcmpi(myPaths.task,'MT')

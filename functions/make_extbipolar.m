@@ -17,8 +17,10 @@ end
 
 NBLK = length(EEG);
 for i = 1:NBLK
+    % -----------------------------------------
     % Bipolar ECG (or monopolar EL)
     % Early dataset had earlobes instead of ECG
+    % -----------------------------------------
     eleclabels = {EEG(i).chanlocs.labels};
     m1 = ismember(eleclabels,'ECGL');
     m2 = ismember(eleclabels,'ECGR');
@@ -39,27 +41,37 @@ for i = 1:NBLK
         % EEG(i).chanlocs(m2).type   = 'Earlobe';
     end
 
+    % -----------------------------------------
     % Bipolar VEOG
+    % -----------------------------------------
     eleclabels = {EEG(i).chanlocs.labels};
     m1 = ismember(eleclabels,'VEOGS');
     m2 = ismember(eleclabels,'VEOGI');
+    assert(sum(m1|m2) == 2);
+
     EEG(i).chanlocs(m1).labels = 'VEOG';
     % EEG(i).chanlocs(m1).type   = 'EOG';
     EEG(i).data(m1,:)          = EEG(i).data(m1,:)-EEG(i).data(m2,:);
     EEG(i).data(m2,:)          = [];
     EEG(i).chanlocs(m2)        = [];
 
+    % -----------------------------------------
     % Bipolar HEOG
+    % -----------------------------------------
     eleclabels = {EEG(i).chanlocs.labels};
     m1 = ismember(eleclabels,'HEOGL');
     m2 = ismember(eleclabels,'HEOGR');
+    assert(sum(m1|m2) == 2);
+
     EEG(i).chanlocs(m1).labels = 'HEOG';
     % EEG(i).chanlocs(m1).type   = 'EOG';
     EEG(i).data(m1,:)          = EEG(i).data(m1,:)-EEG(i).data(m2,:);
     EEG(i).data(m2,:)          = [];
     EEG(i).chanlocs(m2)        = [];
 
+    % % -----------------------------------------
     % % Bipolar mastoid
+    % % -----------------------------------------
     % eleclabels = {EEG(i).chanlocs.labels};
     % m1 = ismember(eleclabels,'LM');
     % m2 = ismember(eleclabels,'RM');
@@ -69,7 +81,9 @@ for i = 1:NBLK
     % EEG(i).data(m2,:)          = [];
     % EEG(i).chanlocs(m2)        = [];
 
+    % % -----------------------------------------
     % % Left/Right mastoid
+    % % -----------------------------------------
     % eleclabels = {EEG(i).chanlocs.labels};
     % m1 = ismember(eleclabels,'LM');
     % m2 = ismember(eleclabels,'RM');
@@ -80,7 +94,9 @@ for i = 1:NBLK
     %     EEG(i).chanlocs(m2).type   = 'Mastoid';
     % end
 
+    % -----------------------------------------
     % EMG
+    % -----------------------------------------
     if strcmpi(EEG(1).ALSUTRECHT.subject.task,'MT')
         emglabels = {'APB','FDI','FPB','EPB','EDC','FDS'};
         emgindx   = find(ismember({EEG(i).chanlocs.type},'EMG'));
@@ -105,7 +121,9 @@ for i = 1:NBLK
         end
     end
 
+    % -----------------------------------------
     % Finalise
+    % -----------------------------------------
     EEG(i).nbchan = size(EEG(i).data,1);
     EEG(i) = eeg_checkset(EEG(i),'loaddata');
 

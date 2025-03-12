@@ -5,17 +5,17 @@ fprintf('ICA\n');
 fprintf('================================\n');
 
 % Check the rank
+rankICA  = select_nICs(EEG,cfg.ica.icMax);
 rankData = get_rank(EEG.data(:,:));
-rankICA  = cfg.ica.icMax;
 
-if rankICA>rankData
+if rankICA > rankData
     warning('Many electrodes were already excluded... Probably low quality data.');
-    printf('Data rank %d < %d\n',rankData,cfg.ica.icMax);
+    printf('Data rank %d < %d\n',rankData,rankICA);
     rankICA = rankData;
 end
 
 % Check variance explained
-[U,S,V] = svd(EEG.data(:,:) * EEG.data(:,:)','econ');
+[U,S,V] = svd(double(EEG.data(:,:)) * double(EEG.data(:,:))','econ');
 S = diag(S);
 explained = S ./ sum(S);
 
@@ -24,9 +24,13 @@ explainedTmp = cumsum(explained); % figure; bar(explained);
 NPCA95 = find(explainedTmp >= 0.95,1);
 
 % Variance used for ICA
-VarRank = 100*sum(explained(1:rankICA));
+VarRank = 100 * sum(explained(1:rankICA));
 
 % ICA
+fprintf('\n--------------------------------\n');
+fprintf('Doing ICA (%s)\n',cfg.ica.type2);
+fprintf('--------------------------------\n');
+
 if strcmpi(cfg.ica.type2,'AMICA')
     % AMICA folder
     prevpath = pwd;
@@ -102,14 +106,14 @@ EEG.ALSUTRECHT.ica.varICs  = varICs;
 
 % Report
 fprintf('\nICA is done.\n');
-fprintf('Number of estimated ICs (max %d): %d\n', rankICA,cfg.ica.icMax);
+fprintf('Number of estimated ICs (max %d): %d\n', rankICA,max(cfg.ica.icMax));
 fprintf('Used varaince: %1.2f\n',VarRank);
 fprintf('95%% PCA variance: %d\n', NPCA95);
 
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'ICA\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
-fprintf(EEG.ALSUTRECHT.subject.fid,'Number of estimated ICs (max %d): %d (Var = %1.2f)\n', rankICA,cfg.ica.icMax,VarRank);
+fprintf(EEG.ALSUTRECHT.subject.fid,'Number of estimated ICs (max %d): %d (Var = %1.2f)\n', rankICA,max(cfg.ica.icMax),VarRank);
 fprintf(EEG.ALSUTRECHT.subject.fid,'95% ICs: %d\n', NPCA95);
 
 end

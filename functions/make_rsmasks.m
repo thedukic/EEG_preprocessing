@@ -23,10 +23,15 @@ for i = 1:NBLK
 end
 
 % Double-check
-assert(sum(rs_mask,"all")==sum(N));
+assert(sum(rs_mask,"all") == sum(N));
 
 % Mark eyes-open blocks
 eo_mask = contains(EEG(1).ALSUTRECHT.subject.datablocks,'EO');
+
+% Remove those that were removed completely due to very high noise
+maskRemoveblock = EEG(1).ALSUTRECHT.extremeNoise.maskRemoveblock;
+assert(length(eo_mask) == length(maskRemoveblock));
+eo_mask(maskRemoveblock) = [];
 
 % Log
 for i = 1:NBLK
