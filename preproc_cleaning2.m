@@ -1,11 +1,9 @@
 function preproc_cleaning2(myPaths,id)
+% =========================================================================
 %
 % Script for basic postprocessing of the preprocessed EEG data
 % ALS Centre, University Medical Centre Utrecht
 %
-% =========================================================================
-% SDukic edits
-% v1, March 2025
 % =========================================================================
 
 % Load preprocessing settings

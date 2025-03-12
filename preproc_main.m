@@ -2,7 +2,7 @@
 %
 % EEG preprocessing main file, ALS Centre UMC Utrecht
 % Check README.md for instructions
-% SDukic, January 2025
+% SDukic, March 2025
 %
 % TODO
 % 1. Turn off figure visibility while plotting (speed up the code)
@@ -13,7 +13,6 @@
 % =========================================================================
 
 close all; fclose all; clear all; clc;
-% set(0, 'DefaultFigureVisible', 'off'); % not tested
 myPaths = preproc_folders;
 
 % Run
@@ -47,8 +46,3 @@ for i = 1:length(myPaths.group)
         end
     end
 end
-
-% =========================================================================
-% Do not run this code
-% =========================================================================
-% estimate_ictemplates(myPathsTmp,subjects);

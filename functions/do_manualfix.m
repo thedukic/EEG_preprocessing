@@ -8,7 +8,7 @@ fprintf('================================\n');
 % 1. Swapped C- and B-set
 if strcmp(subject.id,'C50') && strcmpi(myPaths.task,'SART')
     warning([subject.id 'has swapped C- and B- set. Fixing that now...']);
-    
+
     NBLK = length(EEG);
     for i = 1:NBLK
         EEG(i).data(33:96,:) = [EEG(i).data(65:96,:); EEG(i).data(33:64,:)];
@@ -17,7 +17,7 @@ else
     fprintf('Nice, not needed!\n');
 end
 
-% Check 
+% Check
 EEG = eeg_checkset(EEG,'loaddata');
 
 end

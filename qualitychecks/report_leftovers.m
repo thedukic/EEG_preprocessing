@@ -1,7 +1,7 @@
 function [EEG, flagREDO] = report_leftovers(EEG,EXT,run,cfg)
 %
 % Based on the RELAX toolbox
-% The code might not work very well
+% Work in progress
 %
 
 fprintf('\n================================\n');
@@ -31,7 +31,10 @@ fprintf('================================\n');
 % end
 
 %% ========================================================================
-fprintf('Checking muscle activity leftovers...\n');
+fprintf('\n--------------------------------\n');
+fprintf('Muscle activity leftovers\n');
+fprintf('--------------------------------\n');
+
 muscleSlopeThreshold = cfg.bch.muscleSlopeThreshold;
 muscleSlopeDuration  = cfg.bch.muscleSlopeTime;
 
@@ -73,8 +76,14 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Total amount of leftover muscle artifact: %1
 
 EEG.ALSUTRECHT.leftovers.muscle1 = proportionOfDataShowingMuscleActivityTotal;
 
-%% ========================================================================
-fprintf('\nChecking eye blink letovers...\n');
+% =========================================================================
+% =========================================================================
+% =========================================================================
+
+fprintf('\n--------------------------------\n');
+fprintf('Eye blink leftovers\n');
+fprintf('--------------------------------\n');
+
 
 fh = figure;
 th = tiledlayout(2,2);
@@ -270,7 +279,7 @@ if NTRL2 > 0
         BlinkAmplitudeRatioAllEpochs(:,i) = mean(absolutevaluesblink(:,col_1500ms:col_2500ms,i),2) ./ mean(absolutevaluesblink(:,[1:col_500ms, col_3500ms:col_4000ms],i),2);
     end
     BlinkAmplitudeRatio = mean(BlinkAmplitudeRatioAllEpochs,2)-1;
-    BlinkAmplitudeRatioMean = mean(BlinkAmplitudeRatio)*100;
+    BlinkAmplitudeRatioMean = 100 * mean(BlinkAmplitudeRatio);
 
     % 3. Plot
     nexttile(4);
@@ -298,8 +307,10 @@ print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_le
 close(fh);
 
 % Log
+fprintf('\n');
 fprintf('Average amount of leftover eye blink artifact: %1.0f%%\n', BlinkAmplitudeRatioMean);
 fprintf('Average amount of leftover eye blink artifact: %1.1f T-stat\n', tstatMean);
+
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Leftovers: eye blink artifacts\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');

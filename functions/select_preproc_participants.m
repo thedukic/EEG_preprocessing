@@ -13,8 +13,8 @@ else
     subjects = list_participants(myPaths.rawdata,{});
 end
 
-% Check
-assert(all(contains(subjects,'ALS')));
+% Check (fails for DUB data)
+% assert(all(contains(subjects,'ALS'))); 
 
 % Report
 NSUB = length(subjects);

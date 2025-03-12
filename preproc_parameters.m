@@ -1,21 +1,19 @@
 function cfg = preproc_parameters
+% =========================================================================
 %
 % Script for setting up the preprocessing parameters
 % ALS Centre, University Medical Centre Utrecht
 %
 % =========================================================================
-% SDukic edits
-% v1, January 2025
-% =========================================================================
-%
-%
+
+
 % !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! IMPORTANT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 %
 % If you want to change something, discuss with the rest of the team first
 %
 % !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! IMPORTANT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-%
-%
+
+
 % =========================================================================
 % IIR Butterworth filters
 % =========================================================================
@@ -101,8 +99,23 @@ else
     cfg.ica.type2    = 'RUNICA'; % AMICA
 end
 
-% PCA reduction prior ICA
-cfg.ica.icMax = 70;
+% PCA reduction prior to ICA
+% See: https://sccn.ucsd.edu/wiki/Makoto's_preprocessing_pipeline#What_is_the_minimum_length_of_data_to_perform_ICA.3F_.2807.2F04.2F2022_adde
+%
+% EEG available:
+% MMN  3*7     ~ 21 min
+% SART 3*5     ~ 15 min
+% RS   2x3x2   ~ 12 min
+% MT   7+3+7   ~ 17 min
+%
+% Minimum EEG needed:
+% 128 elecs ^2*30 /256/60 ~ 32  min
+% 70 PCs    ^2*30 /256/60 ~ 9.5 min
+% 50 PCs    ^2*30 /256/60 ~ 5.0 min
+%
+% -> estimate 70 IC unless to little data, then estimate 50 ICs
+% -> the latter was added to account for DUB EO data (~ 6 min)
+cfg.ica.icMax = [70 50];
 
 % ICLabel likelihoods
 cfg.ica.iclabel = ...

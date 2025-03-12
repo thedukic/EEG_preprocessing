@@ -117,11 +117,31 @@ numEO = sum(EEG.ALSUTRECHT.blockinfo.eo_mask);
 
 % Double-checks
 maskEO = contains(EEG.ALSUTRECHT.subject.datablocks,'_EO');
+
+numEO0 = sum(maskEO);
+numEOlabel = 1:numEO0;
+numEC0 = sum(~maskEO);
+numEClabel = 1:numEC0;
+
+% Remove those that were removed completely due to very high noise
+maskRemoveblock = EEG.ALSUTRECHT.extremeNoise.maskRemoveblock;
+assert(length(maskEO) == length(maskRemoveblock));
+
+maskEO(maskRemoveblock) = [];
 assert(sum(maskEO) == numEO);
 assert(all(maskEO(1:numEO)));
 
-EO_labels = arrayfun(@(x) ['EO' num2str(x)], 1:numEO, 'UniformOutput', false);
-EC_labels = arrayfun(@(x) ['EC' num2str(x)], 1:(NBLK - numEO), 'UniformOutput', false);
+if ~isempty(numEOlabel)
+    numEOlabel(maskRemoveblock) = [];
+end
+if ~isempty(numEClabel)
+    numEClabel(maskRemoveblock) = [];
+end
+
+% Not correct if some blocks were completely removed
+% EO2 will be EO1 if EO1 is removed
+EO_labels = arrayfun(@(x) ['EO' num2str(x)], numEOlabel, 'UniformOutput', false);
+EC_labels = arrayfun(@(x) ['EC' num2str(x)], numEClabel, 'UniformOutput', false);
 
 % Combine labels in block order
 RS_labels = cell(1, NBLK);
@@ -185,7 +205,7 @@ oldL = sum(maskGood);
 lostL = sum(cell2mat(leftoverData));
 R = lostL./oldL;
 fprintf('Total epochs: %d\n', sum(NTRL));
-fprintf('Data loss due epoching: %1.3f%%\n', R * 100);
+fprintf('Data loss due epoching: %1.1f%%\n', 100 * R);
 
 % Log
 EEG.ALSUTRECHT.blockinfo.goodIndx   = validEpochs;

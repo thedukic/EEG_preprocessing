@@ -148,12 +148,12 @@ switch EEG(1).ALSUTRECHT.subject.task
         O  = cfg.rs{2};         % e.g. 0.5
 
         % Calculate step size
-        step_size = L*(1-O);
+        step_size = L * (1-O);
 
         for i_blk = 1:NBLK
             N = length(EEG(i_blk).times);
-            T = N./EEG(i_blk).srate;
-            fprintf('RS%d has %ds of data.\n',i_blk,T);
+            T = N ./ EEG(i_blk).srate;
+            fprintf('RS%d has %1.0fs of data.\n',i_blk,T);
 
             % Calculate number of trials
             NTRL = floor((N - L) / step_size) + 1;

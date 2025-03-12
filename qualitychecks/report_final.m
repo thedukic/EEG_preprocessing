@@ -1,11 +1,9 @@
 function report_final(myPaths,subjects)
+% =========================================================================
 %
 % Script for reporting on EEG data preprocessing
 % ALS Centre, University Medical Centre Utrecht
 %
-% =========================================================================
-% SDukic edits
-% v1, March 2025
 % =========================================================================
 
 fprintf('\n==================================================================\n');
@@ -46,7 +44,9 @@ for i = 1:NSUB
         % Record warnings for all participants in a single table
         if i == 1
             tableIssues = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
-            tableIssues(2:NSUB,:) = cell2table([repmat({''},NSUB-1,1), repmat({NaN},NSUB-1,length(tableIssues.Properties.VariableNames)-1)], 'VariableNames', tableIssues.Properties.VariableNames);
+            tableIssues(2:NSUB,:) = cell2table(...
+                [repmat({''},NSUB-1,1), repmat({NaN},NSUB-1,length(tableIssues.Properties.VariableNames)-1)], ...
+                'VariableNames', tableIssues.Properties.VariableNames);
         else
             tableIssues(i,:) = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
         end
@@ -84,7 +84,7 @@ for i = 1:NSUB
 
     elseif exist(fileName1,"file") == 2
         % Then, load the file from preproc1
-        fprintf('%s has noisy data? Their %s data is missing.\n', subjects{i},myPaths.task);
+        fprintf('%s does not have completely preprocessed %s data (only from part 1).\n', subjects{i}, myPaths.task);
         load(fileName1,'EEG');
 
         % Insert manually
@@ -97,7 +97,7 @@ for i = 1:NSUB
         N(i,6) = 1; % Probably true
 
     else
-        fprintf('%s does not have any %d data? Their data is missing.\n', subjects{i}, myPaths.task);
+        fprintf('%s does not have any preprocessed %s data.\n', subjects{i}, myPaths.task);
         N(i,:) = NaN;
     end
 end
