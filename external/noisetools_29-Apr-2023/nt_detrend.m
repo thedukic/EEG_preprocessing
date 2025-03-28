@@ -70,12 +70,11 @@ else
     if isempty(w); w=ones(size(x)); end
     if size(w,2)==1; w=repmat(w,1,size(x,2)); end
 
-
     % (1) divide into windows, 
     % (2) detrend each, 
     % (3) stitch together, 
     % (4) estimate w
-    for iIter=1:niter
+    for iIter = 1:niter
         y=zeros(size(x));
         trend=zeros(size(x));
         a=zeros(size(x,1),1);
@@ -115,8 +114,8 @@ else
             end
 
             % overlap-add to output
-            y(start:stop,:)=y(start:stop,:)+bsxfun(@times,yy,b);
-            trend(start:stop,:)=trend(start:stop,:)+bsxfun(@times,x(start:stop,:)-yy,b);
+            y(start:stop,:) = y(start:stop,:) + bsxfun(@times,yy,b);
+            trend(start:stop,:) = trend(start:stop,:) + bsxfun(@times,x(start:stop,:)-yy,b);
 
             a(start:stop,1)=a(start:stop)+b;
 
