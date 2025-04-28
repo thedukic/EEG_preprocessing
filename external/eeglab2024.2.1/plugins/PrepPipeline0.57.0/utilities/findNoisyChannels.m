@@ -9,7 +9,7 @@ function  noisyOut = findNoisyChannels(signal, noisyIn)
 %
 % Input parameters:
 %     signal - structure with srate, chanlocs, chaninfo, and data fields
-%     noisyIn - structure with input parameters
+%     noisyIn - structure with input parameters 
 %
 %  Notes: the signal is assumed to be high-passed. Removing line noise
 %  is a good idea too.
@@ -103,13 +103,13 @@ end
 channelLocations = noisyOut.channelLocations;
 evaluationChannels = sort(noisyOut.evaluationChannels); % Make sure channels are sorted
 evaluationChannels = evaluationChannels(:)';            % Make sure row vector
-noisyOut.evaluationChannels = evaluationChannels;
+noisyOut.evaluationChannels = evaluationChannels;  
 originalChannels = 1:size(signal.data, 1);
 
 %% Extract the data required
 data = signal.data;
 originalNumberChannels = size(data, 1);          % Save the original channels
-data = double(data(evaluationChannels, :))';     % Remove the unneeded channels
+data = double(data(evaluationChannels, :))';      % Remove the unneeded channels
 signalSize = size(data, 1);
 correlationFrames = noisyOut.correlationWindowSeconds * signal.srate;
 correlationWindow = 0:(correlationFrames - 1);
@@ -136,30 +136,27 @@ noisyOut.noisyChannels.badChannelsFromNaNs = evaluationChannels(nanChannelMask);
 noisyOut.noisyChannels.badChannelsFromNoData = evaluationChannels(noSignalChannelMask);
 evaluationChannels = setdiff(evaluationChannels, ...
     union(noisyOut.noisyChannels.badChannelsFromNaNs, ...
-    noisyOut.noisyChannels.badChannelsFromNoData));
+          noisyOut.noisyChannels.badChannelsFromNoData));
 data = signal.data;
-data = double(data(evaluationChannels, :))';
+data = double(data(evaluationChannels, :))';  
 [signalSize, numberChannels] = size(data);
 
 %% Method 1: Unusually high or low amplitude (using robust std)
-channelDeviation       = 0.7413 * iqr(data); % Robust estimate of SD
-channelDeviationSD     = 0.7413 * iqr(channelDeviation);
+channelDeviation = 0.7413 *iqr(data); % Robust estimate of SD
+channelDeviationSD =  0.7413 * iqr(channelDeviation);
 channelDeviationMedian = nanmedian(channelDeviation);
-noisyOut.robustChannelDeviation(evaluationChannels) = (channelDeviation - channelDeviationMedian) / channelDeviationSD;
+noisyOut.robustChannelDeviation(evaluationChannels) = ...
+    (channelDeviation - channelDeviationMedian) / channelDeviationSD;
 
-% Find channels with unusually high deviation
+% Find channels with unusually high deviation 
 badChannelsFromDeviation = ...
     abs(noisyOut.robustChannelDeviation) > ...
-    noisyOut.robustDeviationThreshold | ...
-    isnan(noisyOut.robustChannelDeviation);
+             noisyOut.robustDeviationThreshold | ...
+             isnan(noisyOut.robustChannelDeviation);
 badChannelsFromDeviation = originalChannels(badChannelsFromDeviation);
 noisyOut.noisyChannels.badChannelsFromDeviation = badChannelsFromDeviation(:)';
 noisyOut.channelDeviationMedian = channelDeviationMedian;
 noisyOut.channelDeviationSD = channelDeviationSD;
-
-% figure; 
-% topoplot(noisyOut.robustChannelDeviation,readlocs('biosemi128_eeglab.ced'),'maplimits',[0 max(noisyOut.robustChannelDeviation)],'headrad',0.5,'colormap',brewermap([],'OrRd'),'whitebk','on','electrodes','on','emarker2',{badChannelsFromDeviation,'d','k',10,1});
-% colorbar;
 
 %% Method 2: Compute the SNR (based on Christian Kothe's clean_channels)
 % Note: RANSAC uses the filtered values X of the data
@@ -167,15 +164,15 @@ if noisyOut.srate > 100
     % Remove signal content above 50Hz and below 1 Hz
     B = design_fir(100,[2*[0 45 50]/noisyOut.srate 1],[1 1 0 0]);
     X = zeros(signalSize, numberChannels);
-    parfor k = 1:numberChannels
-        X(:,k) = filtfilt_fast(B, 1, data(:, k));
-    end
+    parfor k = 1:numberChannels  % Could be changed to parfor
+        X(:,k) = filtfilt_fast(B, 1, data(:, k)); end
     % Determine z-scored level of EM noise-to-signal ratio for each channel
-    noisiness         = mad(data-X, 1)./mad(X, 1);
-    noisinessMedian   = nanmedian(noisiness);
-    noisinessSD       = mad(noisiness, 1)*1.4826;
+    noisiness = mad(data- X, 1)./mad(X, 1);
+    noisinessMedian = nanmedian(noisiness);
+    noisinessSD = mad(noisiness, 1)*1.4826;
     zscoreHFNoiseTemp = (noisiness - noisinessMedian) ./ noisinessSD;
-    noiseMask = (zscoreHFNoiseTemp > noisyOut.highFrequencyNoiseThreshold) | isnan(zscoreHFNoiseTemp);
+    noiseMask = (zscoreHFNoiseTemp > noisyOut.highFrequencyNoiseThreshold) | ...
+                isnan(zscoreHFNoiseTemp);
     % Remap channels to original numbering
     badChannelsFromHFNoise  = evaluationChannels(noiseMask);
     noisyOut.noisyChannels.badChannelsFromHFNoise = badChannelsFromHFNoise(:)';
@@ -187,20 +184,10 @@ else
     noisyOut.noisyChannels.badChannelsFromHFNoise = [];
 end
 
-% X = data;
-% noisinessMedian = 0;
-% noisinessSD = 1;
-% zscoreHFNoiseTemp = zeros(numberChannels, 1);
-% noisyOut.noisyChannels.badChannelsFromHFNoise = [];
-
 % Remap the channels to original numbering for the zscoreHFNoise
 noisyOut.zscoreHFNoise(evaluationChannels) = zscoreHFNoiseTemp;
 noisyOut.noisinessMedian = noisinessMedian;
 noisyOut.noisinessSD = noisinessSD;
-
-% figure; 
-% topoplot(noisyOut.zscoreHFNoise,readlocs('biosemi128_eeglab.ced'),'maplimits',[0 max(noisyOut.zscoreHFNoise)],'headrad',0.5,'colormap',brewermap([],'OrRd'),'whitebk','on','electrodes','on','emarker2',{badChannelsFromHFNoise,'d','k',10,1});
-% colorbar;
 
 %% Method 3: Global correlation criteria (from Nima Bigdely-Shamlo)
 channelCorrelations = ones(WCorrelation, numberChannels);
@@ -209,25 +196,26 @@ channelDeviations = zeros(WCorrelation, numberChannels);
 n = length(correlationWindow);
 xWin = reshape(X(1:n*WCorrelation, :)', numberChannels, n, WCorrelation);
 dataWin = reshape(data(1:n*WCorrelation, :)', numberChannels, n, WCorrelation);
-parfor k = 1:WCorrelation
+parfor k = 1:WCorrelation 
     eegPortion = squeeze(xWin(:, :, k))';
     dataPortion = squeeze(dataWin(:, :, k))';
     windowCorrelation = corrcoef(eegPortion);
     abs_corr = abs(windowCorrelation - diag(diag(windowCorrelation)));
-    channelCorrelations(k, :) = quantile(abs_corr, 0.98);
+    channelCorrelations(k, :)  = quantile(abs_corr, 0.98);
     noiseLevels(k, :) = mad(dataPortion - eegPortion, 1)./mad(eegPortion, 1);
     channelDeviations(k, :) =  0.7413 *iqr(dataPortion);
 end
 dropOuts = isnan(channelCorrelations) | isnan(noiseLevels);
 channelCorrelations(dropOuts) = 0.0;
 noiseLevels(dropOuts) = 0.0;
-clearvars xWin dataWin;
-
+clear xWin;
+clear dataWin;
 noisyOut.maximumCorrelations(evaluationChannels, :) = channelCorrelations';
 noisyOut.noiseLevels(evaluationChannels, :) = noiseLevels';
 noisyOut.channelDeviations(evaluationChannels, :) = channelDeviations';
 noisyOut.dropOuts(evaluationChannels, :) = dropOuts';
-thresholdedCorrelations = noisyOut.maximumCorrelations < noisyOut.correlationThreshold;
+thresholdedCorrelations = ...
+    noisyOut.maximumCorrelations < noisyOut.correlationThreshold;
 fractionBadCorrelationWindows = mean(thresholdedCorrelations, 2);
 fractionBadDropOutWindows = mean(noisyOut.dropOuts, 2);
 
@@ -236,27 +224,19 @@ badChannelsFromCorrelation = find(fractionBadCorrelationWindows > noisyOut.badTi
 noisyOut.noisyChannels.badChannelsFromCorrelation = badChannelsFromCorrelation(:)';
 badChannelsFromDropOuts = find(fractionBadDropOutWindows > noisyOut.badTimeThreshold);
 noisyOut.noisyChannels.badChannelsFromDropOuts = badChannelsFromDropOuts(:)';
-noisyOut.medianMaxCorrelation = median(noisyOut.maximumCorrelations, 2);
+noisyOut.medianMaxCorrelation =  median(noisyOut.maximumCorrelations, 2);
 
-% Bad so far by amplitude and correlation (take these out before doing ransac)
+%% Bad so far by amplitude and correlation (take these out before doing ransac)
 noisyChannels = union(noisyOut.noisyChannels.badChannelsFromDeviation, ...
     union(noisyOut.noisyChannels.badChannelsFromCorrelation, ...
-    noisyOut.noisyChannels.badChannelsFromDropOuts));
-
-% XXX = channelCorrelations;
-% XXX(:,fractionBadCorrelationWindows<=noisyOut.badTimeThreshold) = 1;
-% figure; imagesc(XXX');
-
-% figure; 
-% topoplot(fractionBadCorrelationWindows,readlocs('biosemi128_eeglab.ced'),'maplimits',[0 max(fractionBadCorrelationWindows)],'headrad',0.5,'colormap',brewermap([],'OrRd'),'whitebk','on','electrodes','on','emarker2',{badChannelsFromCorrelation,'d','k',10,1});
-% colorbar;
-
+          noisyOut.noisyChannels.badChannelsFromDropOuts));
+      
 %% Method 4: Ransac corelation (may not be performed)
 % Setup for ransac (if a 2-stage algorithm, remove other bad channels first)
 if noisyOut.ransacOff
     noisyOut.ransacBadWindowFraction = 0;
     noisyOut.ransacPerformed = false;
-elseif isempty(channelLocations)
+elseif isempty(channelLocations) 
     warning('findNoisyChannels:noChannelLocation', ...
         'ransac could not be computed because there were no channel locations');
     noisyOut.ransacBadWindowFraction = 0;
@@ -289,23 +269,21 @@ else % Set up parameters and make sure enough good channels to proceed
     end
 end
 
-if noisyOut.ransacPerformed
-    try
-        % Calculate all-channel reconstruction matrices from random channel subsets
-        locs = [cell2mat({nchanlocs.X}); cell2mat({nchanlocs.Y});cell2mat({nchanlocs.Z})];
+if noisyOut.ransacPerformed 
+    try 
+    % Calculate all-channel reconstruction matrices from random channel subsets
+       locs = [cell2mat({nchanlocs.X}); cell2mat({nchanlocs.Y});cell2mat({nchanlocs.Z})];
     catch err
-        error('findNoisyChannels:NoXYZChannelLocations', ...
-            'Must provide valid channel locations');
-    end
+       error('findNoisyChannels:NoXYZChannelLocations', ...
+             'Must provide valid channel locations');
+    end         
     if isempty(locs) || size(locs, 2) ~= length(ransacChannels) ...
-            || any(isnan(locs(:)))
-        error('find_noisyChannels:EmptyChannelLocations', ...
-            'The signal chanlocs must have valid X, Y, and Z components');
+            || any(isnan(locs(:))) 
+          error('find_noisyChannels:EmptyChannelLocations', ...
+            'The signal chanlocs must have valid X, Y, and Z components');      
     end
-    % SDukic edit, Feb 2023
-    % This "clear" make the detection undeterministic
-    hlp_microcache('clear');
-    P = hlp_microcache('cleanchans', @calc_projector, locs, noisyOut.ransacSampleSize, ransacSubset);
+    P = hlp_microcache('cleanchans', @calc_projector, locs, ...
+        noisyOut.ransacSampleSize, ransacSubset);
     ransacCorrelationsT = zeros(length(locs), WRansac);
 
     % Calculate each channel's correlation to its RANSAC reconstruction for each window
@@ -331,9 +309,9 @@ noisyOut.noisyChannels.badChannelsFromLowSNR = ...
     intersect(noisy.badChannelsFromHFNoise, noisy.badChannelsFromCorrelation);
 noisyChannels = union(noisyChannels, ...
     union(union(noisy.badChannelsFromRansac, ...
-    noisy.badChannelsFromHFNoise), ...
+          noisy.badChannelsFromHFNoise), ...
     union(noisy.badChannelsFromNaNs, ...
-    noisy.badChannelsFromNoData)));
+          noisy.badChannelsFromNoData)));
 noisyOut.noisyChannels.all = noisyChannels(:)';
 noisyOut.medianMaxCorrelation =  median(noisyOut.maximumCorrelations, 2);
 
@@ -351,72 +329,60 @@ parfor k = 1:numberSamples
 end
 P = horzcat(randomSamples{:});
 
-% SDukic edit, Feb 2023
 function [permutedLocations, subsets] = getRandomSubsets(locs, subsetSize, numberSamples)
-numberChannels = size(locs, 2);
-permutedLocations = zeros(3, subsetSize, numberSamples);
-subsets = zeros(numberSamples, subsetSize);
-for k = 1:numberSamples
-    subsets(k,:) = Shuffle(numberChannels, 'index', subsetSize);
-    permutedLocations(:, :,  k) = locs(:,subsets(k,:));
+ stream = RandStream('mt19937ar', 'Seed', 435656);
+ numberChannels = size(locs, 2);
+ permutedLocations = zeros(3, subsetSize, numberSamples);
+ subsets = zeros(numberSamples, subsetSize);
+ for k = 1:numberSamples
+     subset = randsample(1:numberChannels, subsetSize, stream);
+     subsets(k, :) = subset;
+     permutedLocations(:, :,  k) = locs(:, subset);
+ end
+
+function Y = randsample(X, num, stream)
+Y = zeros(1, num);
+for k = 1:num
+    pick = round(1 + (length(X)-1).*rand(stream));
+    Y(k) = X(pick);
+    X(pick) = [];
 end
 
-% function [permutedLocations, subsets] = getRandomSubsets(locs, subsetSize, numberSamples)
-%  % stream = RandStream('mt19937ar', 'Seed', 435656);  % Original
-%  % stream = RandStream('mt19937ar','Seed','shuffle'); % Try 1
-%  stream = 1; % SDukic edit, Feb 2023, makes it undeterministic
-%
-%  numberChannels = size(locs, 2);
-%  permutedLocations = zeros(3, subsetSize, numberSamples);
-%  subsets = zeros(numberSamples, subsetSize);
-%  for k = 1:numberSamples
-%      subsets(k, :) = randsample(1:numberChannels, subsetSize, stream); % SDukic edit, Feb 2023
-%      permutedLocations(:, :,  k) = locs(:,subsets(k,:));
-%  end
-%
-% function Y = randsample(X, num, stream)
-% Y = zeros(1, num);
-% for k = 1:num
-%     pick = round(1 + (length(X)-1).*rand(stream));
-%     Y(k) = X(pick);
-%     X(pick) = [];
-% end
-
 function rX = calculateRansacWindow(XX, P, n, m, p)
-YY = sort(reshape(XX*P, n, m, p),3);
-YY = YY(:, :, round(end/2));
-rX = sum(XX.*YY)./(sqrt(sum(XX.^2)).*sqrt(sum(YY.^2)));
+    YY = sort(reshape(XX*P, n, m, p),3);
+    YY = YY(:, :, round(end/2));
+    rX = sum(XX.*YY)./(sqrt(sum(XX.^2)).*sqrt(sum(YY.^2)));
 
 function noisyOut = getNoisyStructure()
-noisyOut = struct('srate', [], ...
-    'samples', [], ...
-    'evaluationChannels', [], ...
-    'channelLocations', [], ...
-    'robustDeviationThreshold', [], ...
-    'highFrequencyNoiseThreshold', [], ...
-    'correlationWindowSeconds', [], ...
-    'correlationThreshold', [], ...
-    'badTimeThreshold', [], ...
-    'ransacSampleSize', [], ...
-    'ransacChannelFraction', [], ...
-    'ransacCorrelationThreshold', [], ...
-    'ransacUnbrokenTime', [], ...
-    'ransacWindowSeconds', [], ...
-    'noisyChannels', getBadChannelStructure(), ...
-    'ransacPerformed', true, ...
-    'channelDeviationMedian', [], ...
-    'channelDeviationSD', [], ...
-    'channelDeviations', [], ...
-    'robustChannelDeviation', [], ...
-    'noisinessMedian', [], ...
-    'noisinessSD', [], ...
-    'zscoreHFNoise', [], ...
-    'noiseLevels', [], ...
-    'maximumCorrelations', [], ...
-    'dropOuts', [], ...
-    'medianMaxCorrelation', [], ...
-    'correlationOffsets', [], ...
-    'ransacCorrelations', [], ...
-    'ransacOffsets', [], ...
-    'ransacBadWindowFraction', []);
-
+    noisyOut = struct('srate', [], ...
+        'samples', [], ...
+        'evaluationChannels', [], ...
+        'channelLocations', [], ...
+        'robustDeviationThreshold', [], ...
+        'highFrequencyNoiseThreshold', [], ...
+        'correlationWindowSeconds', [], ...
+        'correlationThreshold', [], ...
+        'badTimeThreshold', [], ...
+        'ransacSampleSize', [], ...
+        'ransacChannelFraction', [], ...
+        'ransacCorrelationThreshold', [], ...
+        'ransacUnbrokenTime', [], ...
+        'ransacWindowSeconds', [], ...
+        'noisyChannels', getBadChannelStructure(), ...
+        'ransacPerformed', true, ...
+        'channelDeviationMedian', [], ...
+        'channelDeviationSD', [], ...
+        'channelDeviations', [], ...
+        'robustChannelDeviation', [], ...
+        'noisinessMedian', [], ...
+        'noisinessSD', [], ...
+        'zscoreHFNoise', [], ...
+        'noiseLevels', [], ...
+        'maximumCorrelations', [], ...
+        'dropOuts', [], ...
+        'medianMaxCorrelation', [], ...
+        'correlationOffsets', [], ...
+        'ransacCorrelations', [], ...
+        'ransacOffsets', [], ...
+        'ransacBadWindowFraction', []);
+        

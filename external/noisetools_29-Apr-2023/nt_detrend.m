@@ -1,5 +1,5 @@
 function [y,w,r] = nt_detrend(x,order,w0,basis,thresh,niter,wsize)
-%[y,w,r]=nt_detrend(x,order,w,basis,thresh,niter,wsize) - robustly remove trend
+% [y,w,r] = nt_detrend(x,order,w,basis,thresh,niter,wsize) - robustly remove trend
 %
 %  y: detrended data
 %  w: updated weights

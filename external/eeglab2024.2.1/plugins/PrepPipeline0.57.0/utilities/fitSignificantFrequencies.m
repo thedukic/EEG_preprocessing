@@ -1,4 +1,5 @@
-function [datafit, f0Significant, FvalSig, aSig, fSig, sig]= fitSignificantFrequencies(data, f0, lineNoise)
+function [datafit, f0Significant, FvalSig, aSig, fSig, sig]= ...
+                           fitSignificantFrequencies(data, f0, lineNoise)
 % Fits significant sine waves to specified peaks in continuous data
 %
 % Usage: 
@@ -53,11 +54,11 @@ if ~isempty(fscanbw)
     end
 else
     % Remove exact lines if significant
-    for n = 1:length(f0)
+    for n = 1:length(f0);
         [~, itemp] = min(abs(f - f0(n)));
         frequencyMask(itemp) = Fval(itemp) >= sig;
         f0Significant(n) = frequencyMask(itemp);
-    end 
+    end;   
 end
  
 % Estimate the contribution of any significant f0 lines

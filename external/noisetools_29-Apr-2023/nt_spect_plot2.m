@@ -39,5 +39,5 @@ if nargout == 0 % plot
     xlabel('Hz'); ylabel('channel');
 
 else
-    varargout={pxx,f};
+    varargout = {pxx, f};
 end

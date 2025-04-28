@@ -11,13 +11,13 @@ myPaths.rnum = '1';
 
 % Define
 myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\Preprocessing';   % Pipeline
-myPaths.rootrawdata = 'D:\1_EEG_DATA';          % Input
-myPaths.rootpreproc = 'D:\3_PREPROCESSED_DATA'; % Output
+myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
+myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
 
 % Task: MMN/SART/RS/MT
-myPaths.task  = 'RS';
+myPaths.task  = 'SART';
 % Group: ALS / CONTROL / AFM / PLS/ PMA
-myPaths.group = {'ALS'};
+myPaths.group = {'CONTROL'};
 % Visit: T1/ T2 / T3 / T4 / T5
 myPaths.visit = {'T1'};
 

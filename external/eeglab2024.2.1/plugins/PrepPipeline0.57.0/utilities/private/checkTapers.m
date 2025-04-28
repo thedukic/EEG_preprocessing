@@ -31,9 +31,9 @@ if  length(tapers) == 3   % Fix taper specification
     tapers = [TW,  K];
 end
 sz = size(tapers);
-if sz(1) == 1 && sz(2) == 2
+if sz(1) == 1 && sz(2) == 2;
     [tapers, eigs] = dpss(N, tapers(1), tapers(2));
     tapers = tapers*sqrt(Fs);
-elseif N ~= sz(1)
+elseif N ~= sz(1);
     error('seems to be an error in your dpss calculation; the number of time points is different from the length of the tapers');
-end
+end;
