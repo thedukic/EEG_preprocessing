@@ -9,17 +9,21 @@ fprintf('Removing additional peaks from the spectrum\n');
 fprintf('================================\n');
 
 % First components are most dominated by these peaks
-NREMOVE = 1;
 NBLK = length(EEG);
 
+% Power spectra
 [psdspectra, freq, chaneeg] = estimate_power(EEG,'speaks');
-psdspectra = log10(mean(psdspectra,2));
-NPTS = 2 * (length(freq)-1);
 
 % Special cases
-if strcmpi(EEG(1).ALSUTRECHT.subject.id,'ALS34280') && strcmpi(EEG(1).ALSUTRECHT.subject.visit,'T1')
+if strcmpi(EEG(1).ALSUTRECHT.subject.id,'ALS34280') && strcmpi(EEG(1).ALSUTRECHT.subject.visit,'T1') && ~strcmpi(EEG(1).ALSUTRECHT.subject.task,'SART')
     % 1.65-1.7 Hz harmonics?
-    locs = [1.65 3.35 5.05 6.7 8.4 10.1 11.75 13.45 15.15]';
+    locs = [1.65 3.35 5.05 6.7 8.4 10.1 11.75 13.45 15.15];
+    KREMOVE = 1;
+
+elseif strcmpi(EEG(1).ALSUTRECHT.subject.id,'ALS34280') && strcmpi(EEG(1).ALSUTRECHT.subject.visit,'T1') && strcmpi(EEG(1).ALSUTRECHT.subject.task,'SART')
+    % 0.65-0.70 Hz and 1.65-1.7 Hz harmonics?
+    locs = [[0.65 1.35 2.00 2.65], [5.3 7.1 8.85 10.6 12.35 14.15]]';
+    KREMOVE = [1 5];
 
 elseif strcmpi(EEG(1).ALSUTRECHT.subject.id,'ALS36104') && strcmpi(EEG(1).ALSUTRECHT.subject.visit,'T1')
     % 1.35 Hz harmonics?
@@ -27,28 +31,28 @@ elseif strcmpi(EEG(1).ALSUTRECHT.subject.id,'ALS36104') && strcmpi(EEG(1).ALSUTR
     % locs = [1.35 2.7 4 4.15 5.45 6.75 6.9 8.15 12 12.5 13.5 14.9 16.3 17.6 19]';
     % locs = [1.35 2.7 6.7]';
     % locs = round((1:5)' * 1.35,2);
-    locs = [1.35 2.7 4.1 5.4 6.75]';
-    NREMOVE = 4;
+    locs = [1.35 2.7 4.1 5.4 6.75];
+    KREMOVE = 1:4;
+
+elseif strcmpi(EEG(1).ALSUTRECHT.subject.id,'P111') && strcmpi(EEG(1).ALSUTRECHT.subject.visit,'T1')
+    % 1.5 Hz harmonics?
+    locs = [4.55 6.00 7.7];
+    KREMOVE = 1;
+
+elseif strcmpi(EEG(1).ALSUTRECHT.subject.id,'P117') && strcmpi(EEG(1).ALSUTRECHT.subject.visit,'T1')
+    % 1.5 Hz harmonics?
+    locs = [3.05 4.55 6.05 7.60];
+    KREMOVE = 1;
 
 else
-    % % Identify the peaks which are always above 50 Hz
-    % freqMask = freq>50 & freq<120;
-    % 
-    % % Initial step
-    % [qrspeaks, locs, ~, proms] = findpeaks(psdspectra(freqMask),freq(freqMask));
-    % % Guided detection
-    % promFinal = quantile(proms, 0.98);
-    % [qrspeaks, locs, ~, proms] = findpeaks(psdspectra(freqMask),freq(freqMask),'MinPeakProminence',promFinal);
-    % 
-    % % Prevent removing peaks that are not actual peaks/noise
-    % if max(proms) < 0.25
-    %     locs = [];
-    % end
+    % Identify the peaks automatically - does not work well
+    % locs = find_peaks(psdspectra,freq);
     locs = [];
+    KREMOVE = NaN;
 end
 
 % Rounding errors
-locs = round(locs,2);
+locs = round(locs(:),2);
 
 % If any peaks found
 if ~isempty(locs)
@@ -56,6 +60,7 @@ if ~isempty(locs)
     fprintf('f = %1.2f Hz\n',locs);
 
     % Covariance matrices of full band (c0) and filtered at the peaks (c1)
+    NPTS = 2 * (length(freq)-1);
     data = cat(2,EEG(:).data)';
     [c0, c1] = nt_bias_fft(data, locs'/EEG(1).srate, NPTS);
 
@@ -77,7 +82,7 @@ if ~isempty(locs)
     z = nt_mmat(data,todss);
 
     % Regress them out
-    clean = nt_tsr(data,z(:,1:NREMOVE));
+    clean = nt_tsr(data,z(:,KREMOVE));
 
     % Split back the blocks
     EEG2 = make_rsmasks(EEG);
@@ -92,12 +97,19 @@ if ~isempty(locs)
     % Log / Report
     for i = 1:NBLK
         EEG(i).ALSUTRECHT.otherPeakCleaning.peaks = locs;
-        EEG(i).ALSUTRECHT.otherPeakCleaning.N     = NREMOVE;
+        EEG(i).ALSUTRECHT.otherPeakCleaning.N     = KREMOVE;
         EEG(i).ALSUTRECHT.otherPeakCleaning.p1    = p1;
     end
-    fprintf('Done! Number of components removed: %d\n',NREMOVE);
+    fprintf('Done! Number of components removed: %d\n',length(KREMOVE));
 
     % =====================================================================
+    psdspectra = log10(mean(psdspectra,2));
+
+    % tmp = nt_spect_plot2(nt_normcol(z(:,1:25)),NPTS,0,NPTS,EEG(1).srate);
+    % for i = 1:5
+    %      locs1{i} = find_peaks(tmp(:,i),freq);
+    % end
+
     % Plot
     fh = figure;
     th = tiledlayout(2,3);
@@ -138,7 +150,7 @@ if ~isempty(locs)
 
     nexttile;
     nt_spect_plot(data-clean,NPTS,0,NPTS,EEG(1).srate);
-    title(['Noise power (removed), N = ' num2str(NREMOVE)]);
+    title(['Noise power (removed), N = ' num2str(length(KREMOVE))]);
     set(gca,'ygrid','on'); pbaspect([1.618 1 1]);
 
     plotX=30; plotY=15;
@@ -153,7 +165,7 @@ else
     % Log / Report
     for i = 1:NBLK
         EEG(i).ALSUTRECHT.otherPeakCleaning.peaks = NaN;
-        EEG(i).ALSUTRECHT.otherPeakCleaning.N     = NREMOVE;
+        EEG(i).ALSUTRECHT.otherPeakCleaning.N     = KREMOVE;
         EEG(i).ALSUTRECHT.otherPeakCleaning.p1    = NaN;
     end
 end
