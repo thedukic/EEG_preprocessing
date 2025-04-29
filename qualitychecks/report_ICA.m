@@ -71,6 +71,7 @@ NICAtmp = length([ICsforRemoval; ICsMostLikelyMuscle; ICsMostLikelyChannel; ICsM
 NCOL = 8;
 NROW1 = 3;
 NICAgood = NCOL*NROW1;
+% NICAgood = min(NICAgood,NICA);
 
 NROW2 = ceil(NICAtmp/NCOL);
 
@@ -82,7 +83,7 @@ th = tiledlayout(NROW,NCOL);
 th.TileSpacing = 'tight'; th.Padding = 'tight';
 
 % 1. Plot the first N ICs
-for i = 1:NICAgood
+for i = 1:min(NICAgood,NICA)
     nexttile;
     topoplot(EEG.icawinv(:,i),EEG.chanlocs,'maplimits',max(abs(EEG.icawinv(:,i)))*[-1 1],'headrad','rim','colormap',myCmap1,'whitebk','on','style','map','shading','interp');
 

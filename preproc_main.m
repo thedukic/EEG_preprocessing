@@ -9,7 +9,7 @@
 % 2. ZipLine that exlcudes other peaks basides the line noise
 % 3. When checking leftovers in step1, interpolate the outlier channels
 % 4. Deal with files that have diff tasks in them, like MMN+SART
-% 5.
+% 5. Deal with swapped electrodes (check topoplots during blinks)
 % =========================================================================
 
 close all; fclose all; clear all; clc;
