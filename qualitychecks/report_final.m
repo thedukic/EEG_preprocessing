@@ -7,7 +7,7 @@ function report_final(myPaths,subjects)
 % =========================================================================
 
 fprintf('\n==================================================================\n');
-fprintf('Generating the final report for %s. This may take a bit...\n',myPaths.group);
+fprintf('%s: Generating the final report (may take a bit).\n',myPaths.group);
 fprintf('==================================================================\n');
 
 % =========================================================================
@@ -27,13 +27,27 @@ if exist(myPaths.reports,'dir')~=7, mkdir(myPaths.reports); end
 % =========================================================================
 N = NaN(NSUB,6);
 NCHN = length(chanlbls);
-Medianvoltageshift = NaN(NCHN,NSUB);
+Medianvoltageshift  = NaN(NCHN,NSUB);
 CorrelationMatrices = NaN(NCHN+2,NCHN+2,NSUB);
+spatialSmoothness   = NaN(2,NSUB);
+clusterSizes        = zeros(1,NSUB);
 
 fprintf('Loading %d datasets. Wait...\n',NSUB);
+numChars = 0; % To store the number of characters printed
+
 for i = 1:NSUB
+    % Erase the previous line
+    fprintf(repmat('\b', 1, numChars));
+    % Prepare the new string and print it
+    progressString = sprintf('%d/%d', i, NSUB);
+    fprintf('%s', progressString);
+    % Update the number of characters printed
+    numChars = numel(progressString);
+
+    % File names
     fileName1 = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'a.mat']);
     fileName2 = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']);
+
     if exist(fileName2,"file") == 2
         % Load
         load(fileName2,'EEG');
@@ -82,9 +96,13 @@ for i = 1:NSUB
         % Correlation matrix
         CorrelationMatrices(:,:,i) = EEG.ALSUTRECHT.chanCorr;
 
+        % Check IC quality
+        spatialSmoothnessTmp = estimate_spatialsmoothnes(EEG);
+        spatialSmoothness(:,i) = mean(spatialSmoothnessTmp(:,1:10),2);
+
     elseif exist(fileName1,"file") == 2
         % Then, load the file from preproc1
-        fprintf('%s does not have completely preprocessed %s data (only from part 1).\n', subjects{i}, myPaths.task);
+        warning('%s does not have completely preprocessed %s data (only from part 1).', subjects{i}, myPaths.task);
         load(fileName1,'EEG');
 
         % Insert manually
@@ -97,10 +115,25 @@ for i = 1:NSUB
         N(i,6) = 1; % Probably true
 
     else
-        fprintf('%s does not have any preprocessed %s data.\n', subjects{i}, myPaths.task);
+        warning('%s does not have any preprocessed %s data.', subjects{i}, myPaths.task);
         N(i,:) = NaN;
     end
+
+    if ~isnan(maskInterpElec1(1,i))
+        X = [EEG.chanlocs(:).X];
+        Y = [EEG.chanlocs(:).Y];
+        Z = [EEG.chanlocs(:).Z];
+        [clusters, cluster_sizes] = find_badelecclust(find(maskInterpElec1(:,i)), [X; Y; Z]');
+        % disp(chanlbls(find(maskInterpElec1(:,i)))); disp(cluster_sizes);
+
+        if ~isempty(cluster_sizes)
+            clusterSizes(i) = max(cluster_sizes);
+        end
+    end
 end
+
+% Print a new line at the end
+fprintf('\nFinished loading!\n');
 
 % Remove those with very bad or missing data
 % -> they have 0 trials after preproc2
@@ -109,13 +142,23 @@ maskBad     = N(:,5) == 0;
 maskMissing = isnan(N(:,1));
 maskRemove  = maskBad | maskMissing;
 
-Medianvoltageshift(:,maskRemove)    = [];
-CorrelationMatrices(:,:,maskRemove) = [];
-maskInterpElec1(:,maskRemove)       = [];
-maskInterpElec2(:,maskRemove)       = [];
+if any(maskRemove)
+    fprintf('Removing %d due to missign over very noisy data.\n', sum(maskRemove));
+    Medianvoltageshift(:,maskRemove)    = [];
+    CorrelationMatrices(:,:,maskRemove) = [];
+    maskInterpElec1(:,maskRemove)       = [];
+    maskInterpElec2(:,maskRemove)       = [];
+end
 
 % % Double-check
 % assert(~any(isnan(N(:))));
+
+% ============================
+% Colourmaps
+% ============================
+myCmap1 = brewermap(128,'RdPu');
+myCmap2 = brewermap(3,'YlOrRd');
+myCmap3 = brewermap(12,'Paired');
 
 % ============================
 % Plot
@@ -124,11 +167,6 @@ fh = figure;
 th = tiledlayout(5,2);
 th.TileSpacing = 'compact'; th.Padding = 'compact';
 title(th,[myPaths.group ', N = ' num2str(NSUB)]);
-
-% Plot 1: Which channels are usually interpoalted
-myCmap1 = brewermap(128,'RdPu');
-myCmap2 = brewermap(3,'YlOrRd');
-myCmap3 = brewermap(12,'Paired');
 
 nexttile(1);
 topoplot(mean(maskInterpElec1,2),chanlocs,'maplimits',[0 0.25],'headrad',0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','shading','interp');
@@ -218,13 +256,25 @@ VoltageShiftsTooHigh = VoltageShiftsTooHigh - UpperBound;
 VoltageShiftsTooHigh(VoltageShiftsTooHigh < 0) = 0;
 CumulativeSeverityOfAmplitudesAboveThreshold = sum(VoltageShiftsTooHigh,1)';
 
+% Find those with large votage deviations
+maskSubjHighVolt = find(CumulativeSeverityOfAmplitudesAboveThreshold > 0);
+NSUBhv = length(maskSubjHighVolt);
+Ncol = 5;
+Nrow = ceil(NSUBhv / Ncol);
+Nrow = max(1,Nrow);
+
 % ============================
 % Plot
 % ============================
-% Plot 1
-fh = figure; hold on;
-plot(LowerBound,'LineWidth',1.5,'Color','k');
-plot(UpperBound,'LineWidth',1.5,'Color','k');
+fh = figure;
+th = tiledlayout(2+Nrow,Ncol);
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+
+title(th,{['Participants with high median voltage, N = ' num2str(NSUBhv)],'Sometimes very strong alpha waves may be detected'});
+
+nexttile([2 5]); hold on;
+plot(LowerBound,'LineWidth',2,'Color','k');
+plot(UpperBound,'LineWidth',2,'Color','k');
 plot(MedianvoltageshiftwithinepochLogged,'LineWidth',1.2);
 
 ylabel('Median voltage shift (uV)');
@@ -232,45 +282,31 @@ xticks(1:128); xticklabels({chanlocs.labels}); xlim([1 128]);
 legend('LowerBound', 'UpperBound');
 set(gca,'ColorOrder',[0 0 0; 0 0 0; brewermap(NSUB,'BuGn')]);
 
-plotX=35; plotY=15;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myPaths.reports,['Summary2_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
-
-% Plot 2
-maskSubj = find(CumulativeSeverityOfAmplitudesAboveThreshold > 0);
-
-if ~isempty(maskSubj)
-    NSUBhv = length(maskSubj);
-
-    fh = figure;
-    th = tiledlayout(1,NSUBhv);
-    th.TileSpacing = 'compact'; th.Padding = 'compact';
-    title(th,{'Participants with high median voltage','Sometimes may be just very strong alpha waves'});
-
+% Plot individual topoplots
+if ~isempty(maskSubjHighVolt)
     MedianValue = prctile(MedianvoltageshiftwithinepochLogged,50,"all");
     myClim = [MedianValue, mean(UpperBound)];
     % myClim = [mean(LowerBound), mean(UpperBound)];
 
     for i = 1:NSUBhv
-        maskChan = VoltageShiftsTooHigh(:,maskSubj(i)) > 0;
+        maskChan = VoltageShiftsTooHigh(:,maskSubjHighVolt(i)) > 0;
         str = strjoin(chanlbls(maskChan),', ');
-        fprintf('%s: %s\n',subjects{maskSubj(i)},str);
+        fprintf('%s: %s\n',subjects{maskSubjHighVolt(i)},str);
 
-        % [min(MedianvoltageshiftwithinepochLogged(:,maskSubj(i))), max(MedianvoltageshiftwithinepochLogged(:,maskSubj(i)))]
+        % [min(MedianvoltageshiftwithinepochLogged(:,maskSubjHighVolt(i))), max(MedianvoltageshiftwithinepochLogged(:,maskSubjHighVolt(i)))]
         nexttile;
-        topoplot(MedianvoltageshiftwithinepochLogged(:,maskSubj(i)),chanlocs,'maplimits',myClim,'headrad', 0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','emarker',{'.',[.5 .5 .5],[],1},'emarker2',{find(maskChan),'o','k',4,1},'shading','interp');
-        title(subjects{maskSubj(i)});
+        topoplot(MedianvoltageshiftwithinepochLogged(:,maskSubjHighVolt(i)),chanlocs,'maplimits',myClim,'headrad', 0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','emarker',{'.',[.5 .5 .5],[],1},'emarker2',{find(maskChan),'o','k',4,1},'shading','interp');
+        title(subjects{maskSubjHighVolt(i)}); axis tight;
     end
 
-    plotX=25; plotY=20;
-    set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-    set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(myPaths.reports,['Summary3_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
-
 else
-    fprintf('None of the participants in this group have an unusually high voltage.\n');
+    fprintf('None of the participants in this cohort have an unusually high voltage range.\n');
 end
+
+plotX=35; plotY=25;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(myPaths.reports,['Summary2_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
 
 % OutlierParticipantsToManuallyCheck   = table(Participant_IDs', CumulativeSeverityOfAmplitudesBelowThreshold,CumulativeSeverityOfAmplitudesAboveThreshold);
 % LoggedMedianVoltageShiftAcrossEpochs = array2table(MedianvoltageshiftwithinepochLogged);
@@ -278,45 +314,71 @@ end
 % =========================================================================
 % Channel correlation
 % =========================================================================
-% CorrelationMatricesMean = mean(CorrelationMatrices,3);
-%
-% NCHN = size(CorrelationMatricesMean,1);
-% CorrelationMatricesZ = 0*CorrelationMatrices;
-%
-% for i = 1:NCHN
-%     for j = 1:NCHN
-%         CorrelationMatricesZ(i,j,:) = zscore(squeeze(CorrelationMatrices(i,j,:)));
-%     end
-% end
-%
-% maskDiff = squeeze(any(abs(CorrelationMatricesZ)>6,[1 2]));
-% maskDiff = find(maskDiff);
-%
-% maskDiff = [1; 2; 3; maskDiff]
-%
-% NSUBdv = length(maskDiff);
-%
-% fh = figure;
-% th = tiledlayout(1,NSUBdv+1);
-% th.TileSpacing = 'compact'; th.Padding = 'compact';
-%
-% for i = 1:NSUBdv+1
-%     nexttile;
-%     if i == 1
-%         imagesc(CorrelationMatricesMean);
-%         title('Group average');
-%     else
-%         imagesc(CorrelationMatricesZ(:,:,maskDiff(i-1)));
-%         title(subjects{maskDiff(i-1)});
-%     end
-%     axis square;
-% end
+% CorrelationMatrices2 = CorrelationMatrices;
+% load('C:\DATA\MATLAB\myCodes\Preprocessing\files\noisyCov.mat','noisyCov');
+% CorrelationMatrices2(:,:,1) = noisyCov; % TEST!
+[deviant_indices, fh] = check_deviantchancorr(CorrelationMatrices, subjects);
+
+plotX=35; plotY=45;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(myPaths.reports,['Summary3_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
+
+% =========================================================================
+% Check IC quality
+% =========================================================================
+fh = figure;
+th = tiledlayout(2,1);
+th.TileSpacing = 'compact'; th.Padding = 'compact';
+title(th,{'ICA quality', 'Double-check ICA plots for those below (1) or over (2) the treshold'});
+
+% Plot 1: Spatial variance, low for localised ICs
+nexttile(1); hold on; box on;
+bar(spatialSmoothness(1,:),'FaceColor',myCmap1(end/2,:)); ylim([0 35]);
+plot([0 NSUB+1],[5 5],'LineWidth',1.2,'Color',0.6*ones(1,3));
+
+ylabel('Spatial variance');
+xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
+
+% Plot 2: Laplacian variance, high for localised ICs
+nexttile(2); hold on;
+plot([0 NSUB+1],[2000 2000],'LineWidth',1.2,'Color',0.6*ones(1,3));
+bar(spatialSmoothness(2,:),'FaceColor',myCmap1(end/2,:)); ylim([0 3500]); box on;
+
+ylabel('Laplacian variance');
+xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
+
+plotX=35; plotY=15;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(myPaths.reports,['Summary4_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
+
+% =========================================================================
+% Check bad electrode clusters
+% =========================================================================
+fh = figure;
+title('Bad electrode clusters, double-check those that pass the treshold');
+
+% Plot
+hold on;
+plot([0 NSUB+1],[10 10],'LineWidth',1.2,'Color',0.6*ones(1,3));
+bar(clusterSizes,'FaceColor',myCmap1(end/2,:)); ylim([0 25]); box on;
+
+ylabel('max [Cluster size]');
+xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
+
+plotX=30; plotY=10;
+set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
+set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
+print(fh,fullfile(myPaths.reports,['Summary5_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
 
 % =========================================================================
 % Power spectra deviations in gamma-band
 % -> using stat. measusre to detect large spread across channels
 % =========================================================================
-warning('The cutoff for spectra spread is tested only for resting-state. It might not be appropriate for other tasks.');
+warning('The cutoff for spectra spread is tested only for resting-state.');
+warning('It might not be appropriate for other tasks.');
+
 cutoffKurtosis = Inf; % dont use
 cutoffCoefVar  = 1;   % RS
 cutoffPeak     = 5;
@@ -406,7 +468,7 @@ if cnt > 0
     plotX=25; plotY=25;
     set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
     set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(myPaths.reports,['Summary4_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r300');
+    print(fh,fullfile(myPaths.reports,['Summary6_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r300');
     % close(fh);
 end
 
@@ -444,7 +506,7 @@ myXlim = xlim; xlim([0 myXlim(2)]);
 plotX=20; plotY=20;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myPaths.reports,['Summary5_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r300');
+print(fh,fullfile(myPaths.reports,['Summary7_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r300');
 
 % =========================================================================
 % Power spectra deviations in gamma-band

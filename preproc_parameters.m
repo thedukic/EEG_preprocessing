@@ -146,7 +146,8 @@ cfg.trg.mmn   = {[12 17],[-0.2 0.5]};
 cfg.trg.sart1 = {[3 6],[-1.1 1.1]};
 cfg.trg.sart2 = {1,[-1.2 1]};
 cfg.trg.mt    = {[21 31 51],[-5 10]};
-cfg.trg.rs    = {2,0.5}; % length, overlap
+cfg.trg.rs1   = {2,0.5}; % length, overlap
+cfg.trg.rs2   = {5,0.8};
 
 % =========================================================================
 % Bad epoch rejection

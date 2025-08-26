@@ -11,13 +11,13 @@ myPaths.rnum = '1';
 
 % Define
 myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\Preprocessing';   % Pipeline
-myPaths.rootrawdata = 'C:\DATA\MATLAB\EEG\1_EEG_DATA';          % Input
-myPaths.rootpreproc = 'C:\DATA\MATLAB\EEG\3_PREPROCESSED_DATA'; % Output
+myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
+myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
 
 % Task: MMN/SART/RS/MT
 myPaths.task  = 'RS';
 % Group: ALS / CONTROL / AFM / PLS/ PMA
-myPaths.group = {'ALS_RS'};
+myPaths.group = {'AFM'};
 % Visit: T1/ T2 / T3 / T4 / T5
 myPaths.visit = {'T1'};
 
@@ -66,11 +66,14 @@ fprintf('%s\n', subFolderPaths{:}); fprintf('\n');
 
 % Check for duplicates to prevent overloading
 % restoredefaultpath % Maybe better not to use it altough it does the job
+% Check if there are functions with the same name
+check_duplicates(myPaths.mycodes, {'external','unused'});
 check_duplicatefunc('preproc_main.m');
 check_duplicatefunc('preproc_cleaning1.m');
 check_duplicatefunc('preproc_cleaning2.m');
 check_duplicatefunc('eeglab.m');
 check_duplicatefunc('brewermap.m');
+fprintf('\n');
 
 % Initialise the toolboxes
 eeglab; close all;

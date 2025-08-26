@@ -1,36 +1,36 @@
-# EEG_preprocessing
-EEG preprocessing pipeline v1, ALS Centre UMC Utrecht.
+# EEG Preprocessing Pipeline
+This repository contains an automated pipeline for EEG preprocessing, developed at the ALS Centre UMC Utrecht. The pipeline is designed to be user-friendly, reliable, and grounded in best practices for removing common EEG artefacts.
 
 # Get started
-1. Set your paths to MATAB's default:
+1. Set your MATLAB paths to default. This ensures the pipeline starts from a clean slate.
     ```MATLAB
-	pathtool;
+	pathtool; % Then press 'Default' and confirm.
 	```
-	-> Press 'Default' button and confirm (press 'Yes').
 
-2. Set folder paths in the preproc_folders.m script:
-	- Root path of the pipeline folder: myPaths.mycodes
-	- Root path of the raw data, which should be organised as on the bulk storage: myPaths.rootrawdata
-		- Example: /ALS/T1/ALS12345
-	- Root path to the folder where preprocessed data will be saved: myPaths.rootpreproc
+2. Update the folder paths at the top of the preproc_folders.m script
+    ```MATLAB
+	% Example paths: update these for your system
+	myPaths.mycodes = '/home/user/my-eeg-pipeline/';
+	myPaths.rootrawdata = '/media/bulk/ALS/raw_data/';
+	myPaths.rootpreproc = '/media/bulk/ALS/preprocessed_data/';
+	```
+	
+3. Ensure MATLAB compatibility. The pipeline requires MATLAB R2023b or later.
 
-3. EEGLAB preferences are automatically set (see preproc_folders.m):
+# Additional information: 
+- EEGLAB preferences are automatically set (see preproc_folders.m):
 	```MATLAB
 	pop_editoptions('option_parallel',1,'option_single',0);
 	```
 	- option_parallel = 1; % This might be problematic if you have very large files. The script turns off this option for motor data automatically.
-	- option_single   = 0; % Do not change this!
-
-4. MATLAB version R2023b or later should be used. On eariler versions the pipeline could fail.
-
-5. By default, CUDAICA is used as it is much faster than other implementations of ICA. This is possible only if an NVIDIA graphics card is available. If this is not possible, the code will automatically switch to RUNICA, which is slower.
-
+	- option_single   = 0; % Do not change this, it is very important for some methods, such as ICA, to uyse double precision.
+- By default, CUDAICA is used as it is much faster than other implementations of ICA. This is possible only if an NVIDIA graphics card is available. If this is not possible, the code will automatically switch to RUNICA, which is slower.
 
 # License
-Distributed under the GNU General Public License v3.0 License. See LICENSE.txt for more information.
+This project is licensed under the GNU General Public License v3.0. For details, see the LICENSE.txt file.
 
 # Acknowledgments
-The pipeline is based and relies on existing code:
+This pipeline is based on and relies on existing code from the following repositories:
 - [EEGLAB](https://github.com/sccn/eeglab/)
 - [RELAX](https://github.com/NeilwBailey/RELAX/)
 - [Zapline-plus](https://github.com/MariusKlug/zapline-plus/)

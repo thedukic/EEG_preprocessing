@@ -8,7 +8,7 @@ thisTask = DATA(1).ALSUTRECHT.subject.task;
 chaneeg  = find(strcmp({DATA(1).chanlocs.type},'EEG'));
 chanext  = find(strcmp({DATA(1).chanlocs.type},'EXT'));
 chanemg  = find(strcmp({DATA(1).chanlocs.type},'EMG'));
-fprintf('Using fitler settings for the %s tasks.\n',thisTask);
+fprintf('Using filter settings for the %s tasks.\n',thisTask);
 
 % Make sure that the params are not used (just in case)
 if strcmpi(thisFiltering,'highpass')
