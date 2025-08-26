@@ -21,10 +21,12 @@ if ~isempty(todolist)
         subjects = subjects(todolist);
 
     elseif iscell(todolist)
-        if sum(ismember(subjects,todolist)) == length(todolist)
+        todomask = ismember(subjects,todolist);
+        if sum(todomask) == length(todolist)
             subjects = todolist;
         else
-            error('Some of your to-do participants are not in the given folder.');
+            warning('Some of your to-do participants are not in the given folder.');
+            subjects = subjects(todomask);
         end
 
     else

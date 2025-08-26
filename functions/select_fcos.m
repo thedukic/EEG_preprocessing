@@ -3,7 +3,8 @@ function subjects = select_fcos(myPaths)
 
 % =========================================================================
 % 1. C9 all
-load('C:\DATA\MATLAB\myCodes\Preprocessing\files\subjectsFCOs.mat','subjects');
+load('E:\4_POSTPROCESSED_DATA\AFM\RS\data\MATLAB\EEGestim_sensor_powerFOOOF.mat','subjects_AFM');
+subjects = subjects_AFM;
 
 % =========================================================================
 % % 2. C9 that can be analysed
@@ -14,7 +15,7 @@ load('C:\DATA\MATLAB\myCodes\Preprocessing\files\subjectsFCOs.mat','subjects');
 % myPaths.peddata = [myPaths.excpath 'Pedigrees.xlsx'];
 % myPaths.cogdata = [myPaths.excpath 'ECAS.txt'];
 % myPaths.nexdata = [myPaths.excpath 'NE.txt'];
-% myPaths.dmdata1 = [myPaths.excpath 'Table1.txt'];
+% myPaths.demodata = [myPaths.excpath 'Table1.txt'];
 % 
 % % Add paths temporarily
 % addpath('C:\DATA\MATLAB\myCodes\RS\common');
@@ -23,7 +24,8 @@ load('C:\DATA\MATLAB\myCodes\Preprocessing\files\subjectsFCOs.mat','subjects');
 % 
 % % Find them
 % myPaths.excl = {};
-% subjects = select_participants([],'C9',myPaths);
+% myPaths.gene = 'c9orf72';
+% subjects = select_participants([],myPaths);
 % close all
 % 
 % % Remove them

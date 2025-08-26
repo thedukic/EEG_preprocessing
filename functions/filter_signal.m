@@ -115,8 +115,8 @@ else
             boundaries = [0 size(EEG(i).data,2)];
         end
 
-        NChunk = length(boundaries)-1;
-        if NChunk>1
+        NChunk = length(boundaries) - 1;
+        if NChunk > 1
             fprintf('Block %d: Boundaries detected! Each chunk (N = %d) will be filtered separately.\n',i,NChunk);
         else
             fprintf('Block %d: Boundaries not detected.\n',i);

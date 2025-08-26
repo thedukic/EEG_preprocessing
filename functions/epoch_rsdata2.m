@@ -124,7 +124,12 @@ numEC0 = sum(~maskEO);
 numEClabel = 1:numEC0;
 
 % Remove those that were removed completely due to very high noise
-maskRemoveblock = EEG.ALSUTRECHT.extremeNoise.maskRemoveblock;
+if isfield(EEG.ALSUTRECHT.extremeNoise,'maskRemoveblock')
+    maskRemoveblock = EEG.ALSUTRECHT.extremeNoise.maskRemoveblock;
+else
+    warning('Quick fix for compatibility. Rerun the dataset using both preproc1 and 2!');
+    maskRemoveblock = false(NBLK,1);
+end
 assert(length(maskEO) == length(maskRemoveblock));
 
 maskEO(maskRemoveblock) = [];

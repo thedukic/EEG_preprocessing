@@ -10,14 +10,14 @@ function preproc_cleaning2(myPaths,id)
 cfg = preproc_parameters;
 
 % Define paths and files
-subject          = [];
-subject.id       = id;
-subject.task     = myPaths.task;
-subject.group    = myPaths.group;
-subject.visit    = myPaths.visit;
-subject.preproc  = fullfile(myPaths.preproc, subject.id);
-subject.clnfile0 = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'a.mat'];
-subject.clnfile{1} = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat'];
+subject            = [];
+subject.id         = id;
+subject.task       = myPaths.task;
+subject.group      = myPaths.group;
+subject.visit      = myPaths.visit;
+subject.preproc    = fullfile(myPaths.preproc, subject.id);
+subject.clnfile0   = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'a.mat'];
+subject.clnfile{1} = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']; % TODO: make it dynamical, do not assume only epoching strategies
 subject.clnfile{2} = [subject.id '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'c.mat'];
 
 % Log time

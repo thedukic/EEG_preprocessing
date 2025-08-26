@@ -141,11 +141,11 @@ switch EEG(1).ALSUTRECHT.subject.task
 
     case {'RS','EO','EC'}
         % Epoch length
-        L0 = cfg.rs{1};         % [seconds]
+        L0 = cfg.rs1{1};         % [seconds]
         L  = L0 * EEG(1).srate; % [s] -> [samples]
 
         % Overlap
-        O  = cfg.rs{2};         % e.g. 0.5
+        O  = cfg.rs1{2};         % e.g. 0.5
 
         % Calculate step size
         step_size = L * (1-O);

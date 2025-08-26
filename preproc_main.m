@@ -2,7 +2,7 @@
 %
 % EEG preprocessing main file, ALS Centre UMC Utrecht
 % Check README.md for instructions
-% SDukic, March 2025
+% SDukic, August 2025
 %
 % TODO
 % 1. Turn off figure visibility while plotting (speed up the code)
@@ -10,6 +10,7 @@
 % 3. When checking leftovers in step1, interpolate the outlier channels
 % 4. Deal with files that have diff tasks in them, like MMN+SART
 % 5. Deal with swapped electrodes (check topoplots during blinks)
+% 6. Make individual IC templates (corr EXT-EEG after min. cleaning)
 % =========================================================================
 
 close all; fclose all; clear all; clc;
@@ -37,7 +38,7 @@ for i = 1:length(myPaths.group)
                 fprintf('\n');
 
                 % Cleaning steps
-                preproc_cleaning1(myPathsTmp,subjects{k});
+                % preproc_cleaning1(myPathsTmp,subjects{k});
                 preproc_cleaning2(myPathsTmp,subjects{k});
             end
 
