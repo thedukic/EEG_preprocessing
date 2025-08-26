@@ -17,14 +17,14 @@ function cfg = preproc_parameters
 % =========================================================================
 % IIR Butterworth filters
 % =========================================================================
-% The filters are twopass, so the filtering will be done twice
-% using only the half of the defined order that you define below
+% The filters are twopass (i.e., the filtering will be done twice)
+% Each pass will be done using the half of the below defined order
 %
 % Input: [cutoff, order]
 % hp: highpass
 % lp: lowpass
 
-% MMN/SART (ERP) filter
+% ERP (MMN/SART) filter
 cfg.flt.erp.hp = [0.3, 4];
 cfg.flt.erp.lp = [60, 4];
 
