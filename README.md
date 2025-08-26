@@ -15,7 +15,7 @@ This repository contains an automated pipeline for EEG preprocessing, developed 
 	myPaths.rootpreproc = '/data/EEG/ALS/preprocessed_data/';
 	```
 	
-3. Ensure MATLAB compatibility. The pipeline requires MATLAB R2023b or later.
+3. Ensure MATLAB compatibility. The pipeline is tested on MATLAB R2023b and R2024b.
 
 # Additional information: 
 - The pipeline is optimised for 128-channel EEG data from [BioSemi systems](https://www.biosemi.com/).
