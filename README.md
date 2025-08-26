@@ -31,7 +31,7 @@ This repository contains an automated pipeline for EEG preprocessing, developed 
 This project is licensed under the GNU General Public License v3.0. For details, see the LICENSE.txt file.
 
 # Acknowledgments
-This pipeline relies on or is expired by existing code from the following repositories:
+This pipeline draws inspiration from and builds upon existing knowledge from the following repositories:
 - [EEGLAB](https://github.com/sccn/eeglab/)
 - [Zapline-plus](https://github.com/MariusKlug/zapline-plus/)
 - [Noise Tools](http://audition.ens.fr/adc/NoiseTools/)
