@@ -18,7 +18,7 @@ This repository contains an automated pipeline for EEG preprocessing, developed 
 3. Ensure MATLAB compatibility. The pipeline requires MATLAB R2023b or later.
 
 # Additional information: 
-- The pipeline is optimized for 128-channel EEG data from [BioSemi systems](https://www.biosemi.com/).
+- The pipeline is optimised for 128-channel EEG data from [BioSemi systems](https://www.biosemi.com/).
 - EEGLAB preferences are automatically set (see preproc_folders.m):
 	```MATLAB
 	pop_editoptions('option_parallel',1,'option_single',0);
