@@ -74,9 +74,8 @@ EEG = remove_flatelectrodes(EEG,cfg.bch);
 % Remove extremely bad epochs
 [EEG, flagExclude] = remove_extremeperiods2(EEG);
 
-if flagExclude
-    warning([subject.id ' is has very noisy data. Skipping...']); return;
-end
+% Check if it is worth continuing 
+if flagExclude, warning([subject.id ' has very noisy data. Skipping...']); return; end
 
 % Keep event info
 EEG = extract_eventinfo(EEG,cfg.trg);
@@ -113,12 +112,12 @@ EEG = merge_eeglabblocks(EEG);
 % Reduce sparse artifacts
 EEG = reduce_sparseartifacts(EEG);
 
-% % Check if EC has eye blinks; Currently too sensitive?
+% % TODO: Check if EC-RS has eye blinks - Currently too sensitive
 % if strcmpi(myPaths.task,'RS') || strcmpi(myPaths.task,'EC')
 %     EEG = check_eyesclosedeyeblinks(EEG);
 % end
 
-% % Clean EMG
+% % TODO: Clean EMG
 % if strcmpi(myPaths.task,'MT')
 %     EEG = clean_emgdata(EEG);
 % end
@@ -139,7 +138,7 @@ EEG = remove_noisyelectrodes(EEG,cfg.bch);
 % Log/report bad channel
 EEG = report_badelectrodes(EEG);
 
-% % Remove extremely bad epochs
+% % Remove extremely bad epochs - already done
 % if ~strcmpi(myPaths.task,'MT')
 %     EEG = remove_extremeperiods(EEG);
 % else
@@ -149,6 +148,8 @@ EEG = report_badelectrodes(EEG);
 % Reduce artifacts
 if cfg.mwf.do
     EEG = reduce_artifacts(EEG,cfg.bch);
+else
+    fprintf('MWF cleaning: Skipped! Turned off by the user.');
 end
 
 % Separate EXT channels before ICA
