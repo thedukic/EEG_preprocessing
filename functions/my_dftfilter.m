@@ -1,4 +1,4 @@
-function filt = my_dftfilter(dat,Fs,Fl,dftreplace,dftbandwidth,dftneighbourwidth)
+function filt = my_dftfilter(dat, Fs, Fl, dftreplace, dftbandwidth, dftneighbourwidth)
 
 % FT_PREPROC_DFTFILTER reduces power line noise (50 or 60Hz) using a
 % discrete Fourier transform (DFT) filter, or spectrum interpolation.
@@ -142,7 +142,8 @@ if (~strcmp(dftreplace, 'zero') && numel(n)>1) || ~all(n==n(1))
     % the different frequencies require different numbers of samples, apply the filters sequentially
     filt = dat;
     for i = 1:numel(Fl)
-        filt = my_dftfilter(filt, Fs, Fl(i), 'dftreplace', dftreplace, 'dftbandwidth', dftbandwidth(i), 'dftneighbourwidth', dftneighbourwidth(i)); % enumerate all options
+        % filt = my_dftfilter(filt, Fs, Fl(i), 'dftreplace', dftreplace, 'dftbandwidth', dftbandwidth(i), 'dftneighbourwidth', dftneighbourwidth(i)); % enumerate all options
+        filt = my_dftfilter(filt, Fs, Fl(i), dftreplace, dftbandwidth(i), dftneighbourwidth(i)); % enumerate all options
     end
     return
 end

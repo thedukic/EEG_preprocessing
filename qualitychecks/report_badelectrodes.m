@@ -1,79 +1,103 @@
-function EEG = report_badelectrodes(EEG)
+function EEG = report_badelectrodes(EEG, cfg)
 
 fprintf('\n================================\n');
-fprintf('Generating bad channel reports\n');
+fprintf('Generating bad electrode reports\n');
 fprintf('================================\n');
 
-% First check if ICA for wobble/pop detection was done
-if ~isfield(EEG.ALSUTRECHT.badchaninfo,'wica')
-    flagwICAdone = false;
-    % EEG.ALSUTRECHT.badchaninfo.wica.fixed = NaN;
-    % EEG.ALSUTRECHT.badchaninfo.wica.ics   = NaN;
-    % EEG.ALSUTRECHT.badchaninfo.wica.pvec  = NaN;
-    NPLT = 3;
-else
-    flagwICAdone = true;
-    NPLT = 4;
-end
+% Merge all bad electrodes
+EEG.ALSUTRECHT.badchaninfo.badElectrodes = unique([ ...
+    EEG.ALSUTRECHT.badchaninfo.offsets.electrodes, ...
+    EEG.ALSUTRECHT.badchaninfo.flat.electrodes, ...
+    EEG.ALSUTRECHT.badchaninfo.prep.electrodes, ...
+    EEG.ALSUTRECHT.badchaninfo.slope.electrodes]);
 
-% Log
-EEG.ALSUTRECHT.badchaninfo.badElectrodes = unique([EEG.ALSUTRECHT.badchaninfo.flatElectrodes, EEG.ALSUTRECHT.badchaninfo.PREPElectrodes, EEG.ALSUTRECHT.badchaninfo.EMGSlope]);
-
+% -------------------------------------------------------------------------
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'Bad  electrodes\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
+
+% Offsets
+str = strjoin(EEG.ALSUTRECHT.badchaninfo.offsets.electrodes,', ');
+fprintf(EEG.ALSUTRECHT.subject.fid, 'High offset electrodes: %s\n', str);
+
 % Flat
-str = strjoin(EEG.ALSUTRECHT.badchaninfo.flatElectrodes,', ');
-fprintf(EEG.ALSUTRECHT.subject.fid,'Flat electrodes: %s\n', str);
-% wICA
-if flagwICAdone
-    str = strjoin(EEG.ALSUTRECHT.badchaninfo.wica.fixed,', ');
-    fprintf(EEG.ALSUTRECHT.subject.fid,'wICA electrodes: %s\n', str);
-    str = arrayfun(@(x) num2str(x,'%1.1f'),EEG.ALSUTRECHT.badchaninfo.wica.pvec(EEG.ALSUTRECHT.badchaninfo.wica.ics),'uni',0);
-    str = strjoin(str,', ');
-    fprintf(EEG.ALSUTRECHT.subject.fid,'wICA P-values:   %s\n', str);
-end
+str = strjoin(EEG.ALSUTRECHT.badchaninfo.flat.electrodes,', ');
+fprintf(EEG.ALSUTRECHT.subject.fid, 'Flat electrodes: %s\n', str);
+
 % PREP
-str = strjoin(EEG.ALSUTRECHT.badchaninfo.PREPElectrodes,', ');
-fprintf(EEG.ALSUTRECHT.subject.fid,'PREP electrodes: %s\n', str);
+str = strjoin(EEG.ALSUTRECHT.badchaninfo.prep.electrodes,', ');
+fprintf(EEG.ALSUTRECHT.subject.fid, 'PREP electrodes: %s\n', str);
 
+% EMG
+str = strjoin(EEG.ALSUTRECHT.badchaninfo.slope.electrodes,', ');
+fprintf(EEG.ALSUTRECHT.subject.fid, 'Shallow slope electrodes: %s\n', str);
+
+% -------------------------------------------------------------------------
 % Plot
-fh = figure;
-th = tiledlayout(1,NPLT);
-th.TileSpacing = 'compact'; th.Padding = 'compact';
+fh = figure('Visible', cfg.figure.visible);
+th = tiledlayout(1, 4, 'TileSpacing', 'compact', 'Padding', 'compact');
 
-% EEG electrode colours/labels
-myCmap = brewermap(128,'RdPu');
-chanlabseeg = {EEG.allchans(strcmp({EEG.allchans.type},'EEG')).labels};
-chanlocseeg = EEG.allchans(strcmp({EEG.allchans.type},'EEG'));
+% Define
+myCmap = brewermap(128, 'RdPu');
+channel_mask   = strcmp({EEG.allchans.type}, 'EEG');
+channel_labels = {EEG.allchans(channel_mask).labels};
+channel_locs   = EEG.allchans(channel_mask);
+assert(length(channel_labels) == 128);
 
-mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.flatElectrodes));
+% Create a uniform data vector matching the number of channels (all zeros)
+% This ensures the map plots in a single baseline color from your colormap
+num_chans = length(channel_locs);
+bg_data = zeros(num_chans, 1);
+
+% Define custom marker styling:
+% Default electrodes ('emarker'): light grey small dots
+% Highlighted electrodes ('emarker2'): black bold open circles (or 'x', '*', etc.)
+primary_marker   = {'.', [0.7 0.7 0.7], 6, 1};
+secondary_marker = {'o', 'k', 6, 2};
+
+% --- 1. Offset ---
+mask = double(ismember(channel_labels, EEG.ALSUTRECHT.badchaninfo.offsets.electrodes));
+bad_indices = find(mask); % Extract the channel indices for emarker2
+
 nexttile;
-topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
+topoplot_new(bg_data, channel_locs, 'maplimits', [0 1], 'headrad', 'rim', ...
+    'colormap', myCmap, 'whitebk', 'on', 'electrodes', 'on', 'style', 'map', 'shading', 'flat', ...
+    'emarker', primary_marker, 'emarker2', {bad_indices, secondary_marker{:}});
+title(['Offset, N = ' num2str(sum(mask))]); axis tight;
+
+% --- 2. Flat ---
+mask = double(ismember(channel_labels, EEG.ALSUTRECHT.badchaninfo.flat.electrodes));
+bad_indices = find(mask);
+
+nexttile;
+topoplot_new(bg_data, channel_locs, 'maplimits', [0 1], 'headrad', 'rim', ...
+    'colormap', myCmap, 'whitebk', 'on', 'electrodes', 'on', 'style', 'map', 'shading', 'flat', ...
+    'emarker', primary_marker, 'emarker2', {bad_indices, secondary_marker{:}});
 title(['Flat, N = ' num2str(sum(mask))]); axis tight;
 
-if flagwICAdone
-    mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.wica.fixed));
-    nexttile;
-    topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
-    title(['wICA, N = ' num2str(sum(mask))]); axis tight;
-end
+% --- 3. PREP ---
+mask = double(ismember(channel_labels, EEG.ALSUTRECHT.badchaninfo.prep.electrodes));
+bad_indices = find(mask);
 
-mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.PREPElectrodes));
 nexttile;
-topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
+topoplot_new(bg_data, channel_locs, 'maplimits', [0 1], 'headrad', 'rim', ...
+    'colormap', myCmap, 'whitebk', 'on', 'electrodes', 'on', 'style', 'map', 'shading', 'flat', ...
+    'emarker', primary_marker, 'emarker2', {bad_indices, secondary_marker{:}});
 title(['PREP, N = ' num2str(sum(mask))]); axis tight;
 
-mask = double(ismember(chanlabseeg,EEG.ALSUTRECHT.badchaninfo.EMGSlope));
+% --- 4. EMG Slope ---
+mask = double(ismember(channel_labels, EEG.ALSUTRECHT.badchaninfo.slope.electrodes));
+bad_indices = find(mask);
+
 nexttile;
-topoplot(mask,chanlocseeg,'maplimits',[0 1],'headrad','rim','colormap',myCmap,'whitebk','on','electrodes','on','style','map','shading','interp');
-title(['EMG Slope, N = ' num2str(sum(mask))]); axis tight;
+topoplot_new(bg_data, channel_locs, 'maplimits', [0 1], 'headrad', 'rim', ...
+    'colormap', myCmap, 'whitebk', 'on', 'electrodes', 'on', 'style', 'map', 'shading', 'flat', ...
+    'emarker', primary_marker, 'emarker2', {bad_indices, secondary_marker{:}});
+title(['Slope, N = ' num2str(sum(mask))]); axis tight;
 
 % Save
-plotX=15; plotY=8;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(EEG.ALSUTRECHT.subject.preproc,[EEG.ALSUTRECHT.subject.id '_badelectrodes']),'-dtiff','-r300');
-close(fh);
+save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_detected_badelectrodes'], [24 7]);
+
+fprintf('Done!\n');
 
 end

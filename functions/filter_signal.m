@@ -1,4 +1,4 @@
-function EEG = filter_signal(EEG,lp,hp,chansfilt,type)
+function EEG = filter_signal(EEG, lp, hp, chansfilt, type)
 % FILTER_SIGNAL: Filters EEG data (EEGLAB or FieldTrip format).
 % Arguments:
 %   EEG       - EEG data structure (EEGLAB/FieldTrip format).
@@ -40,17 +40,17 @@ end
 assert(ismember(lower(type), {'fieldtrip', 'eeglab'}), 'Unsupported data type.');
 
 % Define variables
-if strcmpi(type,'fieldtrip')
+if strcmpi(type, 'fieldtrip')
     NTRL = length(EEG.trial);
     FNYQ = EEG.fsample / 2;
     NCHN = size(EEG.trial{1},1);
-    warning('Filtering ALL given signals across %d trials...\n',NTRL);
+    warning('Filtering ALL given signals across %d trials...\n', NTRL);
 
-elseif  strcmpi(type,'eeglab')
+elseif  strcmpi(type, 'eeglab')
     NBLK = length(EEG);
     FNYQ = EEG(1).srate / 2;
     NCHN = length(chansfilt);
-    fprintf('Filtering signals across %d blocks...\n',NBLK);
+    fprintf('Detected: %d block(s)...\n', NBLK);
 end
 
 % Calculate filter coefficients
@@ -88,16 +88,16 @@ if  strcmpi(type,'fieldtrip')
         % Bandpass
         % First lowpass and then highpass
         if all(typeFilter)
-            EEG.trial{i} = filtfilt(bLow,aLow, EEG.trial{i}');
-            EEG.trial{i} = filtfilt(bHigh,aHigh, EEG.trial{i})';
+            EEG.trial{i} = filtfilt(bLow, aLow, EEG.trial{i}');
+            EEG.trial{i} = filtfilt(bHigh, aHigh, EEG.trial{i})';
         end
         % Lowpass
         if typeFilter(1) && ~typeFilter(2)
-            EEG.trial{i} = filtfilt(bLow,aLow, EEG.trial{i}')';
+            EEG.trial{i} = filtfilt(bLow, aLow, EEG.trial{i}')';
         end
         % Highpass
         if ~typeFilter(1) && typeFilter(2)
-            EEG.trial{i} = filtfilt(bHigh,aHigh, EEG.trial{i}')';
+            EEG.trial{i} = filtfilt(bHigh, aHigh, EEG.trial{i}')';
         end
 
         assert(size(EEG.trial{i},1) == NCHN);
@@ -136,16 +136,16 @@ else
                 % Bandpass
                 if all(typeFilter)
                     % First lowpass and then highpass
-                    dataTmp = filtfilt(bLow,aLow, dataTmp')';
-                    dataTmp = filtfilt(bHigh,aHigh, dataTmp')';
+                    dataTmp = filtfilt(bLow, aLow, dataTmp')';
+                    dataTmp = filtfilt(bHigh, aHigh, dataTmp')';
                 end
                 % Lowpass
                 if typeFilter(1) && ~typeFilter(2)
-                    dataTmp = filtfilt(bLow,aLow, dataTmp')';
+                    dataTmp = filtfilt(bLow, aLow, dataTmp')';
                 end
                 % Highpass
                 if ~typeFilter(1) && typeFilter(2)
-                    dataTmp = filtfilt(bHigh,aHigh, dataTmp')';
+                    dataTmp = filtfilt(bHigh, aHigh, dataTmp')';
                 end
 
                 % Place back

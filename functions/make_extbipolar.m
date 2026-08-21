@@ -1,135 +1,199 @@
-function EEG = make_extbipolar(EEG)
-% Put all external electrodes as type EXT?
+function DATA = make_extbipolar(DATA)
+% MAKE_EXTBIPOLAR
+% Converts paired external monopolar electrodes (ECG, VEOG, HEOG, EMG)
+% into bipolar channels and removes redundant reference leads.
+%
+% Strictly requires VEOG (VEOGS/VEOGI) and HEOG (HEOGL/HEOGR).
 
-bipolarEMG = false;
+do_bipolar_emg = false; % Set to true to derive bipolar EMG pairs
 
-fprintf('\n================================\n');
-fprintf('Making EOG/ECG channels bipolar\n');
-fprintf('================================\n');
+fprintf('\n==================================================\n');
+fprintf('Making External & EMG channels bipolar\n');
+fprintf('==================================================\n');
 
-if strcmpi(EEG(1).ALSUTRECHT.subject.task,'MT')
-    if bipolarEMG
-        fprintf('Making EMG channels bipolar.\n');
-    else
-        fprintf('Keeping EMG channels monopolar.\n');
-    end
-end
+% if do_bipolar_emg
+%     fprintf('Mode: EMG -> Bipolar derivation\n');
+% else
+%     fprintf('Mode: EMG -> Retain monopolar\n');
+% end
 
-NBLK = length(EEG);
-for i = 1:NBLK
-    % -----------------------------------------
-    % Bipolar ECG (or monopolar EL)
-    % Early dataset had earlobes instead of ECG
-    % -----------------------------------------
-    eleclabels = {EEG(i).chanlocs.labels};
-    m1 = ismember(eleclabels,'ECGL');
-    m2 = ismember(eleclabels,'ECGR');
+num_block = length(DATA);
 
-    if any(m1) && any(m2)
-        % Bipolar ECG
-        EEG(i).chanlocs(m1).labels = 'ECG';
-        % EEG(i).chanlocs(m1).type   = 'ECG';
-
-        EEG(i).data(m1,:)          = EEG(i).data(m1,:)-EEG(i).data(m2,:);
-        EEG(i).data(m2,:)          = [];
-        EEG(i).chanlocs(m2)        = [];
-    else
-        % Monopolar earlobes
-        % m1 = ismember(eleclabels,'LEL');
-        % m2 = ismember(eleclabels,'REL');
-        % EEG(i).chanlocs(m1).type   = 'Earlobe';
-        % EEG(i).chanlocs(m2).type   = 'Earlobe';
+for i_block = 1:num_block
+    if num_block > 1
+        fprintf('\n--- Block %d of %d ---\n', i_block, num_block);
     end
 
-    % -----------------------------------------
-    % Bipolar VEOG
-    % -----------------------------------------
-    eleclabels = {EEG(i).chanlocs.labels};
-    m1 = ismember(eleclabels,'VEOGS');
-    m2 = ismember(eleclabels,'VEOGI');
-    assert(sum(m1|m2) == 2);
+    eleclabels = {DATA(i_block).chanlocs.labels};
+    nbchan_old = DATA(i_block).nbchan;
+    assert(length(eleclabels) == nbchan_old);
 
-    EEG(i).chanlocs(m1).labels = 'VEOG';
-    % EEG(i).chanlocs(m1).type   = 'EOG';
-    EEG(i).data(m1,:)          = EEG(i).data(m1,:)-EEG(i).data(m2,:);
-    EEG(i).data(m2,:)          = [];
-    EEG(i).chanlocs(m2)        = [];
+    % ---------------------------------------------------------------------
+    % 1. Bipolar ECG Derivation (Dedicated ECGL/ECGR or Earlobe LEL/REL)
+    % ---------------------------------------------------------------------
+    eleclabels = {DATA(i_block).chanlocs.labels};
 
-    % -----------------------------------------
-    % Bipolar HEOG
-    % -----------------------------------------
-    eleclabels = {EEG(i).chanlocs.labels};
-    m1 = ismember(eleclabels,'HEOGL');
-    m2 = ismember(eleclabels,'HEOGR');
-    assert(sum(m1|m2) == 2);
+    idx_ecgl = find(strcmpi(eleclabels, 'ECGL'), 1);
+    idx_ecgr = find(strcmpi(eleclabels, 'ECGR'), 1);
+    idx_lel  = find(strcmpi(eleclabels, 'LEL'), 1);
+    idx_rel  = find(strcmpi(eleclabels, 'REL'), 1);
 
-    EEG(i).chanlocs(m1).labels = 'HEOG';
-    % EEG(i).chanlocs(m1).type   = 'EOG';
-    EEG(i).data(m1,:)          = EEG(i).data(m1,:)-EEG(i).data(m2,:);
-    EEG(i).data(m2,:)          = [];
-    EEG(i).chanlocs(m2)        = [];
+    if ~isempty(idx_ecgl) && ~isempty(idx_ecgr)
+        % Dedicated bipolar ECG
+        DATA(i_block).data(idx_ecgl, :, :) = DATA(i_block).data(idx_ecgl, :, :) - DATA(i_block).data(idx_ecgr, :, :);
+        DATA(i_block).chanlocs(idx_ecgl).labels = 'ECG';
+        DATA(i_block).chanlocs(idx_ecgl).type   = 'EXT';
 
-    % % -----------------------------------------
-    % % Bipolar mastoid
-    % % -----------------------------------------
-    % eleclabels = {EEG(i).chanlocs.labels};
-    % m1 = ismember(eleclabels,'LM');
-    % m2 = ismember(eleclabels,'RM');
-    % EEG(i).chanlocs(m1).labels = 'M';
-    % EEG(i).chanlocs(m1).type   = 'M';
-    % EEG(i).data(m1,:)          = EEG(i).data(m1,:)-EEG(i).data(m2,:);
-    % EEG(i).data(m2,:)          = [];
-    % EEG(i).chanlocs(m2)        = [];
+        % Remove redundant reference channel
+        DATA(i_block).data(idx_ecgr, :, :) = [];
+        DATA(i_block).chanlocs(idx_ecgr)   = [];
+        eleclabels = {DATA(i_block).chanlocs.labels};
 
-    % % -----------------------------------------
-    % % Left/Right mastoid
-    % % -----------------------------------------
-    % eleclabels = {EEG(i).chanlocs.labels};
-    % m1 = ismember(eleclabels,'LM');
-    % m2 = ismember(eleclabels,'RM');
-    % if any(m1)
-    %     EEG(i).chanlocs(m1).type   = 'Mastoid';
-    % end
-    % if any(m2)
-    %     EEG(i).chanlocs(m2).type   = 'Mastoid';
-    % end
+        % Metadata logging
+        DATA(i_block).ALSUTRECHT.subject.ecg = 'recorded';
 
-    % -----------------------------------------
-    % EMG
-    % -----------------------------------------
-    if strcmpi(EEG(1).ALSUTRECHT.subject.task,'MT')
-        emglabels = {'APB','FDI','FPB','EPB','EDC','FDS'};
-        emgindx   = find(ismember({EEG(i).chanlocs.type},'EMG'));
-        if bipolarEMG
-            cnt = 0;
-            for j = emgindx(1):2:emgindx(end-1)
-                cnt = cnt+1;
-                EEG(i).data(j,:,:)           = EEG(i).data(j,:,:)-EEG(i).data(j+1,:,:);
-                EEG(i).chanlocs(j).labels    = emglabels{cnt};
-            end
+        fprintf('  [ECG]  True bipolar ECG derived (ECGL - ECGR -> ECG).\n');
 
-            emgrmv = emgindx(2):2:emgindx(end);
-            EEG(i).data(emgrmv,:)   = [];
-            EEG(i).chanlocs(emgrmv) = [];
+    elseif ~isempty(idx_lel) && ~isempty(idx_rel)
+        % Extract 2-channel earlobe data across all continuous samples
+        lel_data = squeeze(DATA(i_block).data(idx_lel, :, :));
+        rel_data = squeeze(DATA(i_block).data(idx_rel, :, :));
+
+        % Flatten if data is epoched [samples x 2]
+        ear_mat = [lel_data(:), rel_data(:)];
+
+        % Extract 1st Principal Component (maximises shared cardiac variance)
+        [~, score] = pca(ear_mat);
+        ecg_approx = score(:, 1);
+
+        % Enforce positive R-peak polarity (R-peaks generate positive skewness)
+        if skewness(ecg_approx) < 0
+            ecg_approx = -ecg_approx;
+        end
+
+        % Reshape back to original dimensions
+        DATA(i_block).data(idx_lel, :, :) = reshape(ecg_approx, size(DATA(i_block).data(idx_lel, :, :)));
+        DATA(i_block).chanlocs(idx_lel).labels = 'ECG';
+        DATA(i_block).chanlocs(idx_lel).type   = 'EXT';
+
+        % Remove redundant reference channel
+        DATA(i_block).data(idx_rel, :, :) = [];
+        DATA(i_block).chanlocs(idx_rel)   = [];
+        eleclabels = {DATA(i_block).chanlocs.labels};
+
+        % Metadata logging
+        DATA(i_block).ALSUTRECHT.subject.ecg = 'approximated';
+
+        fprintf('  [ECG]  Approximated bipolar ECG derived from earlobes (LEL - REL -> ECG).\n');
+
+    else
+        error('Something went wrong.');
+    end
+
+    % ---------------------------------------------------------------------
+    % 2. Bipolar VEOG (Mandatory: VEOGS - VEOGI)
+    % ---------------------------------------------------------------------
+    m1_veog = find(strcmpi(eleclabels, 'VEOGS'));
+    m2_veog = find(strcmpi(eleclabels, 'VEOGI'));
+
+    if isempty(m1_veog) || isempty(m2_veog)
+        error('Block %d: Missing mandatory VEOG channels. Found VEOGS: %d, VEOGI: %d', ...
+            i_block, ~isempty(m1_veog), ~isempty(m2_veog));
+    end
+
+    DATA(i_block).data(m1_veog, :, :) = DATA(i_block).data(m1_veog, :, :) - DATA(i_block).data(m2_veog, :, :);
+    DATA(i_block).chanlocs(m1_veog).labels = 'VEOG';
+    DATA(i_block).chanlocs(m1_veog).type   = 'EXT';
+
+    DATA(i_block).data(m2_veog, :, :) = [];
+    DATA(i_block).chanlocs(m2_veog)   = [];
+
+    fprintf('  [VEOG] Derived bipolar VEOG (VEOGS - VEOGI -> VEOG).\n');
+
+    % Refresh label list after deletion
+    eleclabels = {DATA(i_block).chanlocs.labels};
+
+    % ---------------------------------------------------------------------
+    % 3. Bipolar HEOG (Mandatory: HEOGL - HEOGR)
+    % ---------------------------------------------------------------------
+    m1_heog = find(strcmpi(eleclabels, 'HEOGL'));
+    m2_heog = find(strcmpi(eleclabels, 'HEOGR'));
+
+    if isempty(m1_heog) || isempty(m2_heog)
+        error('Block %d: Missing mandatory HEOG channels. Found HEOGL: %d, HEOGR: %d', ...
+            i_block, ~isempty(m1_heog), ~isempty(m2_heog));
+    end
+
+    DATA(i_block).data(m1_heog, :, :) = DATA(i_block).data(m1_heog, :, :) - DATA(i_block).data(m2_heog, :, :);
+    DATA(i_block).chanlocs(m1_heog).labels = 'HEOG';
+    DATA(i_block).chanlocs(m1_heog).type   = 'EXT';
+
+    DATA(i_block).data(m2_heog, :, :) = [];
+    DATA(i_block).chanlocs(m2_heog)   = [];
+
+    fprintf('  [HEOG] Derived bipolar HEOG (HEOGL - HEOGR -> HEOG).\n');
+
+    % ---------------------------------------------------------------------
+    % 4. EMG Channel Handling
+    % ---------------------------------------------------------------------
+    labels = {DATA(i_block).chanlocs.labels};
+
+    % Safe extraction of types (handles empty type fields without dimension mismatch)
+    types = cell(size(labels));
+    for ch = 1:length(DATA(i_block).chanlocs)
+        if isfield(DATA(i_block).chanlocs(ch), 'type') && ~isempty(DATA(i_block).chanlocs(ch).type)
+            types{ch} = char(DATA(i_block).chanlocs(ch).type);
         else
-            cnt = 0;
-            for j = emgindx(1):2:emgindx(end-1)
-                cnt = cnt+1;
-                EEG(i).chanlocs(j).labels   = emglabels{cnt};
-                EEG(i).chanlocs(j+1).labels = emglabels{cnt};
+            types{ch} = '';
+        end
+    end
+
+    % Extract unique muscle base names (e.g. 'APB1' & 'APB2' -> 'APB')
+    emg_mask   = strcmpi(types, 'EMG');
+    emg_labels = labels(emg_mask);
+    muscles    = unique(regexprep(emg_labels, '\d+$', ''), 'stable');
+
+    if isempty(muscles)
+        fprintf('  [EMG]  No EMG channels detected. Skipped.\n');
+    elseif ~do_bipolar_emg
+        fprintf('  [EMG]  Detected %d monopolar EMG channels (%d muscles: %s). Retained monopolar.\n', ...
+            length(emg_labels), length(muscles), strjoin(muscles, ', '));
+    else
+        fprintf('  [EMG]  Deriving bipolar EMG for %d muscles:\n', length(muscles));
+        for m = 1:length(muscles)
+            m_name = muscles{m};
+            idx1   = find(strcmpi(labels, [m_name, '1']));
+            idx2   = find(strcmpi(labels, [m_name, '2']));
+
+            if ~isempty(idx1) && ~isempty(idx2)
+                % Compute bipolar signal (Lead 1 - Lead 2)
+                DATA(i_block).data(idx1, :, :) = DATA(i_block).data(idx1, :, :) - DATA(i_block).data(idx2, :, :);
+                DATA(i_block).chanlocs(idx1).labels = m_name;
+
+                % Drop the redundant reference lead
+                DATA(i_block).data(idx2, :, :) = [];
+                DATA(i_block).chanlocs(idx2)   = [];
+
+                fprintf('         Derived %s (%s1 - %s2). Removed %s2.\n', m_name, m_name, m_name, m_name);
+
+                % Refresh labels after deletion for subsequent iterations
+                labels = {DATA(i_block).chanlocs.labels};
+            else
+                fprintf('         Warning: Incomplete pair for %s (Lead 1: %d, Lead 2: %d). Skipped.\n', ...
+                    m_name, ~isempty(idx1), ~isempty(idx2));
             end
         end
     end
 
-    % -----------------------------------------
-    % Finalise
-    % -----------------------------------------
-    EEG(i).nbchan = size(EEG(i).data,1);
-    EEG(i) = eeg_checkset(EEG(i),'loaddata');
+    % ---------------------------------------------------------------------
+    % 5. Finalise and Validate Structure
+    % ---------------------------------------------------------------------
+    DATA(i_block).nbchan = size(DATA(i_block).data, 1);
+    DATA(i_block) = eeg_checkset(DATA(i_block));
 
-    % assert(size(EEG(i).data,1) == EEG(i).nbchan);
+    fprintf('  [INFO] Total remaining channels: %d/%d\n', DATA(i_block).nbchan, nbchan_old);
 end
 
-fprintf('Done!\n');
+fprintf('\nDone!\n');
 
 end

@@ -1,14 +1,12 @@
 function rank2 = get_rank(data)
-%
 % Input data (Nchannels x Ntimepoints) or (Nchannels x Ntimepoints x Ntrials)
 % EEGLAB may force data to be single
-%
 
 data = double(data);
 
 % Reshape if data is cut into trials
-if size(data,3)>1
-    data = reshape(data,size(data,1),[]);
+if size(data, 3) > 1
+    data = reshape(data, size(data,1), []);
 end
 
 % MATLAB function

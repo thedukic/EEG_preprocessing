@@ -1,9 +1,13 @@
-function data = do_filteringcore(b,a,data,eventStruct,srate)
+function data = do_filteringcore(b, a, data, eventStruct, srate)
 
 % Initialise
 assert(isstable(b,a));
+min_len = 3 * (max(length(b), length(a)) - 1);
+
 data = double(data);
 FNYQ = srate/2;
+
+fprintf('Number of channels for filtering: %d\n', size(data,1));
 
 if ~isempty(eventStruct)
     eventLabels = {eventStruct(:).type};
@@ -22,9 +26,9 @@ else
     jumpsBad = [0 size(data,2)];
 end
 
-NChunk = length(jumpsBad)-1;
-if NChunk>1
-    fprintf('Boundaries detected! Each chunk (N = %d) will be filtered separately.\n',NChunk);
+NChunk = length(jumpsBad) - 1;
+if NChunk > 1
+    fprintf('Boundaries detected! Each chunk (N = %d) will be filtered separately.\n', NChunk);
 else
     fprintf('Great! Boundaries are not detected. The whole recording will be filtered at once.\n');
 end
@@ -34,14 +38,14 @@ for i = 1:NChunk
     dataInd = [jumpsBad(i)+1 jumpsBad(i+1)];
     dataInd = dataInd(1):dataInd(2);
 
-    if length(dataInd) > srate
+    if length(dataInd) > max(srate, min_len)
         % Remove DC (big offsets can cause artifacts)
         dataTmp = remove_dcsignal(data(:,dataInd), FNYQ);
 
         % Filter and place back
         data(:,dataInd) = filtfilt(b,a,dataTmp')';
     else
-        warning('Chunk %d: Data too small (<=%d) for filtering (L = %d samples)!',i,srate,length(dataInd));
+        warning('Chunk %d: Data too small (<=%d) for filtering (L = %d samples)!', i, srate, length(dataInd));
     end
 end
 

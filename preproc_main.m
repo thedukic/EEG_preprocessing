@@ -2,48 +2,60 @@
 %
 % EEG preprocessing main file, ALS Centre UMC Utrecht
 % Check README.md for instructions
-% SDukic, August 2025
+% SDukic, July 2026
 %
 % TODO
-% 1. Turn off figure visibility while plotting (speed up the code)
-% 2. ZipLine that exlcudes other peaks basides the line noise
-% 3. When checking leftovers in step1, interpolate the outlier channels
-% 4. Deal with files that have diff tasks in them, like MMN+SART
-% 5. Deal with swapped electrodes (check topoplots during blinks)
-% 6. Make individual IC templates (corr EXT-EEG after min. cleaning)
+% 1. Deal with cases where 1 file has 2 different tasks (MMN + SART)
+% 2. https://github.com/bigdelys/eye-catch
+% 3. Steamline the bad ic detection
+% 4. Prevent outliers in EOG/ECG detection func
+
 % =========================================================================
+close all hidden; fclose all; clear all; clc;
 
-close all; fclose all; clear all; clc;
+% Initialise
 myPaths = preproc_folders;
+errorLog = struct('group', {}, 'visit', {}, 'subject', {}, 'index', [], 'step', {}, 'message', {});
+listFailed = cell(length(myPaths.group), length(myPaths.visit));
 
-% Run
-for i = 1:length(myPaths.group)
-    for j = 1:length(myPaths.visit)
-        myPathsTmp          = myPaths;
-        myPathsTmp.task     = myPaths.task;
-        myPathsTmp.group    = myPaths.group{i};
-        myPathsTmp.visit    = myPaths.visit{j};
-        myPathsTmp.rawdata  = fullfile(myPathsTmp.rootrawdata,myPathsTmp.group,myPathsTmp.visit);
-        myPathsTmp.preproc  = fullfile(myPathsTmp.rootpreproc,myPathsTmp.task,myPathsTmp.group,myPathsTmp.visit);
-
+% Loop
+for i_group = 1:length(myPaths.group)
+    for i_visit = 1:length(myPaths.visit)
         % Select participants
-        [subjects, NSUB] = select_preproc_participants(myPathsTmp);
+        myPathsTmp = preproc_participants(i_group, i_visit, myPaths);
 
-        if NSUB>0
-            for k = 1:NSUB
-                fprintf('\n');
-                disp('==================================================================');
-                disp([myPathsTmp.task ' | ' myPathsTmp.visit ' | ' myPathsTmp.group ' | [' num2str(k) '/' num2str(NSUB) '] ' subjects{k} ' has started.']);
-                disp('==================================================================');
-                fprintf('\n');
-
-                % Cleaning steps
-                % preproc_cleaning1(myPathsTmp,subjects{k});
-                preproc_cleaning2(myPathsTmp,subjects{k});
-            end
-
-            % Report
-            report_final(myPathsTmp,subjects);
-        end
+        % Run
+        [errorLog, listFailed{i_group, i_visit}] = run_subjects(myPathsTmp, errorLog);
     end
 end
+
+% Failure report
+fprintf('\n\n');
+disp('==================================================================');
+disp('PROCESSING FINISHED: FAILURE SUMMARY');
+disp('==================================================================');
+if isempty(errorLog)
+    disp('All participants and processing steps completed successfully!');
+else
+    errorTable = struct2table(errorLog);
+    disp(errorTable);
+
+    writetable(errorTable, fullfile(myPaths.rootpreproc, 'overnight_pipeline_errors.csv'));
+    fprintf('The failure log has been saved to overnight_pipeline_errors.csv\n');
+end
+
+
+
+
+
+
+
+
+
+% =========================================================================
+% myPathsTmp.preproc = cell(1,2);
+% myPathsTmp.preproc{1} = 'E:\3_PREPROCESSED_DATA\RS\CONTROL\T1';
+% myPathsTmp.preproc{2} = 'E:\3_PREPROCESSED_DATA\RS\ALS\T1';
+% report_final(myPaths, 'E:\3_PREPROCESSED_DATA\RS');
+%
+% generate_spatialdecay_profile(myPathsTmp, subjects);

@@ -1,15 +1,20 @@
-function [data, report] = interpolate_epochs(data,elec,badElecsPerTrial,ignore_chans,maxBadChans)
+function [data, report] = interpolate_epochs(data, elec, bad_elecxtrial, ignore_chans, max_badelec)
 
 % Assert the right format
-NTRL = size(data,3);
-assert(length(badElecsPerTrial) == NTRL);
+num_trials = size(data, 3);
+assert(length(bad_elecxtrial) == num_trials);
+
+% Handle optional ignore_chans argument
+if nargin < 4 || isempty(ignore_chans)
+    ignore_chans = [];
+end
 
 % EEGLAB vs FieldTrip elecs definition
-if isfield(elec,'elecpos')
-    assert(size(data,1) == length(elec.label));
+if isfield(elec, 'elecpos')
+    assert(size(data, 1) == length(elec.label));
     isFieldTrip = true;
 else
-    assert(size(data,1) == length(elec));
+    assert(size(data, 1) == length(elec));
     isFieldTrip = false;
 end
 
@@ -24,65 +29,37 @@ else
     zelec = [elec(:).Z];
 end
 
+% Project to unit sphere
 rad = sqrt(xelec.^2 + yelec.^2 + zelec.^2);
-xelec = xelec./rad;
-yelec = yelec./rad;
-zelec = zelec./rad;
+xelec = xelec ./ rad;
+yelec = yelec ./ rad;
+zelec = zelec ./ rad;
+
+% Precompute the full G matrix for all channels once
+G_full = computeg(xelec, yelec, zelec, xelec, yelec, zelec);
 
 % Allocate
-listFixed  = false(NTRL,1);
-listRemove = false(NTRL,1);
+listFixed  = false(num_trials, 1);
+listRemove = false(num_trials, 1);
 
-for i = 1:NTRL
-    if ~isempty(badElecsPerTrial{i})
-        % The trial is noisy
-        if length(badElecsPerTrial{i}) <= maxBadChans
+for i = 1:num_trials
+    if ~isempty(bad_elecxtrial{i})
+        if length(bad_elecxtrial{i}) <= max_badelec
             % The trial can be fixed
-            badchans  = badElecsPerTrial{i};
-            goodchans = setdiff(1:size(data,1), badchans);
-            % goodchans = setdiff(goodchans, ignore_chans);
+            badchans  = bad_elecxtrial{i};
 
-            % if isFieldTrip
-            %     xelec = elec.elecpos(goodchans,1)';
-            %     yelec = elec.elecpos(goodchans,2)';
-            %     zelec = elec.elecpos(goodchans,3)';
-            %     xbad  = elec.elecpos(badchans,1)';
-            %     ybad  = elec.elecpos(badchans,2)';
-            %     zbad  = elec.elecpos(badchans,3)';
-            % else
-            %     xelec = [elec(goodchans).X];
-            %     yelec = [elec(goodchans).Y];
-            %     zelec = [elec(goodchans).Z];
-            %     xbad  = [elec(badchans).X];
-            %     ybad  = [elec(badchans).Y];
-            %     zbad  = [elec(badchans).Z];
-            % end
-            %
-            % rad = sqrt(xelec.^2 + yelec.^2 + zelec.^2);
-            % xelec = xelec./rad;
-            % yelec = yelec./rad;
-            % zelec = zelec./rad;
-            %
-            % rad = sqrt(xbad.^2+ybad.^2+zbad.^2);
-            % xbad = xbad./rad;
-            % ybad = ybad./rad;
-            % zbad = zbad./rad;
+            % Exclude both bad channels and channels to ignore from the good list
+            goodchans = setdiff(1:size(data, 1), [badchans, ignore_chans]);
 
-            data(badchans,:,i) = spheric_spline(...
-                xelec(goodchans), yelec(goodchans), zelec(goodchans), ...
-                xelec(badchans), yelec(badchans), zelec(badchans), ...
-                data(goodchans,:,i));
+            % Extract the relevant precomputed G matrices
+            Gelec = G_full(goodchans, goodchans);
+            Gsph  = G_full(badchans, goodchans);
+
+            data(badchans, :, i) = spheric_spline(Gelec, Gsph, data(goodchans, :, i));
 
             listFixed(i) = true;
-            % fprintf('Trial %d fixed.\n',i);
-
-            % A = data(badchans,:,i);
-            % B = spheric_spline(xelec, yelec, zelec, xbad, ybad, zbad, data(goodchans,:,i));
-            % figure; hold on; plot(A'); plot(B'); legend('Before','After');
-
         else
             % The trial is too noisy
-            % fprintf('Trial %d is too noisy and thus not fixed.\n',i);
             listRemove(i) = true;
         end
     end
@@ -96,52 +73,57 @@ report = [];
 report.listFixed  = find(listFixed);
 report.listRemove = find(listRemove);
 
-fprintf('Number of trials fixed: %d\n',sum(listFixed));
-fprintf('Number of trials to be removed: %d\n',sum(listRemove));
+fprintf('Number of trials fixed: %d\n', sum(listFixed));
+fprintf('Number of trials to be removed: %d\n', sum(listRemove));
 
-% =========================================================================
+end
+
 % =========================================================================
 % Helper functions
 % =========================================================================
-% =========================================================================
-function allres = spheric_spline(xelec, yelec, zelec, xbad, ybad, zbad, values)
 
-newchans = length(xbad);
-numpoints = size(values,2);
+function allres = spheric_spline(Gelec, Gsph, values)
+numpoints = size(values, 2);
 
-Gelec = computeg(xelec,yelec,zelec,xelec,yelec,zelec);
-Gsph  = computeg(xbad,ybad,zbad,xelec,yelec,zelec);
+% Compute solution for parameters C
+meanvalues = mean(values, 1);
 
-% compute solution for parameters C
-meanvalues = mean(values);
-values = values - repmat(meanvalues, [size(values,1) 1]); % make mean zero
+% MATLAB implicit expansion handles the subtraction directly
+values = values - meanvalues;
 
-values = [values; zeros(1,numpoints)];
-C = pinv([Gelec;ones(1,length(Gelec))]) * values;
-clearvars values;
-allres = zeros(newchans, numpoints);
+values = [values; zeros(1, numpoints)];
+C = pinv([Gelec; ones(1, size(Gelec, 2))]) * values;
 
-% apply results
-for j = 1:size(Gsph,1)
-    allres(j,:) = sum(C .* repmat(Gsph(j,:)', [1 size(C,2)]));
+% Vectorised application of results
+allres = Gsph * C;
+
+% Implicit expansion for adding the mean back
+allres = allres + meanvalues;
 end
-allres = allres + repmat(meanvalues, [size(allres,1) 1]);
 
-% =========================================================================
-% compute G function
-% =========================================================================
-function g = computeg(x,y,z,xelec,yelec,zelec)
+function g = computeg(x, y, z, xelec, yelec, zelec)
+% Ensure all input vectors are strictly normalised to a unit sphere (radius = 1)
+r_xyz = sqrt(x.^2 + y.^2 + z.^2);
+x = x ./ r_xyz; y = y ./ r_xyz; z = z ./ r_xyz;
 
-unitmat = ones(length(x(:)),length(xelec));
-EI = unitmat - sqrt((repmat(x(:),1,length(xelec)) - repmat(xelec,length(x(:)),1)).^2 +...
-    (repmat(y(:),1,length(xelec)) - repmat(yelec,length(x(:)),1)).^2 +...
-    (repmat(z(:),1,length(xelec)) - repmat(zelec,length(x(:)),1)).^2);
+r_elec = sqrt(xelec.^2 + yelec.^2 + zelec.^2);
+xelec = xelec ./ r_elec; yelec = yelec ./ r_elec; zelec = zelec ./ r_elec;
 
-g = zeros(length(x(:)),length(xelec));
+% Compute the cosine of the angle between points
+EI = x(:)*xelec(:)' + y(:)*yelec(:)' + z(:)*zelec(:)';
+
+% Force-clamp the matrix to eliminate floating-point rounding errors
+EI = max(min(real(EI), 1), -1);
+
+% Preallocate using the explicit matrix dimensions
+g = zeros(size(EI));
 
 m = 4; % 3 is linear, 4 is best according to Perrin's curve
 for n = 1:7
-    L = legendre(n,EI);
-    g = g + ((2*n+1)/(n^m*(n+1)^m))*squeeze(L(1,:,:));
+    L = legendre(n, EI);
+
+    % Reshape ensures safety against matrix dimension collapse
+    g = g + ((2*n+1)/(n^m*(n+1)^m)) * reshape(L(1,:,:), size(EI));
 end
-g = g/(4*pi);
+g = g / (4*pi);
+end

@@ -1,13 +1,13 @@
-function report_badsegments(EEG,maskNoise,figTag)
+function report_badsegments(EEG, mask_noise, tag_figure, opt_figure)
 % Plot excluded chunks of EEG data
 % EEG: EEGLAB structure with sampling rate and block length
-% maskNoise: cell array with samples being excluded (each row represents a chunk)
+% mask_noise: cell array with samples being excluded (each row represents a chunk)
 
 NBLK = length(EEG);
-assert(length(maskNoise) == NBLK);
+assert(length(mask_noise) == NBLK);
 
 % Create a figure
-fh = figure;
+fh = figure('Visible', opt_figure);
 th = tiledlayout(NBLK,1);
 th.TileSpacing = 'compact'; th.Padding = 'compact';
 
@@ -25,9 +25,9 @@ for i = 1:NBLK
     % excludedStops = find(diff([excludedMask; false]) == -1); % Stop indices of excluded chunks
 
     % Plot the excluded regions with red stripes
-    for j = 1:size(maskNoise{i},1)
-        startSamp = maskNoise{i}(j,1);
-        stopSamp  = maskNoise{i}(j,end);
+    for j = 1:size(mask_noise{i},1)
+        startSamp = mask_noise{i}(j,1);
+        stopSamp  = mask_noise{i}(j,end);
         xPos = [startSamp, stopSamp] / timeFactor;
         rectangle('Position', [xPos(1), 0, diff(xPos), 1], 'FaceColor', [1 0 0 0.5], 'EdgeColor', 'none');
     end
@@ -44,10 +44,6 @@ for i = 1:NBLK
 end
 
 % Save
-plotX=20; plotY=NBLK*3;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(EEG(1).ALSUTRECHT.subject.preproc,[EEG(1).ALSUTRECHT.subject.id '_badchunks_' figTag]),'-dtiff','-r300');
-close(fh);
+save_figure(fh, EEG(1).ALSUTRECHT.subject.figures, [EEG(1).ALSUTRECHT.subject.id '_detected_' tag_figure], [15 NBLK*3]);
 
 end

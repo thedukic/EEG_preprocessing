@@ -12,7 +12,7 @@ function [psdspectra, freq, chaneeg, chanemg] = estimate_power(EEG,thisScript)
 chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
 chanemg = strcmp({EEG(1).chanlocs.type},'EMG');
 
-if strcmpi(thisScript,'preproc2')
+if strcmpi(thisScript, 'preproc2')
     % @preproc_cleaning2
     % Data is already epoched
     assert(ndims(EEG.data) == 3);
@@ -24,7 +24,7 @@ if strcmpi(thisScript,'preproc2')
         dataeeg = EEG.data(chaneeg,:,:);
     end
 
-elseif strcmpi(thisScript,'freport')
+elseif strcmpi(thisScript, 'freport')
     % @preproc_cleaning1
     % @report_final
 
@@ -48,19 +48,20 @@ elseif strcmpi(thisScript,'freport')
     NTRL = floor(NPTSALL/NPTS);
     dataeeg = reshape(dataeeg(:,1:NTRL*NPTS), NCHN,NPTS,NTRL);
 
-elseif strcmpi(thisScript,'speaks')
+elseif strcmpi(thisScript, 'speaks')
     % preproc_cleaning1
 
     % Make it 20s long -> 0.05 Hz freq resolution
     fs = EEG(1).srate;
-    winSizeCompleteSpectrum = 20; % [s]
+    winSizeCompleteSpectrum = 10; % [s]
 
-    dataeeg = cat(2,EEG(:).data);
-    dataeeg = dataeeg(chaneeg,:);
-    NPTS = size(dataeeg,2);
+    chaneeg = true(size(chaneeg));
+    dataeeg = cat(2, EEG(:).data);
+    dataeeg = dataeeg(chaneeg, :);
+    NPTS = size(dataeeg, 2);
 
     % We want at least 8 segments for proper usage of pwelch
-    if winSizeCompleteSpectrum*fs > NPTS/8
+    if winSizeCompleteSpectrum * fs > NPTS / 8
         winSizeCompleteSpectrum = floor(NPTS/8/fs);
         warning('Dataset is short. Adjusted window size for whole data set spectrum calculation to be 1/8 of the length.')
     end
@@ -69,23 +70,23 @@ elseif strcmpi(thisScript,'speaks')
     [NCHN, NPTSALL] = size(dataeeg);
     NPTS = winSizeCompleteSpectrum * fs;
     NTRL = floor(NPTSALL/NPTS);
-    dataeeg = reshape(dataeeg(:,1:NTRL*NPTS),NCHN,NPTS,NTRL);
+    dataeeg = reshape(dataeeg(:, 1:NTRL*NPTS), NCHN, NPTS, NTRL);
 
 end
 
 % Compute power spectra
 [NCHN, NPTS, NTRL] = size(dataeeg);
-psdspectra = NaN(floor(NPTS/2+1),NCHN,NTRL);
+psdspectra = NaN(floor(NPTS/2+1), NCHN, NTRL);
 
 dataeeg = double(dataeeg);
-dataeeg = dataeeg - mean(dataeeg,2);
-dataeeg = permute(dataeeg,[2 1 3]);
+dataeeg = dataeeg - mean(dataeeg, 2);
+dataeeg = permute(dataeeg, [2 1 3]);
 
 for i = 1:NTRL
-    [psdspectra(:,:,i), freq] = pwelch(dataeeg(:,:,i), NPTS, 0, NPTS, fs);
+    [psdspectra(:,:,i), freq] = pwelch(dataeeg(:, :, i), NPTS, 0, NPTS, fs);
 end
 
 % Average the spectra
-psdspectra = mean(psdspectra,3);
+psdspectra = mean(psdspectra, 3);
 
 end

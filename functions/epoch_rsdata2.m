@@ -6,16 +6,20 @@ function EEG = epoch_rsdata2(EEG,epochLength,epochOverlap)
 %
 % =========================================================================
 
-fprintf('Epoching resting-state data (L = %d s, overlap %1.2f)...\n',epochLength,epochOverlap);
+fprintf('Epoching resting-state data (L = %d s, overlap %1.2f)...\n', epochLength, epochOverlap);
 
 % Check
 % assert(size(EEG.data,2)==length(~maskGood));
-nsmp    = round(epochLength*EEG.srate);
-nshift  = round((1-epochOverlap)*nsmp);
-if nshift<=0, error('the overlap is too large'); end
+nsmp    = round(epochLength * EEG.srate);
+nshift  = round((1-epochOverlap) * nsmp);
+if nshift <= 0, error('the overlap is too large'); end
 
 % Extract the RS masks
-maskGood = ~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochsRSFinal;
+if isfield(EEG.ALSUTRECHT, "extremeNoise")
+    maskGood = ~EEG.ALSUTRECHT.extremeNoise.extremeNoiseEpochsRSFinal;
+else
+    maskGood = true(1, EEG.pnts);
+end
 maskRS = EEG.ALSUTRECHT.blockinfo.rs_mask;
 
 % % Not needed, this is now done immediately when the extreme epochs are removed
@@ -33,12 +37,12 @@ maskRS = EEG.ALSUTRECHT.blockinfo.rs_mask;
 
 % assert(length(jumpStop) == sum(~maskGood));
 assert(size(EEG.data,2) == length(maskGood));
-assert(size(EEG.data,2) == length(maskRS));
+assert(size(EEG.data,2) == size(maskRS,2));
 
 % Add boundaries which could be:
 % 1. Between appended blocks
 % 2. Due to CMS dropouts or extrme outliers being removed
-isBoundary = ismember({EEG.event.type},'boundary');
+isBoundary = ismember({EEG.event.type}, 'boundary');
 latencies  = round([EEG.event.latency]);
 latencies  = latencies(isBoundary);
 latencies(latencies==1 | latencies==EEG.pnts-1) = [];
@@ -108,7 +112,7 @@ end
 
 % Build a minimal but valid EEG.event from scratch
 % We ignore previous events (boundry only?)
-% as we account for them in the code above!
+% but we account for them in the code above!
 EEG.event = [];
 EEG.event = struct('type', cell(1, sum(NTRL)), 'latency', cell(1, sum(NTRL)));
 
@@ -116,7 +120,7 @@ EEG.event = struct('type', cell(1, sum(NTRL)), 'latency', cell(1, sum(NTRL)));
 numEO = sum(EEG.ALSUTRECHT.blockinfo.eo_mask);
 
 % Double-checks
-maskEO = contains(EEG.ALSUTRECHT.subject.datablocks,'_EO');
+maskEO = contains(EEG.ALSUTRECHT.subject.datablocks, '_EO');
 
 numEO0 = sum(maskEO);
 numEOlabel = 1:numEO0;
@@ -124,14 +128,13 @@ numEC0 = sum(~maskEO);
 numEClabel = 1:numEC0;
 
 % Remove those that were removed completely due to very high noise
-if isfield(EEG.ALSUTRECHT.extremeNoise,'maskRemoveblock')
+if isfield(EEG.ALSUTRECHT, "extremeNoise")
     maskRemoveblock = EEG.ALSUTRECHT.extremeNoise.maskRemoveblock;
 else
-    warning('Quick fix for compatibility. Rerun the dataset using both preproc1 and 2!');
-    maskRemoveblock = false(NBLK,1);
+    maskRemoveblock = false(size(maskEO));
 end
-assert(length(maskEO) == length(maskRemoveblock));
 
+assert(length(maskEO) == length(maskRemoveblock));
 maskEO(maskRemoveblock) = [];
 assert(sum(maskEO) == numEO);
 assert(all(maskEO(1:numEO)));
@@ -169,29 +172,12 @@ for i = 1:NBLK
     cnt = cnt + NTRL(i);
 end
 
-% cnt = 0;
-% for i = 1:NBLK
-%     K = find(maskRS(i,:),1,"first") - 1;
-%     for j = 1:NTRL(i)
-%         cnt = cnt+1;
-%         if EEG.ALSUTRECHT.blockinfo.eo_mask(i)
-%             EEG.event(cnt).type = ['EO' num2str(i)];
-%         else
-%             EEG.event(cnt).type = ['EC' num2str(i-sum(EEG.ALSUTRECHT.blockinfo.eo_mask))];
-%         end
-%
-%         % MUST BE IN SAMPLES!
-%         % EEG.event(cnt).latency = (K + goodIndx{i}(j,1)-1) ./ EEG.srate;
-%         EEG.event(cnt).latency = K + validEpochs{i}(j);
-%     end
-% end
-
 % Check
 EEG = eeg_checkset(EEG);
 
 % Epoch now
 % allLabels = unique({EEG.event(:).type});
-EEG = pop_epoch(EEG,RS_labels,[0 epochLength],'epochinfo','yes');
+EEG = pop_epoch(EEG, RS_labels, [0 epochLength], 'epochinfo', 'yes');
 
 % EEG0 = pop_epoch(EEG,allLabels,[0 epochLength]./EEG.srate,'epochinfo','yes');
 % figure; hold on;

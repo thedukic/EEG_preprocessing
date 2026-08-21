@@ -1,4 +1,4 @@
-function EEG = detect_dropouts(EEG)
+function EEG = detect_dropouts(EEG, cfg)
 % This function detects CMS/DRL dropouts.
 % As a side effect, it also excludes data with large deviations,
 % such as large movements or coughing.
@@ -8,54 +8,54 @@ fprintf('Detecting CMS/DRL drop-outs\n');
 fprintf('================================\n');
 
 fprintf('Temporarily filtering the EEG electrodes for better detection of CMS out of range.\n');
-eegchan = strcmp({EEG(1).chanlocs.type},'EEG');
+eegchan = strcmp({EEG(1).chanlocs.type}, 'EEG');
 NCHN = sum(eegchan);
 
 % Remove slow drifts
-EEGTMP = filter_signal(EEG,[],[1 2],1:length(eegchan),'eeglab');
+EEGTMP = filter_signal(EEG, [], [1 2], 1:length(eegchan), 'eeglab');
 % vis_artifacts(EEGTMP(2),EEGTMP(2));
 % EEGTMP = EEG;
 
-flagDropout = false;
 NBLK = length(EEG);
-jumpsBadAll = cell(NBLK,1);
+flagDropout = false(NBLK, 1);
+jumpsBadAll = cell(NBLK, 1);
 
-for i = 1:NBLK
-    tmpData1 = EEGTMP(i).data(1:NCHN,:);
-    smoothFactor = round(2*EEG(i).srate);
+for i_block = 1:NBLK
+    tmpData1 = EEGTMP(i_block).data(1:NCHN,:);
+    smoothFactor = round(2*EEG(i_block).srate);
     % figure; histogram(tmp(:));
 
     % 1. Extreme voltage: CMS out of range
     maskBadVoltage = abs(tmpData1) > 350;
-    maskBadVoltage = sum(maskBadVoltage,1);
-    maskBadVoltage = movmean(maskBadVoltage,smoothFactor);
-    maskBadVoltage = maskBadVoltage>10;
+    maskBadVoltage = sum(maskBadVoltage, 1);
+    maskBadVoltage = movmean(maskBadVoltage, smoothFactor);
+    maskBadVoltage = maskBadVoltage > 10;
 
     % 2. No signal: unsuccessful data recovery
     dataDiff = abs(diff(tmpData1,1,2));
 
-    % This accounts for long dropouts, which leads to the treshold being 0!
+    % This accounts for long dropouts, which leads to the threshold being 0!
     % dataDiffMedian = median(dataDiff,2);
-    dataDiffMedian = NaN(NCHN,1);
-    for j = 1:NCHN
-        tmpData2 = dataDiff(j,:);
-        dataDiffMedian(j) = median(tmpData2(tmpData2~=0));
+    dataDiffMedian = NaN(NCHN, 1);
+    for i_channel = 1:NCHN
+        tmpData2 = dataDiff(i_channel, :);
+        dataDiffMedian(i_channel) = median(tmpData2(tmpData2 ~= 0));
     end
 
-    DiffMedianTreshold = prctile(dataDiffMedian,2);
-    maskBadZero = dataDiff <= DiffMedianTreshold;
-    maskBadZero = sum(maskBadZero,1);
-    maskBadZero = movmean(maskBadZero,smoothFactor);
+    DiffMedianthreshold = prctile(dataDiffMedian, 2);
+    maskBadZero = dataDiff <= DiffMedianthreshold;
+    maskBadZero = sum(maskBadZero, 1);
+    maskBadZero = movmean(maskBadZero, smoothFactor);
     % figure; plot(maskBadZero);
 
     % The same as above, solves the problem of long dropouts, when trashold becomes 128
-    maskBadZeroTmp = maskBadZero(maskBadZero<NCHN);
+    maskBadZeroTmp = maskBadZero(maskBadZero < NCHN);
 
-    % Treshold
+    % threshold
     ZIQR = iqr(maskBadZeroTmp);
-    Z75P = prctile(maskBadZeroTmp,75);
-    treshold = Z75P + 10*ZIQR;
-    maskBadZero = maskBadZero>treshold;
+    Z75P = prctile(maskBadZeroTmp, 75);
+    threshold = Z75P + 10 * ZIQR;
+    maskBadZero = maskBadZero > threshold;
 
     % tmp(maskBad) = 0;
     % EEG2 = EEG;
@@ -75,17 +75,17 @@ for i = 1:NBLK
     % vis_artifacts(EEG2(2),EEGTMP(2));
 
     % Find start/stop of bad periods
-    jumpsBad = find(diff([false, maskBad, false])~=0);
-    jumpsBad = reshape(jumpsBad,2,[])';
+    jumpsBad = find(diff([false, maskBad, false]) ~= 0);
+    jumpsBad = reshape(jumpsBad, 2, [])';
 
     if ~isempty(jumpsBad)
-        fprintf('Block %d: Large deviations found in the data (N = %d chunks)!\n',i,size(jumpsBad,1));
+        fprintf('Block %d: Large deviations found in the data (N = %d chunks)!\n', i_block, size(jumpsBad, 1));
 
-        jumpsBad(:,1) = jumpsBad(:,1)-smoothFactor;
-        jumpsBad(:,2) = jumpsBad(:,2)+smoothFactor;
-        jumpsBad(jumpsBad<1) = 1;
-        nMax = size(tmpData1,2);
-        jumpsBad(jumpsBad>nMax) = nMax;
+        jumpsBad(:, 1) = jumpsBad(:,1) - smoothFactor;
+        jumpsBad(:, 2) = jumpsBad(:,2) + smoothFactor;
+        jumpsBad(jumpsBad < 1) = 1;
+        nMax = size(tmpData1, 2);
+        jumpsBad(jumpsBad > nMax) = nMax;
 
         % maskNew = false(1,nMax);
         % for j = 1:size(jumpsBad,1)
@@ -99,53 +99,53 @@ for i = 1:NBLK
         % vis_artifacts(EEG2(i),EEGTMP(i));
 
         % Samples -> s
-        jumpsBadSec = (jumpsBad-1) ./ EEG(i).srate;
+        jumpsBadSec = (jumpsBad-1) ./ EEG(i_block).srate;
         disp(jumpsBadSec);
 
         % EEG(i) = eeg_eegrej(EEG(i), jumpsBad);
         % % EEG(i) = pop_select(EEG(i),'rmpoint',jumpsBad);
 
-        jumpsBadAll{i} = jumpsBad;
-        flagDropout = true;
+        jumpsBadAll{i_block} = jumpsBad;
+        flagDropout(i_block) = true;
     else
-        fprintf('Block %d: Nice, no large deviations found!\n',i);
+        fprintf('Block %d: Nice, no large deviations found!\n',i_block);
     end
 end
 
 % EEGTMP = filter_signal(EEG,[],[1 8],1:length(eegchan),'eeglab');
 % vis_artifacts(EEGTMP(1),EEGTMP(1));
 
-%% =====================================================================
+% =====================================================================
 % Log
-NDropouts = cellfun(@(x) size(x,1), jumpsBadAll);
+NDropouts = cellfun(@(x) size(x, 1), jumpsBadAll);
 
-for i = 1:NBLK
-    EEG(i).ALSUTRECHT.cmsDropouts.flagDropout = flagDropout;
-    EEG(i).ALSUTRECHT.cmsDropouts.jumpsBadAll = jumpsBadAll;
-    EEG(i).ALSUTRECHT.cmsDropouts.NDropouts   = NDropouts;
+for i_block = 1:NBLK
+    EEG(i_block).ALSUTRECHT.cmsDropouts.flagDropout = flagDropout;
+    EEG(i_block).ALSUTRECHT.cmsDropouts.jumpsBadAll = jumpsBadAll;
+    EEG(i_block).ALSUTRECHT.cmsDropouts.NDropouts   = NDropouts;
 end
 
-fprintf(EEG(i).ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
-fprintf(EEG(i).ALSUTRECHT.subject.fid,'CMS dropout detected (blue light flashing) \n');
-fprintf(EEG(i).ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
+fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
+fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'CMS dropout detected (blue light flashing) \n');
+fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
 
-if flagDropout
-    fprintf(EEG(i).ALSUTRECHT.subject.fid,'Drop out detected:    Yes\n');
-    fprintf(EEG(i).ALSUTRECHT.subject.fid,'Number of detections: %d\n',sum(NDropouts));
+if any(flagDropout)
+    fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'Drop out detected:    Yes\n');
+    fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'Number of detections: %d\n', sum(NDropouts));
 else
-    fprintf(EEG(i).ALSUTRECHT.subject.fid,'Drop out detected: No\n');
+    fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'Drop out detected: No\n');
 end
 
 % Report visually
-report_badsegments(EEG,jumpsBadAll,'cmsdropouts');
+report_badsegments(EEG, jumpsBadAll, 'cmsdropouts', cfg.figure.visible);
 
-%% Remove the chunks
-if flagDropout
+% Remove the chunks
+if any(flagDropout)
     fprintf('Removing the drop-outs now...\n');
-    for i = 1:NBLK
-        if ~isempty(jumpsBadAll{i})
-            EEG(i) = eeg_eegrej(EEG(i), jumpsBadAll{i});
-            % EEG(i) = pop_select(EEG(i),'rmpoint',jumpsBadAll{i});
+    for i_block = 1:NBLK
+        if ~isempty(jumpsBadAll{i_block})
+            EEG(i_block) = eeg_eegrej(EEG(i_block), jumpsBadAll{i_block});
+            % EEG(i) = pop_select(EEG(i), 'rmpoint', jumpsBadAll{i});
         end
     end
 end

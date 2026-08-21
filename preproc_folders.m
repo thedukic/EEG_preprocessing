@@ -7,33 +7,39 @@ function myPaths = preproc_folders
 % =========================================================================
 
 % Preprocessing code version
-myPaths.rnum = '1';
+myPaths.codever = '2';
 
 % Define
-myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\Preprocessing';   % Pipeline
-myPaths.rootrawdata = 'E:\1_EEG_DATA';          % Input
-myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA'; % Output
+myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\preprocessing';     % Pipeline
+myPaths.rootrawdata = 'E:\1_EEG_DATA';                            % Input
+myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA';                   % Output
+% myPaths.rootrawdata = 'C:\DATA\MATLAB\EEG\1_EEG_DATA';          % Input
+% myPaths.rootpreproc = 'C:\DATA\MATLAB\EEG\3_PREPROCESSED_DATA'; % Output
 
-% Task: MMN/SART/RS/MT
+% Task (char): MMN / SART / RS / MT
 myPaths.task  = 'RS';
-% Group: ALS / CONTROL / AFM / PLS/ PMA
+% Group (cell): ALS / CONTROL / AFM / PLS / PMA
 myPaths.group = {'AFM'};
-% Visit: T1/ T2 / T3 / T4 / T5
-myPaths.visit = {'T1'};
+% Subgroup (char): AFM_C9ORF72 / AFM_ARPP21 / MND_C9ORF72 / MND_SOD1
+myPaths.subgroup = 'AFM_C9ORF72';
+% Visit (num): 1-5
+myPaths.visit = 1:5;
+
+% Path to the table 1 (export from R)
+myPaths.table1 = 'C:\DATA\MATLAB\EEG\2_OTHER_DATA\FULL_CLINICAL_TABLE_2026-08-14.txt';
 
 % =========================================================================
 % The script below does not need changing
 % =========================================================================
-% set(0, 'DefaultFigureVisible', 'off'); % not tested yet
-warning on; warning('off','backtrace');
+warning on; warning('off', 'backtrace');
 
-fprintf('\n');
-disp('==================================================================');
-fprintf('Setting up the paths and loading the toolboxes...\n');
-disp('==================================================================');
+fprintf('==================================================================\n');
+fprintf('Setting up the paths and loading the toolboxes\n');
+fprintf('==================================================================\n');
+fprintf('Pipeline version: %s\n\n', myPaths.codever);
 
 % Track time
-myPaths.proctime = strrep(strrep(char(datetime("now")),':','-'),' ','-');
+myPaths.proctime = strrep(strrep(char(datetime("now")), ':', '-'), ' ', '-');
 
 % Navigate the main folder
 cd(myPaths.mycodes);
@@ -42,27 +48,49 @@ fprintf('EEG data paths:\n');
 fprintf('Raw: %s\n', myPaths.rootrawdata);
 fprintf('Cleaned: %s\n', myPaths.rootpreproc);
 
-% Add subfolders
-files             = dir(myPaths.mycodes);
-subFolders        = files([files.isdir]);
-subFolderNames    = {subFolders(3:end).name};
-subFolderPaths    = [myPaths.mycodes, fullfile(myPaths.mycodes,subFolderNames)];
-subFolderPaths    = subFolderPaths(~contains(subFolderPaths,{'git','unused'}));
+% Add folders
+listFolders  = dir(myPaths.mycodes);
+listFolders  = listFolders([listFolders.isdir]);
+listFolders  = {listFolders(3:end).name};
+pathsFolders = [myPaths.mycodes, fullfile(myPaths.mycodes, listFolders)];
+pathsFolders = pathsFolders(~contains(pathsFolders, {'git', 'unused'}));
 
-addpath(subFolderPaths{:});
+addpath(pathsFolders{:});
 fprintf('Adding folders:\n');
-fprintf('%s\n', subFolderPaths{:});
+fprintf('%s\n', pathsFolders{:});
 
-% Add toolboxes from the external subfolder
-subFolderExternal = subFolderPaths{contains(subFolderPaths,'external','IgnoreCase',true)};
-files             = dir(subFolderExternal);
-subFolders        = files([files.isdir]);
-subFolderNames    = {subFolders(3:end).name};
-subFolderPaths    = fullfile(subFolderExternal,subFolderNames);
+% Add toolboxes from the "external" folder
+thisFolder      = pathsFolders{contains(pathsFolders,'external','IgnoreCase',true)};
+listFolders     = dir(thisFolder);
+listFolders     = listFolders([listFolders.isdir]);
+pathsFoldersTmp = fullfile(thisFolder, {listFolders(3:end).name});
 
-addpath(subFolderPaths{:});
+if isempty(pathsFoldersTmp)
+    thisFolder = 'C:\DATA\MATLAB\myCodes\external';
+    fprintf('Your ''external'' folder is empty.\nUsing instead: %s\n', thisFolder);
+
+    pathsFoldersTmp    = {};
+    pathsFoldersTmp{1} = fullfile(thisFolder, 'eeglab2025.1.0');
+    pathsFoldersTmp{2} = fullfile(thisFolder, 'noisetools_29-Apr-2023');
+    pathsFoldersTmp{3} = fullfile(thisFolder, 'zaplineplus_14-Apr-2023');
+    pathsFoldersTmp{4} = fullfile(thisFolder, 'gedai_05082026');
+    pathsFoldersTmp{5} = fullfile(thisFolder, 'restingiaf_20-Jan-2025');
+    pathsFoldersTmp{6} = fullfile(thisFolder, 'brewermap-3.2.8');
+end
+
+addpath(pathsFoldersTmp{:});
 fprintf('Adding external toolboxes:\n');
-fprintf('%s\n', subFolderPaths{:}); fprintf('\n');
+fprintf('%s\n', pathsFoldersTmp{:});
+
+% Add subfolers from the "files" folder
+thisFolder      = pathsFolders{contains(pathsFolders,'files','IgnoreCase',true)};
+listFolders     = dir(thisFolder);
+listFolders     = listFolders([listFolders.isdir]);
+pathsFoldersTmp = fullfile(thisFolder,{listFolders(3:end).name});
+
+addpath(pathsFoldersTmp{:});
+fprintf('Adding ''file'' subfolders:\n');
+fprintf('%s\n', pathsFoldersTmp{:});
 
 % Check for duplicates to prevent overloading
 % restoredefaultpath % Maybe better not to use it altough it does the job
@@ -86,31 +114,35 @@ if ~(isfolder(drive1) && isfolder(drive2))
 end
 
 % Set EEGLAB options
-if strcmpi(myPaths.task,'MT')
-    % Motor task data are large
-    % The current implementation of parallel processing in EEGLAB would require large RAM
-    flagParallel = 0;
-else
-    flagParallel = 1;
+pop_editoptions( ...
+    'option_parallel', 1, ...
+    'option_single', 0, ...
+    'option_computeica',0);
+
+% -------------------------------------------------------------------------
+% Reset parallel architecture and clear legacy crash dumps
+% -------------------------------------------------------------------------
+% 1. Shut down any active or hanging pool first to release file locks
+existingPool = gcp('nocreate');
+if ~isempty(existingPool)
+    delete(existingPool);
 end
-pop_editoptions('option_parallel',flagParallel,'option_single',0,'option_computeica',0);
 
-% Kill and start again the parallel processes
-delete(gcp('nocreate')); parpool("Processes");
+% 2. Access the cluster profile to clean up the workspace disk cache
+myCluster = parcluster('Processes');
+crashedJobs = myCluster.Jobs;
 
-% The code is supposed to be smart about killing/starting the parallel processes
-% But cannot make it work
-% pool = gcp('nocreate');
-% if ~isempty(pool)
-%     if ~isempty(pool.Cluster) % pool.Cluster.HasSharedFilesystem && pool.SpmdEnabled
-%         % disp('Running with processes.');
-%     else
-%         % disp('Running with threads.');
-%         delete(pool); parpool("Processes");
-%     end
-% else
-%     % disp('No active parpool.');
-%     parpool("Processes");
-% end
+if ~isempty(crashedJobs)
+    try
+        delete(crashedJobs);
+        fprintf('Successfully cleared %d legacy crash dump directories.\n', length(crashedJobs));
+    catch
+        % Guard against rare OS file-system locking delays
+        warning('Some crash logs are currently locked by the OS and will be cleared next run.');
+    end
+end
+
+% 3. Spin up a fresh, clean parallel pool
+parpool("Processes");
 
 end

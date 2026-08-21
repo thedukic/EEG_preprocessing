@@ -1,617 +1,461 @@
-function report_final(myPaths,subjects)
+function [DATA, flag_redo] = report_final(myPaths, subjects)
 % =========================================================================
-%
 % Script for reporting on EEG data preprocessing
 % ALS Centre, University Medical Centre Utrecht
-%
 % =========================================================================
-
 fprintf('\n==================================================================\n');
-fprintf('%s: Generating the final report (may take a bit).\n',myPaths.group);
+fprintf('%s: Generating the final quality dashboard.\n', myPaths.group);
 fprintf('==================================================================\n');
 
-% =========================================================================
+reports_dir = fullfile(myPaths.preproc, 'reports');
+if exist(reports_dir, 'dir') ~= 7, mkdir(reports_dir); end
+
+% Preallocate metric arrays
 NSUB = length(subjects);
-chanlocs = readlocs('biosemi128_eeglab.ced');
-chanlbls = {chanlocs.labels};
+valid_subjects   = false(NSUB, 1);
+N_trials_start   = NaN(NSUB, 1);
+N_trials_removed = NaN(NSUB, 1);
+N_interp_chan    = NaN(NSUB, 1);
+N_interp_trl     = NaN(NSUB, 1);
+P_emg_left       = NaN(NSUB, 1);
+V_eog_left       = NaN(NSUB, 1);
+V_shift          = NaN(128, NSUB);
+gamma_cv         = NaN(NSUB, 1);
+auto_status      = NaN(NSUB, 1);
+ica_redo         = NaN(NSUB, 1);
+ica_removed      = NaN(NSUB, 1);
+cluster_sizes    = NaN(NSUB, 1);
+chan_offsets     = NaN(NSUB, 1);
+cov_matrices     = NaN(128, 128, NSUB);
 
-maskInterpElec1 = zeros(length(chanlocs),NSUB);
-maskInterpElec2 = maskInterpElec1;
+fprintf('Loading QA metrics for %d datasets... ', NSUB);
+for i_subj = 1:NSUB
+    i_file = 1;
+    subject  = preproc_folders_subject(subjects{i_subj}, myPaths, 2);
+    qa_name  = fullfile(subject.qa, subject.qametrics{i_file});
 
-% Report folder
-myPaths.reports = fullfile(myPaths.preproc,'reports');
-if exist(myPaths.reports,'dir')~=7, mkdir(myPaths.reports); end
-
-% =========================================================================
-% Preprocessing stats
-% =========================================================================
-N = NaN(NSUB,6);
-NCHN = length(chanlbls);
-Medianvoltageshift  = NaN(NCHN,NSUB);
-CorrelationMatrices = NaN(NCHN+2,NCHN+2,NSUB);
-spatialSmoothness   = NaN(2,NSUB);
-clusterSizes        = zeros(1,NSUB);
-
-fprintf('Loading %d datasets. Wait...\n',NSUB);
-numChars = 0; % To store the number of characters printed
-
-for i = 1:NSUB
-    % Erase the previous line
-    fprintf(repmat('\b', 1, numChars));
-    % Prepare the new string and print it
-    progressString = sprintf('%d/%d', i, NSUB);
-    fprintf('%s', progressString);
-    % Update the number of characters printed
-    numChars = numel(progressString);
-
-    % File names
-    fileName1 = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'a.mat']);
-    fileName2 = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']);
-
-    if exist(fileName2,"file") == 2
-        % Load
-        load(fileName2,'EEG');
+    if exist(qa_name, 'file')
+        % Load QA struct
+        load(qa_name, 'qa_data');
 
         % Record warnings about potential issues
-        EEG = report_issues(EEG);
+        qa_data = report_issues(qa_data);
 
-        % Record warnings for all participants in a single table
-        if i == 1
-            tableIssues = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
-            tableIssues(2:NSUB,:) = cell2table(...
-                [repmat({''},NSUB-1,1), repmat({NaN},NSUB-1,length(tableIssues.Properties.VariableNames)-1)], ...
-                'VariableNames', tableIssues.Properties.VariableNames);
+        % 0. Retained and Removed Trial Counts
+        if isfield(qa_data, 'issues_to_check')
+            if isfield(qa_data.issues_to_check, 'NumberTrials2')
+                N_trials_start(i_subj) = qa_data.issues_to_check.NumberTrials2;
+            end
+            if isfield(qa_data.issues_to_check, 'NumberTrials2') && isfield(qa_data.issues_to_check, 'NumberTrials3')
+                N_trials_removed(i_subj) = qa_data.issues_to_check.NumberTrials2 - qa_data.issues_to_check.NumberTrials3;
+            end
+        end
+
+        % 1. Interpolated Channels (%)
+        bad_chans = qa_data.badchaninfo.badElectrodes;
+        N_interp_chan(i_subj) = length(bad_chans) / 128;
+
+        % Check for electrode cluster size
+        if ~isempty(bad_chans)
+            [~, cluster_sizes_tmp] = find_elec_clusters(bad_chans);
+            cluster_sizes(i_subj) = max(cluster_sizes_tmp);
         else
-            tableIssues(i,:) = struct2table(EEG.ALSUTRECHT.issues_to_check,'AsArray',true);
+            cluster_sizes(i_subj) = 0;
         end
 
-        % Bad electrodes (whole interpolated)
-        maskInterpElec1(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
-
-        % Bad electrodes (trials interpolated)
-        interpChanTrials = cat(1,EEG.ALSUTRECHT.epochRejections.InterpTrialInfo{:});
-        interpChanTrials = unique(interpChanTrials);
-        maskInterpElec2(interpChanTrials,i) = 1;
-
-        % Number of interpolated channels
-        N(i,1) = sum(maskInterpElec1(:,i)) / 128;
-        % Number of interpolated trials
-        N(i,2) = EEG.ALSUTRECHT.epochRejections.interpEpochs / length(EEG.ALSUTRECHT.epochRejections.InterpTrialInfo);
-
-        % Epochs: Total possible
-        % N(i,3) = sum([EEG.ALSUTRECHT.eventinfo{:,3}])*4/2; % RS
-        N(i,3) = EEG.ALSUTRECHT.issues_to_check.NumberTrials1;
-        % Epochs: Left after preproc1
-        N(i,4) = EEG.ALSUTRECHT.issues_to_check.NumberTrials2;
-        % Epochs: Left after preproc2
-        N(i,5) = EEG.ALSUTRECHT.issues_to_check.NumberTrials3;
-
-        % Leftover EMG
-        % N(i,5) = EEG.ALSUTRECHT.leftovers.muscle1;  % after proc1
-        N(i,6) = EEG.ALSUTRECHT.leftovers.muscle2;    % after proc2
-
-        % Median voltage range
-        Medianvoltageshift(:,i) = EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal(1:128);
-
-        % Correlation matrix
-        CorrelationMatrices(:,:,i) = EEG.ALSUTRECHT.chanCorr;
-
-        % Check IC quality
-        spatialSmoothnessTmp = estimate_spatialsmoothnes(EEG);
-        spatialSmoothness(:,i) = mean(spatialSmoothnessTmp(:,1:10),2);
-
-    elseif exist(fileName1,"file") == 2
-        % Then, load the file from preproc1
-        warning('%s does not have completely preprocessed %s data (only from part 1).', subjects{i}, myPaths.task);
-        load(fileName1,'EEG');
-
-        % Insert manually
-        maskInterpElec1(:,i) = double(ismember(chanlbls,EEG.ALSUTRECHT.badchaninfo.badElectrodes));
-        N(i,1) = sum(maskInterpElec1(:,i));
-        N(i,2) = 0; % True
-        N(i,3) = sum([EEG.ALSUTRECHT.eventinfo{:,3}]);
-        N(i,4) = 0; % Not true but OK
-        N(i,5) = 0; % True
-        N(i,6) = 1; % Probably true
-
-    else
-        warning('%s does not have any preprocessed %s data.', subjects{i}, myPaths.task);
-        N(i,:) = NaN;
-    end
-
-    if ~isnan(maskInterpElec1(1,i))
-        X = [EEG.chanlocs(:).X];
-        Y = [EEG.chanlocs(:).Y];
-        Z = [EEG.chanlocs(:).Z];
-        [clusters, cluster_sizes] = find_badelecclust(find(maskInterpElec1(:,i)), [X; Y; Z]');
-        % disp(chanlbls(find(maskInterpElec1(:,i)))); disp(cluster_sizes);
-
-        if ~isempty(cluster_sizes)
-            clusterSizes(i) = max(cluster_sizes);
+        % 2. Interpolated Trials (%)
+        if ~isempty(qa_data.epochRejections.interpEpochs)
+            total_trials  = qa_data.issues_to_check.NumberTrials1;
+            interp_epochs = qa_data.epochRejections.interpEpochs;
+            N_interp_trl(i_subj) = interp_epochs / total_trials;
+        else
+            N_interp_trl(i_subj) = 0;
         end
+
+        % 4. Voltage Shift
+        V_shift(:, i_subj) = qa_data.epochRejections.MedianvoltageshiftwithinepochFinal(1:128);
+
+        % 5. Gamma Spread
+        if isfield(qa_data, 'psd_gamma_cv')
+            gamma_cv(i_subj) = qa_data.psd_gamma_cv;
+        end
+
+        % 6. Automagic Status
+        status_str = lower(strtrim(qa_data.automagicmetrics.status));
+        switch status_str
+            case 'good', auto_status(i_subj) = 0;   % Green
+            case 'ok',   auto_status(i_subj) = 0.5; % Yellow
+            case 'bad',  auto_status(i_subj) = 1;   % Red
+            otherwise,   auto_status(i_subj) = NaN;
+        end
+
+        % 3. EMG Leftover
+        P_emg_left(i_subj) = qa_data.leftovers.muscle2;
+
+        % 7. EOG Leftover
+        V_eog_left(i_subj) = qa_data.leftovers.blink2.blink_stats.peak_post_fp;
+        ica_redo(i_subj) = double(qa_data.leftovers.blink1.flag_redo);
+
+        % 8. ICs Removed
+        ica_removed(i_subj) = sum(qa_data.ica.final.removed);
+
+        % 9. Offsets
+        chan_offsets(i_subj) = mean(abs(qa_data.badchaninfo.offsets.offsets_mV(1:128, :)), 'all');
+
+        % 10. Covariance Matrix
+        cov_matrices(:, :, i_subj) = qa_data.channelcov.cov_hf(1:128, 1:128); % cov_hf / cov_clean
+
+        valid_subjects(i_subj) = true;
     end
 end
+fprintf('Done!\n');
 
-% Print a new line at the end
-fprintf('\nFinished loading!\n');
-
-% Remove those with very bad or missing data
-% -> they have 0 trials after preproc2
-% -> they have NaNs
-maskBad     = N(:,5) == 0;
-maskMissing = isnan(N(:,1));
-maskRemove  = maskBad | maskMissing;
-
-if any(maskRemove)
-    fprintf('Removing %d due to missign over very noisy data.\n', sum(maskRemove));
-    Medianvoltageshift(:,maskRemove)    = [];
-    CorrelationMatrices(:,:,maskRemove) = [];
-    maskInterpElec1(:,maskRemove)       = [];
-    maskInterpElec2(:,maskRemove)       = [];
-end
-
-% % Double-check
-% assert(~any(isnan(N(:))));
-
-% ============================
-% Colourmaps
-% ============================
-myCmap1 = brewermap(128,'RdPu');
-myCmap2 = brewermap(3,'YlOrRd');
-myCmap3 = brewermap(12,'Paired');
-
-% ============================
-% Plot
-% ============================
-fh = figure;
-th = tiledlayout(5,2);
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-title(th,[myPaths.group ', N = ' num2str(NSUB)]);
-
-nexttile(1);
-topoplot(mean(maskInterpElec1,2),chanlocs,'maplimits',[0 0.25],'headrad',0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','shading','interp');
-axis tight; title('Interp. chans: preproc1');
-hcb = colorbar;
-hcb.Title.String = "%";
-
-nexttile(2);
-topoplot(mean(maskInterpElec2,2),chanlocs,'maplimits',[0 0.7],'headrad',0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','shading','interp');
-axis tight; title('Interp. chans: preproc2');
-hcb = colorbar;
-hcb.Title.String = "%";
-
-% Plot 2: Interpolated channels per person
-nexttile([1 2]); hold on;
-plot([0 NSUB+1],[0.15 0.15],'LineWidth',1.2,'Color',0.6*ones(1,3));
-bar(N(:,1),'FaceColor',myCmap1(end/2,:)); ylim([0 1]); box on;
-
-ylabel('Interp. chans preproc1 (%)');
-xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
-
-% Plot 2: Interpolated channels per person
-nexttile([1 2]); hold on;
-plot([0 NSUB+1],[0.15 0.15],'LineWidth',1.2,'Color',0.6*ones(1,3));
-bar(N(:,2),'FaceColor',myCmap1(end/2,:)); ylim([0 1]); box on;
-
-ylabel('Interp. trials preproc2 (%)');
-xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
-
-% Plot 3: EMG lefovers from preprocessing
-nexttile([1 2]); hold on;
-plot([0 NSUB+1],[0.25 0.25],'LineWidth',1.2,'Color',0.6*ones(1,3));
-bar(N(:,6),'FaceColor',myCmap3(12,:)); ylim([0 1]); box on;
-
-xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
-ylabel('EMG leftover (%)');
-
-% Plot 4: Number of trials overview
-nexttile([1 2]);
-Ntmp = [N(:,5), N(:,4)-N(:,5), N(:,3)-N(:,4)];
-bh = bar(Ntmp,'stacked');
-bh(1).FaceColor = myCmap2(3,:);
-bh(2).FaceColor = myCmap2(2,:);
-bh(3).FaceColor = myCmap2(1,:);
-
-ylim([0 round(max(sum(Ntmp,2))*1.1)]);
-ylabel('# trials');
-xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
-% xlabel('Participant');
-
-% Save
-plotX=25; plotY=22;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myPaths.reports,['Summary1_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
+% Filter out missing data
+subjects         = subjects(valid_subjects);
+N_trials_start   = N_trials_start(valid_subjects);
+N_trials_removed = N_trials_removed(valid_subjects);
+N_interp_chan    = N_interp_chan(valid_subjects);
+N_interp_trl     = N_interp_trl(valid_subjects);
+P_emg_left       = P_emg_left(valid_subjects);
+V_eog_left       = V_eog_left(valid_subjects);
+V_shift          = V_shift(:, valid_subjects);
+auto_status      = auto_status(valid_subjects);
+ica_redo         = ica_redo(valid_subjects);
+cluster_sizes    = cluster_sizes(valid_subjects);
+chan_offsets     = chan_offsets(valid_subjects);
+ica_removed      = ica_removed(valid_subjects);
+cov_matrices     = cov_matrices(:, :, valid_subjects);
+NSUB_valid       = length(subjects);
+V_shift_med      = median(V_shift, 1)';
 
 % =========================================================================
-% Voltage range/shifts across channels
+% Data Quality Index (DQI) Calculation
 % =========================================================================
-% The following checks for participants who show outlying values for the median voltage shift within each epoch:
-% The following detects outlier files in the median amount of their max-min
-% voltage shift within an epoch, after adjusting for the fact that the data
-% across all participants is likely to be positively skewed with a log transform.
-MedianvoltageshiftwithinepochLogged = log10(Medianvoltageshift);
-InterQuartileRange = iqr(MedianvoltageshiftwithinepochLogged,2);
-Upper25 = prctile(MedianvoltageshiftwithinepochLogged,75,2);
-Lower25 = prctile(MedianvoltageshiftwithinepochLogged,25,2);
+norm_zero = @(x) log1p(abs(x)) ./ (max(log1p(abs(x))) + eps);
+Z_chan    = norm_zero(N_interp_chan);
+Z_trl     = norm_zero(N_interp_trl);
+Z_emg     = norm_zero(P_emg_left);
+Z_cluster = norm_zero(cluster_sizes);
+Z_ica     = norm_zero(ica_removed);
+Z_offset  = norm_zero(chan_offsets);
 
-% 75th% and 25th% +/- (1.5 x IQR) is the recommended outlier detection method,
-% so this is used to recommend which participants to manually check
-% However, I find this can be a bit too sensitive upon manual inspection,
-% and that 1.75, 2, or even 2.5 can be a better threshold.
-LowerBound = NaN(128,1);
-UpperBound = NaN(128,1);
-for i = 1:size(MedianvoltageshiftwithinepochLogged,1)
-    LowerBound(i) = Lower25(i) - (2 * InterQuartileRange(i));
-    UpperBound(i) = Upper25(i) + (2 * InterQuartileRange(i));
-end
+v_best    = prctile(V_shift_med, 5);
+v_worst   = prctile(V_shift_med, 95);
+norm_cont = @(x) max(0, min(1, (x - v_best) ./ (v_worst - v_best + eps)));
+Z_volt    = norm_cont(V_shift_med);
 
-VoltageShiftsTooLow = MedianvoltageshiftwithinepochLogged;
-VoltageShiftsTooLow = VoltageShiftsTooLow - LowerBound;
-VoltageShiftsTooLow(VoltageShiftsTooLow > 0) = 0;
-CumulativeSeverityOfAmplitudesBelowThreshold = sum(VoltageShiftsTooLow,1)';
+Z_auto = auto_status;
+Z_auto(isnan(Z_auto)) = 0.5;
 
-VoltageShiftsTooHigh = MedianvoltageshiftwithinepochLogged;
-VoltageShiftsTooHigh = VoltageShiftsTooHigh - UpperBound;
-VoltageShiftsTooHigh(VoltageShiftsTooHigh < 0) = 0;
-CumulativeSeverityOfAmplitudesAboveThreshold = sum(VoltageShiftsTooHigh,1)';
+% Check Interpolated Trials for variance
+valid_trl = ~all(isnan(N_interp_trl)) && any(N_interp_trl > 0);
 
-% Find those with large votage deviations
-maskSubjHighVolt = find(CumulativeSeverityOfAmplitudesAboveThreshold > 0);
-NSUBhv = length(maskSubjHighVolt);
-Ncol = 5;
-Nrow = ceil(NSUBhv / Ncol);
-Nrow = max(1,Nrow);
-
-% ============================
-% Plot
-% ============================
-fh = figure;
-th = tiledlayout(2+Nrow,Ncol);
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-
-title(th,{['Participants with high median voltage, N = ' num2str(NSUBhv)],'Sometimes very strong alpha waves may be detected'});
-
-nexttile([2 5]); hold on;
-plot(LowerBound,'LineWidth',2,'Color','k');
-plot(UpperBound,'LineWidth',2,'Color','k');
-plot(MedianvoltageshiftwithinepochLogged,'LineWidth',1.2);
-
-ylabel('Median voltage shift (uV)');
-xticks(1:128); xticklabels({chanlocs.labels}); xlim([1 128]);
-legend('LowerBound', 'UpperBound');
-set(gca,'ColorOrder',[0 0 0; 0 0 0; brewermap(NSUB,'BuGn')]);
-
-% Plot individual topoplots
-if ~isempty(maskSubjHighVolt)
-    MedianValue = prctile(MedianvoltageshiftwithinepochLogged,50,"all");
-    myClim = [MedianValue, mean(UpperBound)];
-    % myClim = [mean(LowerBound), mean(UpperBound)];
-
-    for i = 1:NSUBhv
-        maskChan = VoltageShiftsTooHigh(:,maskSubjHighVolt(i)) > 0;
-        str = strjoin(chanlbls(maskChan),', ');
-        fprintf('%s: %s\n',subjects{maskSubjHighVolt(i)},str);
-
-        % [min(MedianvoltageshiftwithinepochLogged(:,maskSubjHighVolt(i))), max(MedianvoltageshiftwithinepochLogged(:,maskSubjHighVolt(i)))]
-        nexttile;
-        topoplot(MedianvoltageshiftwithinepochLogged(:,maskSubjHighVolt(i)),chanlocs,'maplimits',myClim,'headrad', 0.5,'colormap',myCmap1,'whitebk','on','electrodes','on','style','map','emarker',{'.',[.5 .5 .5],[],1},'emarker2',{find(maskChan),'o','k',4,1},'shading','interp');
-        title(subjects{maskSubjHighVolt(i)}); axis tight;
-    end
-
+% Calculate composite index
+if valid_trl
+    DQI = Z_chan + Z_trl + Z_emg + Z_volt + Z_auto;
 else
-    fprintf('None of the participants in this cohort have an unusually high voltage range.\n');
+    DQI = Z_chan + Z_emg + Z_volt + Z_auto;
 end
 
-plotX=35; plotY=25;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myPaths.reports,['Summary2_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
+% Sort and prepare matrix
+[DQI_sorted, sort_idx] = sort(DQI, 'descend');
+subjects_sorted = subjects(sort_idx);
 
-% OutlierParticipantsToManuallyCheck   = table(Participant_IDs', CumulativeSeverityOfAmplitudesBelowThreshold,CumulativeSeverityOfAmplitudesAboveThreshold);
-% LoggedMedianVoltageShiftAcrossEpochs = array2table(MedianvoltageshiftwithinepochLogged);
+% Matrix_Z_Sorted = [Z_chan(sort_idx), Z_emg(sort_idx), Z_volt(sort_idx), ...
+%     auto_status(sort_idx), ica_redo(sort_idx), ...
+%     Z_cluster(sort_idx), Z_ica(sort_idx), Z_offset(sort_idx)];
+% heatmap_labels = {'Interp Chans', 'Leftover EMG', 'Median Voltage', ...
+%     'Automagic Status', 'ICA Redo', ...
+%     'Interp Elec Cluster Size', 'Num ICs Removed', 'Mean Chan Offset'};
+
+Matrix_Z_Sorted = [Z_chan(sort_idx), Z_emg(sort_idx), Z_volt(sort_idx), ...
+    auto_status(sort_idx), ...
+    Z_cluster(sort_idx), Z_ica(sort_idx), Z_offset(sort_idx)];
+heatmap_labels = {'Interp Chans', 'Leftover EMG', 'Median Voltage', ...
+    'Automagic Status', ...
+    'Interp Elec Cluster Size', 'Num ICs Removed', 'Mean Chan Offset'};
+
+if valid_trl
+    Matrix_Z_Sorted = [Matrix_Z_Sorted(:, 1), Z_trl(sort_idx), Matrix_Z_Sorted(:, 2:end)];
+    heatmap_labels  = [heatmap_labels(1), {'Interp Trials'}, heatmap_labels(2:end)];
+end
 
 % =========================================================================
-% Channel correlation
+% Visualisation 1: The Traffic Light Dashboard
+% =========================================================================
+fh1 = figure('Name', 'Quality Assurance Dashboard', 'Color', 'w', 'Position', [100, 100, 1100, 800]);
+t = tiledlayout(1, 4, 'TileSpacing', 'compact');
+
+nexttile([1 3]);
+h = heatmap(heatmap_labels, subjects_sorted, Matrix_Z_Sorted);
+custom_cmap  = [linspace(0,1,50)', linspace(0.8,1,50)', linspace(0.2,0.2,50)'];
+custom_cmap2 = [linspace(1,0.8,50)', linspace(1,0,50)', linspace(0.2,0.2,50)'];
+my_cmap      = [custom_cmap; custom_cmap2];
+
+h.Title       = 'Participant Quality Matrix (Normalised)';
+h.Colormap    = my_cmap;
+h.ColorLimits = [0 1];
+h.XLabel      = 'Quality Metrics (0 = Good, 1 = Bad)';
+h.YLabel      = 'Participants (Worst to Best)';
+
+% Tile 4: Composite DQI Bar
+nexttile;
+barh(DQI_sorted, 'FaceColor', [0.3 0.3 0.3], 'EdgeColor', 'none');
+set(gca, 'YDir', 'reverse');
+ylim([0.5, NSUB_valid + 0.5]);
+yticks([]);
+title('Data Quality Index');
+xlabel('Total Deviation Score');
+warning_threshold = prctile(DQI, 90);
+xline(warning_threshold, 'r--', '90th Percentile', 'LabelVerticalAlignment', 'bottom');
+
+% Save Dashboard
+plotX = 30; plotY = max(15, NSUB_valid * 0.5);
+set(fh1, 'PaperPositionMode', 'Manual', 'PaperUnits', 'Centimeters', 'PaperPosition', [0 0 plotX plotY], 'PaperSize', [plotX plotY]);
+print(fh1, fullfile(reports_dir, ['Dashboard_TrafficLight_' myPaths.group]), '-dtiff', '-r300');
+
+% =========================================================================
+% Visualisation 2: Distribution Swarmcharts
+% =========================================================================
+metrics = [{N_trials_start, N_trials_removed}, ...
+    {N_interp_chan, P_emg_left, V_eog_left, V_shift_med, cluster_sizes, ica_removed, chan_offsets}];
+
+titles  = [{'Number of Trials (Left)', 'Number of Trials (Removed)'}, ...
+    {'Interpolated Channels (%)', 'Leftover EMG (%)', 'Leftover EOG Peak (uV)', 'Median Voltage Shift (uV)', ...
+    'Max Bad Elec Cluster Size', 'Number of ICs Removed', 'Mean Channel Offset (mV)'}];
+
+% Dynamically insert Interpolated Trials at position 4 if valid
+if valid_trl
+    metrics = [metrics(1:3), {N_interp_trl}, metrics(4:end)];
+    titles  = [titles(1:3), {'Interpolated Trials (%)'}, titles(4:end)];
+end
+
+num_metrics = length(metrics);
+Ncol = 3;
+Nrow = ceil(num_metrics / Ncol);
+
+fh2 = figure('Name', 'Cohort Distributions', 'Color', 'w', 'Position', [150, 150, Ncol*400, Nrow*320]);
+t2 = tiledlayout(Nrow, Ncol, 'TileSpacing', 'loose', 'Padding', 'compact');
+
+for i_metric = 1:num_metrics
+    nexttile; hold on;
+    raw_data = metrics{i_metric};
+    valid_mask = ~isnan(raw_data);
+    data = raw_data(valid_mask);
+    subs_valid = subjects(valid_mask);
+    if isempty(data), continue; end
+
+    is_trials_left = strcmp(titles{i_metric}, 'Number of Trials (Left)');
+    is_count_var   = strcmp(titles{i_metric}, 'Max Bad Elec Cluster Size') || ...
+        strcmp(titles{i_metric}, 'Number of ICs Removed') || ...
+        contains(titles{i_metric}, 'Number of Trials');
+
+    if ~strcmp(titles{i_metric}, 'Median Voltage Shift (uV)') && ~is_count_var
+        low_s  = -eps;
+        high_s = max(data) * 1.2 + eps;
+        extraArgs = {'BoundaryCorrection', 'reflection', 'Support', [low_s, high_s]};
+    else
+        low_s  = min(data) - (std(data) * 0.5);
+        high_s = max(data) + (std(data) * 0.5);
+        extraArgs = {'Support', [low_s, high_s]};
+    end
+
+    % KDE Curve
+    if std(data) > 1e-6
+        [f, x_eval] = ksdensity(data, extraArgs{:});
+        f_scaled = (f / max(f)) * 0.5;
+        fill(x_eval, f_scaled + 1.3, [0.2 0.4 0.7], 'FaceAlpha', 0.2, 'EdgeColor', [0.2 0.4 0.7]);
+    end
+
+    y_base = 1.0;
+    y_jitter = y_base + (rand(length(data), 1) - 0.5) * 0.3;
+    scatter(data, y_jitter, 25, [0.4 0.4 0.4], 'filled', 'MarkerFaceAlpha', 0.3);
+
+    % Outlier Marking:
+    % - For 'Number of Trials (Left)', fewest remaining (left tail) is worst -> mink
+    % - For 'Number of Trials (Removed)' and all artifact metrics, highest count (right tail) is worst -> maxk
+    num_worst = min(3, length(data));
+    if is_trials_left
+        [~, worst_idx] = mink(data, num_worst);
+    else
+        [~, worst_idx] = maxk(data, num_worst);
+    end
+
+    scatter(data(worst_idx), y_jitter(worst_idx), 45, 'r', 'filled', 'MarkerEdgeColor', 'k');
+    for w = 1:num_worst
+        text(data(worst_idx(w)), y_jitter(worst_idx(w)) + 0.18, subs_valid{worst_idx(w)}, ...
+            'FontSize', 8, 'Color', 'r', 'FontWeight', 'bold', 'HorizontalAlignment', 'center', 'Interpreter', 'none');
+    end
+
+    q = prctile(data, [25 50 75]);
+    line([q(2) q(2)], [0.7 1.3], 'Color', [0.8 0.2 0.2], 'LineWidth', 2.5);
+    line([q(1) q(3)], [y_base y_base], 'Color', 'k', 'LineWidth', 1.5);
+    title(titles{i_metric}, 'FontSize', 12, 'FontWeight', 'bold');
+
+    % Adjust X-limits
+    % if contains(titles{i_metric}, '(%)') && ~contains(titles{i_metric}, 'Leftover EMG')
+    %     xlim([-0.05 0.5]);
+    % else
+    %     x_pad = max(std(data) * 0.2, 1e-3);
+    %     xlim([min(data) - x_pad, max(data) + x_pad]);
+    % end
+    x_pad = max(std(data) * 0.2, 1e-3);
+    xlim([min(data) - x_pad, max(data) + x_pad]);
+
+    set(gca, 'YTick', [], 'YColor', 'none', 'Box', 'off', 'TickDir', 'out');
+    grid on; ax = gca; ax.GridAlpha = 0.1;
+end
+
+% Save Distributions
+plotX = Ncol * 10; plotY = max(10, Nrow * 8);
+set(fh2, 'PaperPositionMode', 'Manual', 'PaperUnits', 'Centimeters', 'PaperPosition', [0 0 plotX plotY], 'PaperSize', [plotX plotY]);
+print(fh2, fullfile(reports_dir, ['Dashboard_Distributions_' myPaths.group]), '-dtiff', '-r300');
+
+% =========================================================================
+% Visualisation 3: Automated Audit of Voltage Outliers
+% =========================================================================
+[~, worst_volt_idx] = maxk(V_shift_med, 3);
+worst_volt_subjects = subjects(worst_volt_idx);
+fprintf('\nTriggering visual audit for the 3 participants with the highest voltage shifts...\n');
+audit_voltage_offenders(myPaths, worst_volt_subjects);
+
+% =========================================================================
+% Visualisation 4: Channel covariance
 % =========================================================================
 % CorrelationMatrices2 = CorrelationMatrices;
-% load('C:\DATA\MATLAB\myCodes\Preprocessing\files\noisyCov.mat','noisyCov');
-% CorrelationMatrices2(:,:,1) = noisyCov; % TEST!
-[deviant_indices, fh] = check_deviantchancorr(CorrelationMatrices, subjects);
+% load('C:\DATA\MATLAB\myCodes\Preprocessing\files\noisyCov.mat', 'noisyCov');
+% CorrelationMatrices2(:, :, 1) = noisyCov; % TEST!
+[deviant_indices, fh] = check_channelcov(cov_matrices, subjects);
 
-plotX=35; plotY=45;
+plotX = 35; plotY = 45;
 set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myPaths.reports,['Summary3_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
+print(fh, fullfile(reports_dir, ['Summary3_' myPaths.group '_T' num2str(myPaths.visit) '_' myPaths.task  '_' myPaths.proctime]), '-dtiff', '-r400');
 
-% =========================================================================
-% Check IC quality
-% =========================================================================
-fh = figure;
-th = tiledlayout(2,1);
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-title(th,{'ICA quality', 'Double-check ICA plots for those below (1) or over (2) the treshold'});
 
-% Plot 1: Spatial variance, low for localised ICs
-nexttile(1); hold on; box on;
-bar(spatialSmoothness(1,:),'FaceColor',myCmap1(end/2,:)); ylim([0 35]);
-plot([0 NSUB+1],[5 5],'LineWidth',1.2,'Color',0.6*ones(1,3));
+fprintf('Dashboards and audits saved successfully to %s\n', reports_dir);
 
-ylabel('Spatial variance');
-xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
+end
 
-% Plot 2: Laplacian variance, high for localised ICs
-nexttile(2); hold on;
-plot([0 NSUB+1],[2000 2000],'LineWidth',1.2,'Color',0.6*ones(1,3));
-bar(spatialSmoothness(2,:),'FaceColor',myCmap1(end/2,:)); ylim([0 3500]); box on;
 
-ylabel('Laplacian variance');
-xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
+function audit_voltage_offenders(myPaths, flagged_subjects)
+% Loads the full preprocessed data for flagged subjects and plots a hybrid audit:
+% 1. Topoplot of the voltage shift (Where is the noise?)
+% 2. PSD of the worst channels (What is the frequency of the noise?)
+% 3. Raw trace (What does it look like?)
 
-plotX=35; plotY=15;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myPaths.reports,['Summary4_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
+NSUB = length(flagged_subjects);
+reports_dir = fullfile(myPaths.preproc, 'reports');
 
-% =========================================================================
-% Check bad electrode clusters
-% =========================================================================
-fh = figure;
-title('Bad electrode clusters, double-check those that pass the treshold');
+% 1. Get the dimensions of your primary monitor
+% screen_size is [left, bottom, width, height]
+screen_size = get(0, 'ScreenSize');
+monitor_h = screen_size(4);
 
-% Plot
-hold on;
-plot([0 NSUB+1],[10 10],'LineWidth',1.2,'Color',0.6*ones(1,3));
-bar(clusterSizes,'FaceColor',myCmap1(end/2,:)); ylim([0 25]); box on;
+% 2. Calculate the desired height, but cap it at 85% of the monitor height
+% This ensures the window never "teleports" off the top of the screen.
+requested_h = 350 * NSUB;
+final_h = min(requested_h, monitor_h * 0.85);
 
-ylabel('max [Cluster size]');
-xticks(1:NSUB); xticklabels(subjects); xlim([0 NSUB+1]);
+% 3. Calculate a smart 'bottom' position so the window stays visible
+% This places the window 100 pixels from the bottom of the screen.
+pos_bottom = 100;
 
-plotX=30; plotY=10;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myPaths.reports,['Summary5_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r400');
+% 4. Spawn the figure
+fh3 = figure('Name', 'Audit: Spatial & Spectral Check', ...
+    'Color', 'w', ...
+    'Position', [100, pos_bottom, 1200, final_h]);
 
-% =========================================================================
-% Power spectra deviations in gamma-band
-% -> using stat. measusre to detect large spread across channels
-% =========================================================================
-warning('The cutoff for spectra spread is tested only for resting-state.');
-warning('It might not be appropriate for other tasks.');
-
-cutoffKurtosis = Inf; % dont use
-cutoffCoefVar  = 1;   % RS
-cutoffPeak     = 5;
-
-cnt = 0;
-psdSpreadsAll1 = NaN(NSUB,1);
-psdSpreadsAll2 = NaN(NSUB,1);
-psdPeaksAll    = NaN(NSUB,1);
-psdPromsAll    = NaN(NSUB,1);
-psdSpreadAll   = NaN(NSUB,NCHN);
-
-fprintf('Loading %d datasets... Wait...\n',NSUB);
 for i = 1:NSUB
-    % Do this only if data is fully preprocessed
-    fileName = fullfile(myPaths.preproc,subjects{i},[subjects{i} '_' myPaths.visit '_' myPaths.task '_cleandata_' myPaths.rnum 'b.mat']);
-    if exist(fileName,"file") == 2
-        % Load
-        load(fileName,'EEG');
+    subject_id = flagged_subjects{i};
+    fprintf('  Auditing %s...\n', subject_id);
 
-        % Estimate the spectra
-        [psdspectra, freq, chaneeg] = estimate_power(EEG,'freport');
-        % psdspectra = log10(psdspectra);
-        % psdspectraNorm = psdspectra ./ sum(psdspectra(freq>0,:),1);
+    % Define the path to the fully preprocessed continuous data
+    path_data = fullfile(myPaths.preproc, subject_id, myPaths.codever, 'data');
+    path_data_full = fullfile(path_data, [subject_id '_T' num2str(myPaths.visit) '_' myPaths.task '_cleandata_b.mat']);
 
-        % ============================
-        % 1. Calculate measure of power spread across EEG electrodes
-        % ============================
-        maskFreq  = freq>25 & freq<45;
-        % psdSpread = psdspectra ./ sum(psdspectra,1);
-        psdSpread = mean(psdspectra(maskFreq,:),1);
+    if exist(path_data_full, 'file') == 2
+        % Load the heavy EEG data
+        temp = load(path_data_full, 'EEG');
+        EEG = temp.EEG;
 
-        % Spread
-        psdSpreadsAll1(i) = kurtosis(psdSpread);
-        psdSpreadsAll2(i) = std(psdSpread) ./ mean(psdSpread);
+        % Extract the channel-by-channel median voltage shift from your QA data
+        volt_shift = EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal(1:128);
 
-        % Use for clustering/outlier detection (later)
-        psdSpreadAll(i,:) = psdSpread;
+        % Automatically find the 4 worst electrodes driving the high voltage
+        [~, worst_idx] = maxk(volt_shift, 4);
+        worst_labels = {EEG.chanlocs(worst_idx).labels};
+        worst_data = EEG.data(worst_idx, :);
 
-        % ============================
-        % 2. Find the number of peaks in the average EEG spectrum
-        % ============================
-        [locs, psdPromsAll(i)] = find_peaks(psdspectra,freq);
-        psdPeaksAll(i) = length(locs);
+        % -------------------------------------------------------------
+        % Plot 1: Spatial Topoplot (Your Method)
+        % -------------------------------------------------------------
+        nexttile;
+        myCmap = brewermap(128, 'Reds');
 
-        % ============================
-        % Plot and output if it exceeds the cut-off
-        % ============================
-        if psdSpreadsAll1(i) > cutoffKurtosis || psdSpreadsAll2(i) > cutoffCoefVar || psdPeaksAll(i) > cutoffPeak
-            fprintf('%d. %s : Kurtosis = %1.3f, CV = %1.3f, Peaks = %d\n', i, subjects{i}, psdSpreadsAll1(i), psdSpreadsAll2(i), psdPeaksAll(i));
+        % Plot the voltage shift and circle the worst electrodes in black
+        topoplot(volt_shift, EEG.chanlocs(1:128), 'maplimits', [prctile(volt_shift, 5), max(volt_shift)], ...
+            'headrad', 0.5, 'colormap', myCmap, 'whitebk', 'on', 'electrodes', 'off', ...
+            'style', 'map', 'shading', 'interp', ...
+            'emarker2', {worst_idx, 'o', 'k', 6, 1});
 
-            cnt = cnt+1;
-            if cnt == 1
-                dataCmap = brewermap(sum(chaneeg),'BrBG');
+        title(sprintf('%s: Median Voltage Shift', subject_id));
+        hcb = colorbar; hcb.Title.String = '\muV';
 
-                fh = figure;
-                th = tiledlayout("flow");
-                th.TileSpacing = 'compact'; th.Padding = 'compact';
-            end
+        % -------------------------------------------------------------
+        % Plot 2: Power Spectral Density (PSD)
+        % -------------------------------------------------------------
+        nexttile; hold on;
 
-            th = nexttile;
-            hold on; box off;
+        % Calculate Welch's PSD strictly on the worst channels
+        window = EEG.srate * 2;
+        noverlap = 0;
+        [pxx, f] = pwelch(worst_data', window, noverlap, window, EEG.srate);
 
-            % psdspectra  = log10(psdspectra);
-            % dataClim    = 1.1*[min(psdspectra(:)), max(psdspectra(:))];
-            % dataClim(1) = floor(dataClim(1));
-            % dataClim(2) = ceil(dataClim(2));
-            plot(freq,log10(psdspectra),'LineWidth',1.1);
-            colororder(th,dataCmap);
+        % Plot the mean power across those worst channels
+        plot(f, 10*log10(mean(pxx, 2)), 'k', 'LineWidth', 2);
 
-            for j = 1:psdPeaksAll(i)
-                plot(locs(j) * ones(1,2),[-4 3],'LineWidth',1,'Color',0.2*ones(1,3));
-                % scatter(locs,psdspectra(any(freq==locs',2)),'filled','*','MarkerFaceColor',0.2*ones(1,3));
-            end
+        % Highlight the Alpha Band (8-12 Hz) in light blue
+        patch([7 12 12 7], [min(ylim) min(ylim) max(ylim) max(ylim)], [0 0.4 0.8], 'FaceAlpha', 0.1, 'EdgeColor', 'none');
 
-            xticks(unique([locs' 0 5 10 15 20 25 30 50]));
-            xlim([freq(1), 60]); ylim([-4 3]); % ylim(dataClim);
-            % title({[subjects{i},', group: ',myPaths.group, ', visit: ', myPaths.visit, ', task: ', myPaths.task], ['Spread: ', num2str(psdSpreadsAll1(i), '%.3f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
-            title({subjects{i}, ['Kurtosis: ', num2str(psdSpreadsAll1(i), '%1.1f') ', CV: ', num2str(psdSpreadsAll2(i), '%.2f') ', Peaks: ', num2str(psdPeaksAll(i), '%d') ]});
+        title(['PSD of Worst Chans: ' strjoin(worst_labels, ', ')]);
+        xlabel('Frequency (Hz)');
+        ylabel('Power (dB)');
+        xlim([1 70]);
+        ylim([-30 30]);
+        grid on;
 
-            pbaspect([1.618 1 1]); xlabel('Frequency (Hz)'); ylabel('log_{10}(Power) (a.u.)'); drawnow;
-        end
-    end
-end
+        % -------------------------------------------------------------
+        % Plot 3: 5-Second Continuous Trace
+        % -------------------------------------------------------------
+        nexttile; hold on;
 
-% Save
-if cnt > 0
-    plotX=25; plotY=25;
-    set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-    set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-    print(fh,fullfile(myPaths.reports,['Summary6_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r300');
-    % close(fh);
-end
+        % Extract a 5-second snippet from the middle of the recording
+        mid_point = floor(size(worst_data, 2) / 2);
+        win_samples = 5 * EEG.srate;
+        start_idx = max(1, mid_point - floor(win_samples/2));
+        end_idx = min(size(worst_data, 2), start_idx + win_samples - 1);
 
-% ============================
-% Plot some additional info
-% ============================
-% Plot the distributions of the power spectra characteristics
-% -> Power spectra spread, power spectra peaks
-fh = figure;
-th = tiledlayout(2,2);
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-nexttile;
-hb = histogram(psdSpreadsAll1,10);
-hb.FaceColor = 0.7*ones(1,3);
-pbaspect([1.618 1 1]); xlabel('Power spectra: kurtosis');
-myXlim = xlim; xlim([0 myXlim(2)]);
-nexttile;
-hb = histogram(psdSpreadsAll2,10);
-hb.FaceColor = 0.7*ones(1,3);
-pbaspect([1.618 1 1]); xlabel('Power spectra: coefficient of variation');
-myXlim = xlim; xlim([0 myXlim(2)]);
-nexttile;
-hb = histogram(psdPeaksAll);
-hb.FaceColor = 0.7*ones(1,3);
-pbaspect([1.618 1 1]); xlabel('Power peaks');
-myXlim = xlim; xlim([0 myXlim(2)]);
-nexttile;
-hb = histogram(psdPromsAll,10);
-hb.FaceColor = 0.7*ones(1,3);
-pbaspect([1.618 1 1]); xlabel('Power peak prominance');
-myXlim = xlim; xlim([0 myXlim(2)]);
-% nexttile; plot(psdPromsAll);
+        t_vec = (0:(end_idx - start_idx)) / EEG.srate;
+        plot(t_vec, worst_data(:, start_idx:end_idx)', 'LineWidth', 1.2);
 
-% Save
-plotX=20; plotY=20;
-set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
-set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-print(fh,fullfile(myPaths.reports,['Summary7_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime]),'-dtiff','-r300');
+        title('5s Raw Trace of Worst Chans');
+        xlabel('Time (s)');
+        ylabel('Amplitude (\muV)');
+        ylim([-100 100]);
+        grid on;
 
-% =========================================================================
-% Power spectra deviations in gamma-band
-% -> using DBSCAN clustering and Mahalanobis distance
-% =========================================================================
-% Normalise
-psdSpreadAll = psdSpreadAll';
-psdSpreadAll = psdSpreadAll - min(psdSpreadAll(:));
-psdSpreadAll = psdSpreadAll / max(psdSpreadAll(:));
-psdSpreadAll = bsxfun(@minus, psdSpreadAll, mean(psdSpreadAll, 1));
-psdSpreadAll = psdSpreadAll';
-
-% figure; histogram(psdSpreadAll(:));
-
-% =========================================
-% PCA
-[coeff, score, latent, tsquared, explained, mu] = pca(psdSpreadAll);
-
-explained2 = explained ./ sum(explained);
-Nkeep = 3;
-
-fh = figure;
-th = tiledlayout(1,3);
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-nexttile; bar(explained2); title(['PCA1-' num2str(Nkeep) ' = ' num2str(round(sum(explained2(1:Nkeep)),2))]); pbaspect([1.618 1 1]);
-nexttile;
-scatter(score(:,1),score(:,2),'filled');
-xlabel('PCA1'); ylabel('PCA2'); pbaspect([1.618 1 1]);
-nexttile;
-scatter3(score(:,1),score(:,2),score(:,3),'filled');
-xlabel('PCA1'); ylabel('PCA2'); zlabel('PCA3'); pbaspect([1.618 1 1]);
-
-% =========================================
-% DBSCAN
-X = score(:,1:Nkeep);
-clustRes = dbscan(X,0.25,3);
-
-Nclust = length(unique(clustRes));
-myCmap = brewermap(Nclust,'Set2');
-
-assert(Nkeep == 3);
-% assert(Nclust == 2);
-
-figure;
-th = tiledlayout(1,3);
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-
-nexttile; hold on;
-% gscatter(score(:,1),score(:,2),clustRes);
-% xlabel('PCA1'); ylabel('PCA2'); pbaspect([1.618 1 1]);
-
-clustRes2 = clustRes;
-clustRes2(clustRes2>0) = clustRes2(clustRes2>0)+1;
-clustRes2(clustRes2==-1) = 1;
-
-for i = 1:Nclust
-    MyPlotData = X(clustRes2==i, 1:3);
-    plot3(MyPlotData(:,1),MyPlotData(:,2),MyPlotData(:,3),'Color',myCmap(i,:),'LineStyle','none','Marker','.','MarkerSize',10);
-    ThisBoundary = boundary(MyPlotData);
-    if size(MyPlotData,1)==2
-        plot3(MyPlotData(:,1),MyPlotData(:,2),MyPlotData(:,3),'Color',myCmap(i,:),'LineWidth',2);
-    elseif size(MyPlotData,1)==3
-        patch(MyPlotData(:,1),MyPlotData(:,2),MyPlotData(:,3),myCmap(i,:),'Facecolor',myCmap(i,:),'Edgecolor',myCmap(i,:),'FaceAlpha',0.6)
     else
-        trisurf(ThisBoundary,MyPlotData(:,1),MyPlotData(:,2),MyPlotData(:,3),'Facecolor',myCmap(i,:),'Edgecolor',myCmap(i,:),'FaceAlpha',0.6)
+        % Handle missing files smoothly
+        nexttile([1 3]);
+        text(0.5, 0.5, sprintf('Data missing for %s', subject_id), 'HorizontalAlignment', 'center', 'FontSize', 12);
+        axis off;
     end
 end
-grid on; box on; axis vis3d; view(-30,20);
-xlabel('PCA1'); ylabel('PCA2'); zlabel('PCA3');
 
-m = clustRes==-1;
-tmp = mean(psdSpreadAll(m,:),1);
-mytopoplot(tmp,[],['Outliers: ' num2str(sum(m))],nexttile); colorbar;
-m = clustRes>-1;
-tmp = mean(psdSpreadAll(m,:),1);
-mytopoplot(tmp,[],['Rest: ' num2str(sum(m))],nexttile); colorbar;
-
-% =========================================
-% Mahalanobis
-X = score(:,1:Nkeep);
-
-% Calculate the Mahalanobis distance for each subject
-D_M = mahal(X, X);
-
-% Identify potential outliers
-threshold = chi2inv(0.975, size(X, 2)); % 97.5% confidence interval
-outliers = find(D_M > threshold);
-
-disp('Potential outliers:');
-disp(subjects(outliers)');
-
-fh = figure;
-th = tiledlayout(2, ceil(length(outliers)/2));
-th.TileSpacing = 'compact'; th.Padding = 'compact';
-
-for i = 1:length(outliers)
-    tmp = psdSpreadAll(outliers(i),:);
-    mytopoplot(tmp,[],subjects{outliers(i)},nexttile); colorbar;
-end
-
-title(th,{'Participants with high Mahalanobis distance'});
-
-% =========================================================================
-% Report table
-save(fullfile(myPaths.reports,['Summary_' myPaths.group '_' myPaths.visit '_' myPaths.task '_' myPaths.proctime]),'tableIssues');
-writetable(tableIssues,fullfile(myPaths.reports,['Summary_' myPaths.group '_' myPaths.visit '_' myPaths.task  '_' myPaths.proctime '.xlsx']),"WriteMode","overwrite");
+% Save the Audit Figure
+plotX = 40; plotY = max(10, NSUB * 8);
+set(fh3, 'PaperPositionMode', 'Manual', 'PaperUnits', 'Centimeters', 'PaperPosition', [0 0 plotX plotY], 'PaperSize', [plotX plotY]);
+print(fh3, fullfile(reports_dir, ['Dashboard_Audit_Voltage_' myPaths.group]), '-dtiff', '-r300');
 
 end
