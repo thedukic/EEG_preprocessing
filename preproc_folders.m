@@ -1,10 +1,43 @@
 function myPaths = preproc_folders
-% =========================================================================
+% PREPROC_FOLDERS Configure paths, dependencies, cohort metadata, and parallel pools.
 %
-% Script for setting up the paths and labels of data for preprocessing
+% Syntax:
+%   myPaths = preproc_folders
+%
+% Description:
+%   Initialises the execution environment for the automated EEG preprocessing
+%   pipeline. Defines root input/output directories, sets cohort selection
+%   parameters (tasks, study groups, longitudinal visits), resolves dependencies,
+%   configures EEGLAB preferences, and manages parallel worker pools.
+%
+%   Key operations:
+%     1. Sets root paths for pipeline source code, raw data, and preprocessed outputs.
+%     2. Configures target cohort variables (task, groups, subgroups, visit range).
+%     3. Recursively resolves and adds internal modules and third-party toolboxes
+%        (EEGLAB, NoiseTools, Zapline-plus, GEDAI, restingIAF, BrewerMap) to MATLAB path.
+%     4. Inspects path hierarchy for function collisions and duplicate definitions.
+%     5. Validates storage drive existence and file-system accessibility.
+%     6. Configures EEGLAB global memory and parallel computing preferences.
+%     7. Purges orphaned cluster jobs/crash dumps and spins up a clean parallel pool.
+%
+% Inputs:
+%   None (directory paths and cohort parameters are configured within this file).
+%
+% Outputs:
+%   myPaths - Structure containing environment paths, cohort parameters, and metadata:
+%               .codever     : Pipeline version string (e.g., '2')
+%               .mycodes     : Root directory of pipeline source code
+%               .rootrawdata : Input directory containing raw BioSemi recordings
+%               .rootpreproc : Output directory for cleaned datasets and logs
+%               .task        : Active task identifier (e.g., 'RS', 'MMN', 'SART', 'MT')
+%               .group       : Cell array of target study groups (e.g., {'AFM'}, {'ALS'})
+%               .subgroup    : Specific cohort subgroup identifier
+%               .visit       : Numeric vector of session visits (e.g., 1:5)
+%               .table1      : Path to exported clinical demographics table
+%               .proctime    : Formatted timestamp string of pipeline launch
+%
 % ALS Centre, University Medical Centre Utrecht
-%
-% =========================================================================
+% License: GNU General Public License v3.0
 
 % Preprocessing code version
 myPaths.codever = '2';
@@ -95,10 +128,10 @@ fprintf('%s\n', pathsFoldersTmp{:});
 % Check for duplicates to prevent overloading
 % restoredefaultpath % Maybe better not to use it altough it does the job
 % Check if there are functions with the same name
-check_duplicates(myPaths.mycodes, {'external','unused'});
+check_duplicates(myPaths.mycodes, {'external', 'unused'});
 check_duplicatefunc('preproc_main.m');
-check_duplicatefunc('preproc_cleaning1.m');
-check_duplicatefunc('preproc_cleaning2.m');
+check_duplicatefunc('run_subject_1.m');
+check_duplicatefunc('run_subject_2.m');
 check_duplicatefunc('eeglab.m');
 check_duplicatefunc('brewermap.m');
 fprintf('\n');

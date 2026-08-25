@@ -1,6 +1,40 @@
 function [errorLog, list_failed] = run_subjects(myPaths, errorLog)
-% PROCESS_SUBJECT_BATCH Runs cleaning steps 1 and 2 for a batch of subjects,
-% capturing errors into a centralized log without stopping execution.
+% RUN_SUBJECTS Batch runner for subject-level preprocessing and postprocessing.
+%
+% Syntax:
+%   [errorLog, list_failed] = run_subjects(myPaths, errorLog)
+%
+% Description:
+%   Executes Part 1 (continuous cleaning) and Part 2 (postprocessing and QA)
+%   sequentially for each participant in a selected cohort batch.
+%
+%   Key operations:
+%     1. Iterates across all participant IDs defined in myPaths.subjects.
+%     2. Wraps run_subject_1 and run_subject_2 in independent try-catch blocks
+%        to prevent unhandled runtime exceptions from halting batch execution.
+%     3. Logs failure metadata (group, visit, subject ID, step, error message)
+%        into a centralised structured error log.
+%     4. Automatically skips Part 2 if Part 1 fails for a given participant.
+%     5. Evaluates output file completion via check_runs and compiles batch-level
+%        summary reports via report_final.
+%
+% Inputs:
+%   myPaths  - Structure containing batch and cohort metadata:
+%                .subjects    : Cell array of participant ID strings
+%                .group       : Study cohort or group identifier
+%                .visit       : Target visit number (scalar, e.g., 1, 2)
+%                .task        : Task identifier (e.g., 'RS', 'EO', 'EC', 'MT')
+%                .rootrawdata : Root directory containing raw recordings
+%                .rootpreproc : Root directory for preprocessed outputs
+%                .mycodes     : Root directory of pipeline source code
+%   errorLog - Struct array tracking processing errors across batch runs.
+%
+% Outputs:
+%   errorLog    - Updated struct array with newly appended failure records.
+%   list_failed - List of participants/sessions identified with incomplete runs.
+%
+% ALS Centre, University Medical Centre Utrecht
+% License: GNU General Public License v3.0
 
 % Sample size
 num_subjects = length(myPaths.subjects);

@@ -1,10 +1,37 @@
 function run_subject_1(myPaths, id)
-% =========================================================================
+% RUN_SUBJECT_1 Continuous EEG preprocessing and artefact rejection (Part 1).
 %
-% Script for EEG data preprocessing
+% Syntax:
+%   run_subject_1(myPaths, id)
+%
+% Description:
+%   Executes the first stage of the automated EEG preprocessing pipeline on
+%   continuous 128-channel BioSemi ActiveTwo recordings.
+%
+%   Key processing steps:
+%     1. Data import (.bdf) and event trigger alignment.
+%     2. Hardware checks: CMS/DRL dropout detection and DC offset estimation.
+%     3. Resampling (256 Hz), high-pass FIR filtering, and robust referencing.
+%     4. Two-stage spectral line-noise suppression (50 Hz and harmonics).
+%     5. External electrode derivation (bipolar VEOG, HEOG, ECG / earlobe PCA).
+%     6. Spatial filtering (STAR, GEDAI) and artefact template generation.
+%     7. Bad channel detection, spherical spline interpolation, and regular rereferencing.
+%     8. ICA decomposition (CUDAICA / RUNICA) with subspace rank preservation.
+%     9. Automated classification and rejection of ocular, cardiac, and myogenic ICs.
+%    10. Export of interim preprocessed dataset and participant QA report.
+%
+% Inputs:
+%   myPaths - Structure containing directory configurations:
+%               .mycodes     : Path to pipeline source code
+%               .rootrawdata : Directory containing raw BDF files
+%               .rootpreproc : Output root directory for preprocessed data
+%   id      - String or character array specifying participant ID (e.g., 'SUBJ001')
+%
+% Outputs:
+%   None (processed dataset, figures, and QA logs are written directly to disk).
+%
 % ALS Centre, University Medical Centre Utrecht
-%
-% =========================================================================
+% License: GNU General Public License v3.0
 
 % Load preprocessing settings
 cfg = preproc_parameters;

@@ -1,16 +1,37 @@
 % =========================================================================
+% PREPROC_MAIN Batch execution script for the automated EEG preprocessing pipeline.
 %
-% EEG preprocessing main file, ALS Centre UMC Utrecht
-% Check README.md for instructions
-% SDukic, July 2026
+% Syntax:
+%   preproc_main
 %
-% TODO
-% 1. Deal with cases where 1 file has 2 different tasks (MMN + SART)
-% 2. https://github.com/bigdelys/eye-catch
-% 3. Steamline the bad ic detection
-% 4. Prevent outliers in EOG/ECG detection func
-
+% Description:
+%   Orchestrates batch execution of the two-stage EEG preprocessing pipeline
+%   across cohorts, study groups, longitudinal visits, and tasks.
+%
+%   Key operations:
+%     1. Environment initialisation and path resolution via preproc_folders.
+%     2. Cohort iteration across defined study groups and visit sessions.
+%     3. Participant selection and batch execution via run_subjects.
+%     4. Structured error tracking and generation of overnight failure logs (CSV).
+%
+% Requirements:
+%   - Paths must be configured in preproc_folders.m.
+%   - Pipeline parameters must be defined in preproc_parameters.m.
+%
+% Outputs:
+%   - Preprocessed and epoched EEG datasets (.set / .mat).
+%   - Diagnostic figures and QA reports per subject/block.
+%   - 'overnight_pipeline_errors.csv' written to rootpreproc upon completion.
+%
+% TODO:
+%   1. Handle combined datasets containing multiple tasks (e.g. MMN + SART).
+%   2. Evaluate Eye-Catch integration for automated ocular IC detection.
+%
+% ALS Centre, University Medical Centre Utrecht
+% Author: S. Dukic, August 2026
+% License: GNU General Public License v3.0
 % =========================================================================
+
 close all hidden; fclose all; clear all; clc;
 
 % Initialise
@@ -57,5 +78,4 @@ end
 % myPathsTmp.preproc{1} = 'E:\3_PREPROCESSED_DATA\RS\CONTROL\T1';
 % myPathsTmp.preproc{2} = 'E:\3_PREPROCESSED_DATA\RS\ALS\T1';
 % report_final(myPaths, 'E:\3_PREPROCESSED_DATA\RS');
-%
 % generate_spatialdecay_profile(myPathsTmp, subjects);
