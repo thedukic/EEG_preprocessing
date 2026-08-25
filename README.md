@@ -67,13 +67,13 @@ Create an `external` folder in the root directory of this repository (or at your
 
 ```
 EEG_preprocessing/
-├── external/
-│   ├── brewermap/
-│   ├── eeglab/
-│   ├── gedai/
-│   ├── noisetools/
-│   ├── restingiaf/
-│   └── zaplineplus/
+└── external/
+    ├── brewermap/
+    ├── eeglab/
+    ├── gedai/
+    ├── noisetools/
+    ├── restingiaf/
+    └── zaplineplus/
 ```
 
 The pipeline will automatically index, add, and verify these subfolders during initialisation.
