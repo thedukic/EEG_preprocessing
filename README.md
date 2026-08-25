@@ -68,17 +68,12 @@ Create an `external` folder in the root directory of this repository (or at your
 ```
 EEG_preprocessing/
 ├── external/
-│   ├── brewermap-3.2.8/
-│   ├── eeglab2025.1.0/
-│   ├── gedai_05082026/
-│   ├── noisetools_29-Apr-2023/
-│   ├── restingiaf_20-Jan-2025/
-│   └── zaplineplus_14-Apr-2023/
-├── files/
-├── preproc_folders.m
-├── preproc_main.m
-├── run_subject_1.m
-└── run_subject_2.m
+│   ├── brewermap/
+│   ├── eeglab/
+│   ├── gedai/
+│   ├── noisetools/
+│   ├── restingiaf/
+│   └── zaplineplus/
 ```
 
 The pipeline will automatically index, add, and verify these subfolders during initialisation.
@@ -94,9 +89,9 @@ pathtool; % Click 'Default', then 'Save' and close.
 Open `preproc_folders.m` and define your local directory structure:
 
 ```matlab
-myPaths.mycodes     = 'C:/matlab/codes/EEG_preprocessing/';
-myPaths.rootrawdata = '/data/EEG/raw/';
-myPaths.rootpreproc = '/data/EEG/preprocessed/';
+myPaths.mycodes     = 'C:/codes/EEG_preprocessing/';
+myPaths.rootrawdata = 'C:/raw/';
+myPaths.rootpreproc = 'C:/preprocessed/';
 ```
 
 ### 5. Running the Pipeline

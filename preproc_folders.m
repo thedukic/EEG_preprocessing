@@ -93,14 +93,14 @@ fprintf('Adding folders:\n');
 fprintf('%s\n', pathsFolders{:});
 
 % Add toolboxes from the "external" folder
-thisFolder      = pathsFolders{contains(pathsFolders,'external','IgnoreCase',true)};
+thisFolder      = pathsFolders{contains(pathsFolders, 'external', 'IgnoreCase', true)};
 listFolders     = dir(thisFolder);
 listFolders     = listFolders([listFolders.isdir]);
 pathsFoldersTmp = fullfile(thisFolder, {listFolders(3:end).name});
 
 if isempty(pathsFoldersTmp)
     thisFolder = 'C:\DATA\MATLAB\myCodes\external';
-    fprintf('Your ''external'' folder is empty.\nUsing instead: %s\n', thisFolder);
+    fprintf('Your ''external'' folder is empty.\nUsing fallback instead: %s\n', thisFolder);
 
     pathsFoldersTmp    = {};
     pathsFoldersTmp{1} = fullfile(thisFolder, 'eeglab2025.1.0');
