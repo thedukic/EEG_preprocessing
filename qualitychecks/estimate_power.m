@@ -9,8 +9,8 @@ function [psdspectra, freq, chaneeg, chanemg] = estimate_power(EEG,thisScript)
 % This cases spikes/ringing in the spectra
 %
 
-chaneeg = strcmp({EEG(1).chanlocs.type},'EEG');
-chanemg = strcmp({EEG(1).chanlocs.type},'EMG');
+chaneeg = strcmp({EEG(1).chanlocs.type}, 'EEG');
+chanemg = strcmp({EEG(1).chanlocs.type}, 'EMG');
 
 if strcmpi(thisScript, 'preproc2')
     % @preproc_cleaning2
