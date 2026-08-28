@@ -54,7 +54,7 @@ subject.datablocks = list_datasets(subject.rawdata, subject.task);
 
 % Load those files
 if ~isempty(subject.datablocks)
-    EEG = load_biosemidata(subject, myPaths);
+    EEG = load_biosemidata(subject, cfg);
 else
     warning([subject.id ' is missing ' subject.task ' data. Skipping...']); return;
 end
@@ -66,14 +66,16 @@ if exist(subject.preproc, 'dir') ~= 7
     mkdir(subject.figures);
     mkdir(subject.qa);
 else
-    warning('The folder already exists. The old and the new files might be mixed:\n%s', subject.preproc);
+    fprintf('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
+    warning('The folder already exists!\nThe old and the new files might be mixed:\n%s', subject.preproc);
+    fprintf('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
 end
 
 % Open a report
 subject = report_proc(subject, myPaths, 'open');
 
 % Manually fix some datasets
-EEG = do_manualfix(EEG, subject, myPaths);
+EEG = do_manualfix(EEG, subject);
 
 % Fix events
 EEG = fix_events(EEG);
@@ -94,9 +96,9 @@ EEG = do_resampling(EEG, 256);
 EEG = remove_flatelectrodes(EEG, cfg);
 
 % % Remove extremely bad epochs
-% [EEG, flagExclude] = remove_extremeperiods2(EEG);
+% [EEG, flag_exclude] = remove_extremeperiods2(EEG);
 % % Check if it is worth continuing
-% if flagExclude, warning('%s has very noisy data. Skipping...', subject.id); return; end
+% if flag_exclude, warning('%s has very noisy data. Skipping...', subject.id); return; end
 
 % Mark where each RS block starts/ends
 if ismember(upper(subject.task), {'RS', 'EO', 'EC'})

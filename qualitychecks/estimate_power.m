@@ -1,92 +1,111 @@
-function [psdspectra, freq, chaneeg, chanemg] = estimate_power(EEG,thisScript)
-% Helper function for estimating power spectra for:
-% 1. preproc_cleaning2 script
-% 2. report_final
+function [psdspectra, freq, chaneeg, chanemg] = estimate_power(EEG, this_script)
+% ESTIMATE_POWER Helper function for estimating power spectra.
 %
-% N.B.
-% If data is already epoched, especially if with overlapping segments
-% Do not concatinate it and epoch it *differently*
-% This cases spikes/ringing in the spectra
+% Syntax:
+%   [psdspectra, freq, chaneeg, chanemg] = estimate_power(EEG, thisScript)
 %
+% Inputs:
+%   EEG        - EEGLAB data structure or struct array
+%   thisScript - Mode selector: 'preproc2', 'freport', or 'speaks'
+%
+% Outputs:
+%   psdspectra - Power spectral density matrix (frequencies x channels)
+%   freq       - Frequency vector corresponding to PSD rows
+%   chaneeg    - Logical index vector for EEG channels
+%   chanemg    - Logical index vector for EMG channels
 
-chaneeg = strcmp({EEG(1).chanlocs.type}, 'EEG');
-chanemg = strcmp({EEG(1).chanlocs.type}, 'EMG');
+% Channel type masks (case-insensitive)
+if isfield(EEG(1).chanlocs, 'type')
+    chaneeg = strcmpi({EEG(1).chanlocs.type}, 'EEG');
+    chanemg = strcmpi({EEG(1).chanlocs.type}, 'EMG');
+else
+    chaneeg = true(1, EEG(1).nbchan);
+    chanemg = false(1, EEG(1).nbchan);
+end
 
-if strcmpi(thisScript, 'preproc2')
-    % @preproc_cleaning2
-    % Data is already epoched
-    assert(ndims(EEG.data) == 3);
+% Fallback if no channels are explicitly labelled 'EEG'
+if ~any(chaneeg)
+    chaneeg = true(1, size(EEG(1).data, 1));
+end
 
-    fs = EEG.srate;
-    if strcmpi(EEG.ALSUTRECHT.subject.task,'MT')
-        dataeeg = EEG.data;
-    else
-        dataeeg = EEG.data(chaneeg,:,:);
-    end
+fs = EEG(1).srate;
 
-elseif strcmpi(thisScript, 'freport')
-    % @preproc_cleaning1
-    % @report_final
+switch lower(this_script)
+    case 'preproc2'
+        % @preproc_cleaning2 (@generate_finalplots)
+        assert(ndims(EEG.data) == 3, 'Input EEG.data must be 3D for preproc2 mode.');
 
-    fs = EEG.srate;
-    % if strcmpi(EEG.ALSUTRECHT.subject.task,'MMN') || strcmpi(EEG.ALSUTRECHT.subject.task,'SART')  || strcmpi(EEG.ALSUTRECHT.subject.task,'RS')
-    if ndims(EEG.data) == 3
-        % @report_final
-        % Data is already epoched
-        NPTS = size(EEG.data,2);
-    else
-        % @preproc_cleaning1 (report leftovers)
-        % Data not epoched
-        NPTS = 2 * fs; % [samples]
-    end
+        is_MT = isfield(EEG, 'ALSUTRECHT') && ...
+            isfield(EEG.ALSUTRECHT, 'subject') && ...
+            isfield(EEG.ALSUTRECHT.subject, 'task') && ...
+            strcmpi(EEG.ALSUTRECHT.subject.task, 'MT');
 
-    % Make it continuous
-    dataeeg = EEG.data - mean(EEG.data,2);
-    dataeeg = dataeeg(chaneeg,:);
+        if is_MT
+            dataeeg = EEG.data;
+        else
+            dataeeg = EEG.data(chaneeg, :, :);
+        end
 
-    [NCHN, NPTSALL] = size(dataeeg);
-    NTRL = floor(NPTSALL/NPTS);
-    dataeeg = reshape(dataeeg(:,1:NTRL*NPTS), NCHN,NPTS,NTRL);
+    case 'speaks'
+        % @preproc_cleaning1 (@reduce_spectrapeaks)
+        winSizeCompleteSpectrum = 10; % [s]
 
-elseif strcmpi(thisScript, 'speaks')
-    % preproc_cleaning1
+        % Concatenate across struct array blocks if multiple files provided
+        data_all = cat(2, EEG(:).data);
+        data_sub = data_all(chaneeg, :);
+        [nchn, npts_total] = size(data_sub);
 
-    % Make it 20s long -> 0.05 Hz freq resolution
-    fs = EEG(1).srate;
-    winSizeCompleteSpectrum = 10; % [s]
+        % Guard against zero-division for short recordings
+        min_segments = 8;
+        if winSizeCompleteSpectrum * fs > npts_total / min_segments
+            winSizeCompleteSpectrum = max(1, floor(npts_total / min_segments / fs));
+            warning('Dataset is short. Adjusted window size to %d s.', winSizeCompleteSpectrum);
+        end
 
-    chaneeg = true(size(chaneeg));
-    dataeeg = cat(2, EEG(:).data);
-    dataeeg = dataeeg(chaneeg, :);
-    NPTS = size(dataeeg, 2);
+        npts = winSizeCompleteSpectrum * fs;
+        ntrl = floor(npts_total / npts);
 
-    % We want at least 8 segments for proper usage of pwelch
-    if winSizeCompleteSpectrum * fs > NPTS / 8
-        winSizeCompleteSpectrum = floor(NPTS/8/fs);
-        warning('Dataset is short. Adjusted window size for whole data set spectrum calculation to be 1/8 of the length.')
-    end
+        if ntrl < 1
+            error('Dataset too short (%d samples) for spectral calculation.', npts_total);
+        end
+        dataeeg = reshape(data_sub(:, 1:ntrl * npts), nchn, npts, ntrl);
 
-    % Make it 20s long -> 0.05 Hz freq resolution
-    [NCHN, NPTSALL] = size(dataeeg);
-    NPTS = winSizeCompleteSpectrum * fs;
-    NTRL = floor(NPTSALL/NPTS);
-    dataeeg = reshape(dataeeg(:, 1:NTRL*NPTS), NCHN, NPTS, NTRL);
-
+        % case 'freport'
+        %     % @preproc_cleaning1 (@leftover report) and @report_final
+        %     if ndims(EEG.data) == 3
+        %         dataeeg = EEG.data(chaneeg, :, :);
+        %     else
+        %         npts = 2 * fs; % 2-second segments
+        %         data_sub = EEG.data(chaneeg, :);
+        %         [nchn, npts_total] = size(data_sub);
+        %         ntrl = floor(npts_total / npts);
+        %
+        %         if ntrl < 1
+        %             error('Dataset too short (< %d samples) to construct 2s epochs.', npts);
+        %         end
+        %         dataeeg = reshape(data_sub(:, 1:ntrl * npts), nchn, npts, ntrl);
+        %     end
+        %
+    otherwise
+        error('Unrecognised mode: ''%s''. Valid options: ''preproc2'', ''freport'', ''speaks''.', this_script);
 end
 
 % Compute power spectra
-[NCHN, NPTS, NTRL] = size(dataeeg);
-psdspectra = NaN(floor(NPTS/2+1), NCHN, NTRL);
+[nchn, npts, ntrl] = size(dataeeg);
+assert(ntrl >= 1, 'No valid trials available for PSD computation.');
 
+% Baseline-correct each epoch and orient to [samples x channels x trials]
 dataeeg = double(dataeeg);
 dataeeg = dataeeg - mean(dataeeg, 2);
 dataeeg = permute(dataeeg, [2 1 3]);
 
-for i = 1:NTRL
-    [psdspectra(:,:,i), freq] = pwelch(dataeeg(:, :, i), NPTS, 0, NPTS, fs);
+psdspectra = NaN(floor(npts / 2 + 1), nchn, ntrl);
+
+for i = 1:ntrl
+    [psdspectra(:, :, i), freq] = pwelch(dataeeg(:, :, i), npts, 0, npts, fs);
 end
 
-% Average the spectra
+% Average across epochs/trials
 psdspectra = mean(psdspectra, 3);
 
 end

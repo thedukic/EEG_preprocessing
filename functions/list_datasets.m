@@ -48,6 +48,7 @@ end
 
 list_blocks = fullfile(datapath,dataname);
 num_blocks = length(list_blocks);
+fprintf('Done!\n');
 
 end
 

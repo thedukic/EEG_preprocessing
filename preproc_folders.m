@@ -39,9 +39,6 @@ function myPaths = preproc_folders
 % ALS Centre, University Medical Centre Utrecht
 % License: GNU General Public License v3.0
 
-% Preprocessing code version
-myPaths.codever = '2';
-
 % Define
 myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\preprocessing';     % Pipeline
 myPaths.rootrawdata = 'E:\1_EEG_DATA';                            % Input
@@ -50,11 +47,11 @@ myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA';                   % Output
 % myPaths.rootpreproc = 'C:\DATA\MATLAB\EEG\3_PREPROCESSED_DATA'; % Output
 
 % Task (char): MMN / SART / RS / MT
-myPaths.task  = 'RS';
+myPaths.task  = 'MMN';
 % Group (cell): ALS / CONTROL / AFM / PLS / PMA
-myPaths.group = {'AFM'};
+myPaths.group = {'ALS'};
 % Subgroup (char): AFM_C9ORF72 / AFM_ARPP21 / MND_C9ORF72 / MND_SOD1
-myPaths.subgroup = 'AFM_C9ORF72';
+myPaths.subgroup = '';
 % Visit (num): 1-5
 myPaths.visit = 1:5;
 
@@ -65,6 +62,9 @@ myPaths.table1 = 'C:\DATA\MATLAB\EEG\2_OTHER_DATA\FULL_CLINICAL_TABLE_2026-08-14
 % The script below does not need changing
 % =========================================================================
 warning on; warning('off', 'backtrace');
+
+% Preprocessing code version
+myPaths.codever = '2';
 
 fprintf('==================================================================\n');
 fprintf('Setting up the paths and loading the toolboxes\n');

@@ -1,11 +1,13 @@
 function myPathsOut = preproc_participants(i_group, i_visit, myPaths)
 
+% #########################################################################
 % Define
 myPathsOut          = myPaths;
 myPathsOut.task     = myPaths.task;
 myPathsOut.group    = myPaths.group{i_group};
 myPathsOut.visit    = myPaths.visit(i_visit);
 
+% #########################################################################
 % % Messy but it could be imporved if all data is in one folder
 % if ismember(myPathsTmp.group , {'ALS','PLS','PMA','MND'})
 %     myPathsTmp.rawdata  = fullfile(myPathsTmp.rootrawdata, 'ALS', ['T' num2str(myPathsTmp.visit)]);
@@ -17,20 +19,25 @@ myPathsOut.visit    = myPaths.visit(i_visit);
 myPathsOut.rawdata  = fullfile(myPathsOut.rootrawdata, myPathsOut.group, ['T' num2str(myPathsOut.visit)]);
 myPathsOut.preproc  = fullfile(myPathsOut.rootpreproc, myPathsOut.task, myPathsOut.group, ['T' num2str(myPathsOut.visit)]);
 
-% Preprocess all participants
-myPathsOut.subjects = list_participants(myPathsOut.rawdata, {});
+% #########################################################################
+% % Preprocess all participants
+% myPathsOut.subjects = list_participants(myPathsOut.rawdata, {});
 
-% Select only the relevant participants
-% eg. folder may have more participants but you want ALS only
-myPathsOut.subjects = select_relevant(myPathsOut.subjects, myPathsOut);
+% -------------------------------------------------------------------------
+% % Select only the relevant participants
+% % eg. folder may have more participants but you want ALS only
+% myPathsOut.subjects = select_relevant(myPathsOut.subjects, myPathsOut);
 
-% % Overrride
-% myPathsOut.subjects = {'ALS36104'};
+% -------------------------------------------------------------------------
+% Overrride
+myPathsOut.subjects = {'ALS37930'};
 % load('C:\DATA\MATLAB\myCodes\preprocessing\files\list_c9_als.mat', 'list_als'); myPathsOut.subjects = list_als;
 
+% -------------------------------------------------------------------------
 % % Check (but fails for DUB data)
 % assert(all(contains(subjects, 'ALS')));
 
+% #########################################################################
 % Report
 NSUB = length(myPathsOut.subjects);
 fprintf('Processing %d %s participants...\n', NSUB, myPathsOut.group);

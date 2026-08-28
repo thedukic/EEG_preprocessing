@@ -100,8 +100,10 @@ if num_subjects > 0
     % Check if any runs failed
     list_failed = check_runs(myPaths);
 
-    % Report
-    report_final(myPaths, myPaths.subjects);
+    % Report (you want a whole cohort)
+    if num_subjects > 1
+        report_final(myPaths, myPaths.subjects);
+    end
 else
     warning('No participants selected: %s T%d', myPaths.group, myPaths.visit);
 end

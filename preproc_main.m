@@ -24,8 +24,8 @@
 %   - 'overnight_pipeline_errors.csv' written to rootpreproc upon completion.
 %
 % TODO:
-%   1. Handle combined datasets containing multiple tasks (e.g. MMN + SART).
-%   2. Evaluate Eye-Catch integration for automated ocular IC detection.
+%   1. Evaluate Eye-Catch integration for automated ocular IC detection.
+%   2. Offsets not correct for dataset collected with fs > 256 Hz
 %
 % ALS Centre, University Medical Centre Utrecht
 % Author: S. Dukic, August 2026
@@ -39,7 +39,9 @@ myPaths = preproc_folders;
 errorLog = struct('group', {}, 'visit', {}, 'subject', {}, 'index', [], 'step', {}, 'message', {});
 listFailed = cell(length(myPaths.group), length(myPaths.visit));
 
-% Loop
+% =========================================================================
+% Batch process: group & visit
+% =========================================================================
 for i_group = 1:length(myPaths.group)
     for i_visit = 1:length(myPaths.visit)
         % Select participants
@@ -50,7 +52,27 @@ for i_group = 1:length(myPaths.group)
     end
 end
 
+% =========================================================================
+% Batch process: task (for pipiline testing)
+% =========================================================================
+% Select participants
+list_tasks = {'MMN', 'SART', 'RS', 'MT'};
+i_group = 1;
+i_visit = 1;
+
+% Run
+for i_task = 1:length(list_tasks)
+    % Select task
+    myPaths.task = list_tasks{i_task};
+    myPathsTmp = preproc_participants(i_group, i_visit, myPaths);
+
+    % Run
+    [errorLog, listFailed{i_task, i_visit}] = run_subjects(myPathsTmp, errorLog);
+end
+
+% =========================================================================
 % Failure report
+% =========================================================================
 fprintf('\n\n');
 disp('==================================================================');
 disp('PROCESSING FINISHED: FAILURE SUMMARY');
@@ -79,3 +101,4 @@ end
 % myPathsTmp.preproc{2} = 'E:\3_PREPROCESSED_DATA\RS\ALS\T1';
 % report_final(myPaths, 'E:\3_PREPROCESSED_DATA\RS');
 % generate_spatialdecay_profile(myPathsTmp, subjects);
+% =========================================================================

@@ -1,6 +1,6 @@
-# Automated EEG Preprocessing & Postprocessing Pipeline
+# Automated EEG Preprocessing Pipeline
 
-An automated, two-stage EEG analysis pipeline developed at the ALS Centre, University Medical Centre Utrecht. Engineered for high-density 128-channel BioSemi ActiveTwo recordings, this pipeline standardises data curation, multi-modal artefact rejection, individualised spectral metrics, and objective quality assurance.
+An automated, two-stage EEG analysis pipeline developed at the ALS Centre, University Medical Centre Utrecht. Developed for high-density 128-channel BioSemi ActiveTwo recordings, this pipeline standardises data curation, multi-modal artefact rejection, individualised spectral metrics, and objective quality assurance.
 
 ---
 
@@ -21,11 +21,11 @@ Raw BioSemi Data (.bdf)
    └── Re-referencing (Average) & Interim export
    │
    ▼
-[ Part 2: Postprocessing & Quality Assurance (run_subject_2) ]
+[ Part 2: Final Cleaning & Quality Assurance (run_subject_2) ]
    ├── Continuous low-pass filtering
    ├── Individual Alpha Frequency (IAF) estimation
    ├── Data epoching
-   ├── Baseline correction & Epoch rejection
+   ├── Baseline correction & Noisy epoch rejection
    ├── Residual artefact screening (Ocular & Muscular slopes)
    ├── Automagic quality scoring (RBC, OHA, THV, CHV)
    └── BIDS metadata integration & Final export
