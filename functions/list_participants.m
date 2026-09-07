@@ -1,8 +1,8 @@
 function subjects = list_participants(path_folder,list_todo)
-%
 % List subjects from the given folder
 % SDukic, June 2026
-%
+
+fprintf('Searching for participants in: %s\n', path_folder);
 
 FilesList0  = dir(path_folder);
 FilesList0  = FilesList0([FilesList0(:).isdir] == 1);

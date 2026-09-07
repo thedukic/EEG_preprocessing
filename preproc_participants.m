@@ -2,36 +2,41 @@ function myPathsOut = preproc_participants(i_group, i_visit, myPaths)
 
 % #########################################################################
 % Define
-myPathsOut          = myPaths;
-myPathsOut.task     = myPaths.task;
-myPathsOut.group    = myPaths.group{i_group};
-myPathsOut.visit    = myPaths.visit(i_visit);
+myPathsOut       = myPaths;
+myPathsOut.task  = myPaths.task;
+myPathsOut.group = myPaths.group{i_group};
+myPathsOut.visit = myPaths.visit(i_visit);
 
 % #########################################################################
-% % Messy but it could be imporved if all data is in one folder
-% if ismember(myPathsTmp.group , {'ALS','PLS','PMA','MND'})
+% % Messy but it could be imporved if all cohorts are in one folder
+% if ismember(myPathsTmp.group, {'ALS','PLS','PMA','MND'})
 %     myPathsTmp.rawdata  = fullfile(myPathsTmp.rootrawdata, 'ALS', ['T' num2str(myPathsTmp.visit)]);
-% elseif ismember(myPathsTmp.group , {'AFM'})
+% elseif ismember(myPathsTmp.group, {'AFM'})
 %     myPathsTmp.rawdata  = fullfile(myPathsTmp.rootrawdata, 'AFM', ['T' num2str(myPathsTmp.visit)]);
-% elseif ismember(myPathsTmp.group , {'CONTROL'})
+% elseif ismember(myPathsTmp.group, {'CONTROL'})
 %     myPathsTmp.rawdata  = fullfile(myPathsTmp.rootrawdata, 'CONTROL', ['T' num2str(myPathsTmp.visit)]);
 % end
 myPathsOut.rawdata  = fullfile(myPathsOut.rootrawdata, myPathsOut.group, ['T' num2str(myPathsOut.visit)]);
 myPathsOut.preproc  = fullfile(myPathsOut.rootpreproc, myPathsOut.task, myPathsOut.group, ['T' num2str(myPathsOut.visit)]);
 
 % #########################################################################
-% % A: Preprocess all participants i nthe given folder
+% -------------------------------------------------------------------------
+% Method A: Preprocess all participants in the given folder
+% -------------------------------------------------------------------------
 % myPathsOut.subjects = list_participants(myPathsOut.rawdata, {});
 
 % -------------------------------------------------------------------------
-% % B: Select only the relevant participants (Utrecht datasets)
-% % eg. folder may have more participants but you want ALS only
-% myPathsOut.subjects = select_relevant(myPathsOut.subjects, myPathsOut);
+% Method B: Select only the relevant participants (Utrecht datasets)
+% eg. Folder may have more participants but you want C9+ patients only
+% ------------------------------------------------------------------------
+myPathsOut.subjects = list_participants(myPathsOut.rawdata, {});
+myPathsOut.subjects = select_relevant(myPathsOut.subjects, myPathsOut);
 
 % -------------------------------------------------------------------------
-% C: Manually select 
-myPathsOut.subjects = {'ALS37930'};
-% load('C:\DATA\MATLAB\myCodes\preprocessing\files\list_c9_als.mat', 'list_als'); myPathsOut.subjects = list_als;
+% Method C: Manually select 
+% -------------------------------------------------------------------------
+% myPathsOut.subjects = {'ALS12345'};
+% load(fullfile(myPaths.mycodes, 'files', 'list_c9_als.mat'), 'list_als'); myPathsOut.subjects = list_als;
 
 % -------------------------------------------------------------------------
 % % Check (but fails for DUB data)
@@ -114,12 +119,27 @@ if ~isempty(list_notfound)
     end
 end
 
+% Extra found in the folder
+% Prevent spamming the user
 list_extrafound1 = ~ismember(subjects, list_table1);
-if any(list_extrafound1)
+n_extra = sum(list_extrafound1);
+
+if n_extra > 0
     list_extrafound2 = subjects(list_extrafound1);
-    fprintf('Extra found: %s\n', list_extrafound2{:});
+    fprintf('Found %d extra participant(s) in the given folder.\n', n_extra);
+    
+    % Print first few as examples if the list is long
+    max_to_show = 5;
+    if n_extra <= max_to_show
+        fprintf('  IDs: %s\n', strjoin(list_extrafound2, ', '));
+    else
+        fprintf('  First %d IDs: %s (and %d more)\n', ...
+            max_to_show, strjoin(list_extrafound2(1:max_to_show), ', '), n_extra - max_to_show);
+    end
 end
 
+% Remove the ones that are missing
+% Recorded data but not in the folder
 Table1(list_notfound, :) = [];
 subjects(list_extrafound1) = [];
 
