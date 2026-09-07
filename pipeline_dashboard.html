@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>EEG Preprocessing Pipeline v2 Dashboard</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+		
+		<script>
+			tailwind.config = {
+				theme: {
+					extend: {
+						fontFamily: {
+							sans: ['Inter', 'sans-serif'],
+						},
+						colors: {
+							warmbg: '#FAF9F6',
+							warmtext: '#2D3748',
+							accent: '#4FD1C5',
+							accentDark: '#319795'
+						}
+					}
+				}
+			}
+		</script>
+		
+		<style>
+			.chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 280px; 
+            max-height: 360px;
+			}
+			@media (min-width: 768px) {
+            .chart-container {
+			height: 310px;
+            }
+			}
+			
+			::-webkit-scrollbar { width: 6px; }
+			::-webkit-scrollbar-track { background: transparent; }
+			::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 4px; }
+			::-webkit-scrollbar-thumb:hover { background: #A0AEC0; }
+			
+			details > summary { list-style: none; cursor: pointer; }
+			details > summary::-webkit-details-marker { display: none; }
+			
+			.nav-item.active {
+            background-color: #E6FFFA;
+            color: #319795;
+            border-right: 4px solid #319795;
+			}
+		</style>
+	</head>
+	<body class="bg-warmbg text-warmtext font-sans h-screen flex overflow-hidden">
+		
+		<aside class="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm z-10 flex-shrink-0">
+			<div class="p-6 border-b border-gray-100">
+				<h1 class="text-xl font-bold text-gray-800 leading-tight">EEG Pipeline <span class="text-accentDark">v2</span></h1>
+				<p class="text-xs text-gray-500 mt-2">ALS Centre, UMC Utrecht</p>
+			</div>
+			<nav class="flex-1 overflow-y-auto py-4">
+				<ul id="nav-menu">
+					<li><button data-target="view-overview" class="nav-item active w-full text-left px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">📊 Overview</button></li>
+					<li><button data-target="view-setup" class="nav-item w-full text-left px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">📁 Data Structure & Naming</button></li>
+					<li><button data-target="view-config" class="nav-item w-full text-left px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">⚙️ Pipeline Configuration</button></li>
+					<li><button data-target="view-execution" class="nav-item w-full text-left px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">🚀 Pipeline Execution</button></li>
+					<li><button data-target="view-outputs" class="nav-item w-full text-left px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">📄 Outputs & Error Tracking</button></li>
+					<li><button data-target="view-exclusion" class="nav-item w-full text-left px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">⚠️ Participant Exclusion</button></li>
+				</ul>
+			</nav>
+			<div class="p-4 border-t border-gray-100 text-xs text-gray-400 text-center">
+				Doc Version: 1.0<br>Author: S. Dukic
+			</div>
+		</aside>
+		
+		<main class="flex-1 relative overflow-y-auto bg-warmbg">
+			
+			<section id="view-overview" class="content-section p-8 max-w-6xl mx-auto block">
+				<div class="mb-8">
+					<h2 class="text-3xl font-bold text-gray-800 mb-4">Pipeline Architecture & Overview</h2>
+					<p class="text-gray-600 text-lg leading-relaxed">
+						This preprocessing pipeline is optimised for 128-channel BioSemi EEG recordings across multiple predefined experimental paradigms from the ALS Centre Utrecht, UMC Utrecht. Considering that the data collection protocol and equipment are almost identical between the ALS Centre Utrecht and Dublin, the pipeline is suitable for use with datasets from both centres. Incorporating other experimental paradigms or recording equipment into this pipeline is straightforward and requires minor work.
+					</p>
+				</div>
+				
+				<!-- 1. Supported Experimental Paradigms (Matched to 4-Script Design Card Style) -->
+				<h3 class="text-2xl font-semibold text-gray-800 mb-4">Supported Experimental Paradigms</h3>
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+					<div class="bg-white p-5 rounded-lg border-l-4 border-blue-500 shadow-sm hover:shadow-md transition-shadow">
+						<div class="font-mono text-sm text-gray-800 font-bold mb-2">RS (Resting-State)</div>
+						<p class="text-sm text-gray-600">Resting-state eyes-open and eyes-closed recordings. Typically three 2-minute blocks for each condition, totalling 12 minutes.</p>
+					</div>
+					<div class="bg-white p-5 rounded-lg border-l-4 border-green-500 shadow-sm hover:shadow-md transition-shadow">
+						<div class="font-mono text-sm text-gray-800 font-bold mb-2">MMN (Cognitive task)</div>
+						<p class="text-sm text-gray-600">Mismatch Negativity, a varaint of the passive auditory oddball paradigm. Typically three blocks of 7-8 minutes, totalling 21-24 minutes.</p>
+					</div>
+					<div class="bg-white p-5 rounded-lg border-l-4 border-purple-500 shadow-sm hover:shadow-md transition-shadow">
+						<div class="font-mono text-sm text-gray-800 font-bold mb-2">SART (Cognitive task)</div>
+						<p class="text-sm text-gray-600">Sustained Attention to Response Task, a variant of the Go/No-Go cognitive task. Typically three blocks of 5-6 minutes, totalling 15-18 minutes.</p>
+					</div>
+					<div class="bg-white p-5 rounded-lg border-l-4 border-orange-500 shadow-sm hover:shadow-md transition-shadow">
+						<div class="font-mono text-sm text-gray-800 font-bold mb-2">MT (Motor task)</div>
+						<p class="text-sm text-gray-600">MotorMarker, a motor paradigm using a right-hand pinch grip movement (simultaneous EEG and EMG data). Processes MT2 and MT3 tasks. Typically one 7-8 minute block each, totalling 14-16 minutes.</p>
+					</div>
+				</div>
+				
+				<!-- 2. The Four-Script Design -->
+				<h3 class="text-2xl font-semibold text-gray-800 mb-4">The Four-Script Design</h3>
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+					<div class="bg-white p-5 rounded-lg border-l-4 border-gray-400 shadow-sm hover:shadow-md transition-shadow">
+						<div class="font-mono text-sm text-gray-800 font-bold mb-2">1. preproc_folders.m</div>
+						<p class="text-sm text-gray-600">Initialises paths, cohorts, task, and visits. <strong>Needs editing.</strong></p>
+					</div>
+					<div class="bg-white p-5 rounded-lg border-l-4 border-blue-400 shadow-sm hover:shadow-md transition-shadow">
+						<div class="font-mono text-sm text-gray-800 font-bold mb-2">2. preproc_participants.m</div>
+						<p class="text-sm text-gray-600">Handles participant selection. <strong>Needs editing.</strong></p>
+					</div>
+					<div class="bg-white p-5 rounded-lg border-l-4 border-red-400 shadow-sm hover:shadow-md transition-shadow">
+						<div class="font-mono text-sm text-gray-800 font-bold mb-2">3. preproc_parameters.m</div>
+						<p class="text-sm text-gray-600">Defines preprocessing parameters. <strong>Do not edit.</strong></p>
+					</div>
+					<div class="bg-white p-5 rounded-lg border-l-4 border-accentDark shadow-sm hover:shadow-md transition-shadow">
+						<div class="font-mono text-sm text-gray-800 font-bold mb-2">4. preproc_main.m</div>
+						<p class="text-sm text-gray-600">Executes batch processing loops. <strong>May be edited.</strong></p>
+					</div>
+				</div>
+				
+				<!-- 3. Two-Stage Processing Overview (Connected with preproc_main.m) -->
+				<div class="mb-4">
+					<h3 class="text-2xl font-semibold text-gray-800 mb-2">Two-Stage Processing Overview</h3>
+					<p class="text-sm text-gray-600">
+						The master script <code class="text-gray-800 font-semibold font-mono">preproc_main.m</code> iterates across selected datasets and executes the pipeline via <code class="text-gray-800 font-semibold font-mono">run_subjects.m</code> in two distinct sequential steps per subject:
+					</p>
+				</div>
+				
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+					<div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-t-4 border-t-accentDark">
+						<div class="flex justify-between items-baseline mb-2">
+							<h4 class="font-bold text-gray-800 text-base">Run 1: Continuous data processing</h4>
+							<span class="text-xs font-semibold px-2 py-0.5 rounded bg-teal-50 text-teal-700 font-mono">~5-10 min</span>
+						</div>
+						<p class="text-xs text-gray-600 leading-relaxed mb-3">
+							Covers raw import, high-pass filtering, line noise removal, bad channel detection, artefact attenuation (STAR, GEDAI), channel interpolation, and ICA decomposition.
+						</p>
+						<div class="pt-2 border-t border-gray-100 text-xs text-gray-500 font-mono">
+							Triggered in preproc_main.m &rarr; run_subjects.m &rarr; run_subject_1
+						</div>
+					</div>
+					
+					<div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-t-4 border-t-blue-600">
+						<div class="flex justify-between items-baseline mb-2">
+							<h4 class="font-bold text-gray-800 text-base">Run 2: Epoched data processing</h4>
+							<span class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono">~1 min</span>
+						</div>
+						<p class="text-xs text-gray-600 leading-relaxed mb-3">
+							Applies low-pass filtering, task-specific epoching, baseline correction, rejection of bad trials, and quality assurance exports.
+						</p>
+						<div class="pt-2 border-t border-gray-100 text-xs text-gray-500 font-mono">
+							Triggered in preproc_main.m &rarr; run_subjects.m &rarr; run_subject_2
+						</div>
+					</div>
+				</div>
+			</section>
+			
+			<section id="view-setup" class="content-section p-8 max-w-6xl mx-auto hidden">
+				<div class="mb-8">
+					<h2 class="text-3xl font-bold text-gray-800 mb-4">Raw Data Structure & Naming</h2>
+					<p class="text-gray-600 text-lg leading-relaxed">
+						Correct data organisation is critical for automated file discovery. This section outlines the folder hierarchy and naming conventions required for EEG files.
+					</p>
+				</div>
+				
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+					<!-- Left Card: Directory Tree -->
+					<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col space-y-6">
+						<div>
+							<h3 class="text-xl font-semibold mb-4 border-b pb-2">Expected Directory Tree</h3>
+							<div class="font-mono text-sm bg-gray-50 p-4 rounded border border-gray-200">
+								<details open>
+									<summary class="font-bold text-gray-700 hover:text-accentDark">📁 &lt;rootrawdata&gt;</summary>
+									<div class="pl-6 pt-2 border-l border-gray-300 ml-2">
+										<details open>
+											<summary class="font-bold text-gray-700 hover:text-accentDark">📁 &lt;group&gt;</summary>
+											<div class="pl-6 pt-2 border-l border-gray-300 ml-2">
+												<details open>
+													<summary class="font-bold text-gray-700 hover:text-accentDark">📁 T&lt;visit&gt;</summary>
+													<div class="pl-6 pt-2 border-l border-gray-300 ml-2">
+														<details open>
+															<summary class="font-bold text-gray-700 hover:text-accentDark">📁 &lt;subject_id&gt;</summary>
+															<div class="pl-6 pt-2 ml-2 flex flex-col gap-2">
+																<span class="text-blue-600 italic">📄 ...Tasks files...</span>
+															</div>
+														</details>
+													</div>
+												</details>
+											</div>
+										</details>
+									</div>
+								</details>
+							</div>
+						</div>
+						
+						<ul class="space-y-3 text-sm text-gray-700">
+							<li><strong class="text-gray-900 inline-block w-36">&lt;rootrawdata&gt;:</strong> Base data folder (e.g. <code>E:\data\raw\</code>)</li>
+							<li><strong class="text-gray-900 inline-block w-36">&lt;group&gt;:</strong> Study or clinical cohort (e.g. <code>ALS</code>, <code>CONTROL</code>)</li>
+							<li><strong class="text-gray-900 inline-block w-36">T&lt;visit&gt;:</strong> Session indicator (e.g. <code>T1</code>, <code>T2</code>)</li>
+							<li><strong class="text-gray-900 inline-block w-36">&lt;subject_id&gt;:</strong> Unique alphanumeric code (e.g. <code>ALS12345</code>, <code>C42</code>)</li>
+						</ul>
+						
+						<div class="p-4 bg-teal-50 border border-teal-200 rounded-lg">
+							<span class="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-1">Example Folder Path:</span>
+							<code class="text-teal-900 font-mono text-sm block font-semibold">E:\data\raw\ALS\T1\ALS12345\</code>
+							<code class="text-teal-900 font-mono text-sm block font-semibold mt-1">E:\data\raw\CONTROL\T1\C42\</code>
+						</div>
+					</div>
+					
+					<!-- Right Column: File Naming & Note -->
+					<div class="space-y-6">
+						<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col space-y-6">
+							<div>
+								<h3 class="text-xl font-semibold mb-4 border-b pb-2">Expected File Naming</h3>
+								<div class="bg-gray-50 text-blue-600 border border-gray-200 p-4 rounded font-mono text-sm text-center font-semibold shadow-sm">
+									📄 &lt;subject_id&gt;_T&lt;visit&gt;_&lt;task&gt;&lt;block&gt;.bdf
+								</div>
+							</div>
+							
+							<ul class="space-y-3 text-sm text-gray-700">
+								<li><strong class="text-gray-900 inline-block w-36">&lt;subject_id&gt;:</strong> Unique alphanumeric code (e.g. <code>ALS12345</code>, <code>C42</code>)</li>
+								<li><strong class="text-gray-900 inline-block w-36">T&lt;visit&gt;:</strong> Session indicator (e.g. <code>T1</code>, <code>T2</code>)</li>
+								<li><strong class="text-gray-900 inline-block w-36">&lt;task&gt;&lt;block&gt;:</strong> Paradigm and block (e.g. <code>MMN1</code>, <code>SART1</code>, <code>EO1</code>, <code>EC1</code>, <code>MT2</code>)</li>
+							</ul>
+							
+							<div class="p-4 bg-teal-50 border border-teal-200 rounded-lg">
+								<span class="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-1">Example File Name:</span>
+								<code class="text-teal-900 font-mono text-sm block font-semibold">ALS12345_T1_MMN1.bdf</code>
+							</div>
+						</div>
+						
+						<div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
+							<h4 class="font-bold text-yellow-800 mb-1">Note on Resting-State Processing</h4>
+							<p class="text-sm text-yellow-700">Data from eyes-open (<code>EO</code>) and eyes-closed (<code>EC</code>) conditions should ideally be kept in the same folder and processed together. The aggregate duration should reach approximately 12 minutes to provide sufficient data for stable ICA decomposition.</p>
+						</div>
+					</div>
+				</div>
+			</section>
+			
+			<section id="view-config" class="content-section p-8 max-w-6xl mx-auto hidden">
+				<div class="mb-8">
+					<h2 class="text-3xl font-bold text-gray-800 mb-4">Configuration & Participant Selection</h2>
+					<p class="text-gray-600 text-lg leading-relaxed">
+						Set up dataset paths in <code>preproc_folders.m</code> and define participant queues in <code>preproc_participants.m</code>.
+					</p>
+				</div>
+				
+				<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+					<div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+						<h3 class="text-lg font-bold text-gray-800">myPaths Configuration (preproc_folders.m)</h3>
+					</div>
+					<div class="overflow-x-auto">
+						<table class="w-full text-sm text-left text-gray-600">
+							<thead class="text-xs text-gray-700 uppercase bg-gray-100">
+								<tr>
+									<th scope="col" class="px-6 py-3">Field</th>
+									<th scope="col" class="px-6 py-3">Type/Example</th>
+									<th scope="col" class="px-6 py-3">Description</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr class="bg-white border-b">
+									<td class="px-6 py-4 font-mono text-accentDark font-semibold">mycodes</td>
+									<td class="px-6 py-4 font-mono text-xs">'E:\matlab\preprocessing_pipeline'</td>
+									<td class="px-6 py-4">Absolute path to your repository containing the pipeline code.</td>
+								</tr>
+								<tr class="bg-gray-50 border-b">
+									<td class="px-6 py-4 font-mono text-accentDark font-semibold">rootrawdata</td>
+									<td class="px-6 py-4 font-mono text-xs">'E:\data\raw'</td>
+									<td class="px-6 py-4">Absolute path to the base folder holding raw EEG datasets, structured by clinical group and visit.</td>
+								</tr>
+								<tr class="bg-white border-b">
+									<td class="px-6 py-4 font-mono text-accentDark font-semibold">rootpreproc</td>
+									<td class="px-6 py-4 font-mono text-xs">'E:\data\preprocessed'</td>
+									<td class="px-6 py-4">Absolute path to the destination folder where output files will be written.</td>
+								</tr>
+								<tr class="bg-gray-50 border-b">
+									<td class="px-6 py-4 font-mono text-accentDark font-semibold">task</td>
+									<td class="px-6 py-4 font-mono text-xs">'MMN'</td>
+									<td class="px-6 py-4">Defines the experimental paradigm to be processed.</td>
+								</tr>
+								<tr class="bg-white border-b">
+									<td class="px-6 py-4 font-mono text-accentDark font-semibold">group</td>
+									<td class="px-6 py-4 font-mono text-xs">{'ALS', 'CONTROL'}</td>
+									<td class="px-6 py-4">Defines the cohort(s) to be processed. Accepts a cell array with one or more cohort labels.</td>
+								</tr>
+								<tr class="bg-gray-50 border-b">
+									<td class="px-6 py-4 font-mono text-accentDark font-semibold">subgroup</td>
+									<td class="px-6 py-4 font-mono text-xs">'AFM_C9ORF72' or ''</td>
+									<td class="px-6 py-4">An optional selector used in conjunction with Table 1 to isolate specific subgroups (e.g. <em>C9orf72</em> or <em>SOD1</em> mutation carriers). Leave as an empty string (<code>''</code>) if no subgroup filtering is required (designed for Utrecht datasets).</td>
+								</tr>
+								<tr class="bg-white border-b">
+									<td class="px-6 py-4 font-mono text-accentDark font-semibold">visit</td>
+									<td class="px-6 py-4 font-mono text-xs">1 or 1:5</td>
+									<td class="px-6 py-4">A numeric scalar or array specifying the longitudinal visit indices.</td>
+								</tr>
+								<tr class="bg-gray-50">
+									<td class="px-6 py-4 font-mono text-accentDark font-semibold">table1</td>
+									<td class="px-6 py-4 font-mono text-xs">'E:\matlab\preprocessing_pipeline\files\tables\FULL_CLINICAL_TABLE_2026-08-14.txt'</td>
+									<td class="px-6 py-4">Absolute path to Table 1 exported from R. Required only if <code>myPaths.subgroup</code> is used (designed for Utrecht datasets).</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+				
+				<h3 class="text-2xl font-semibold text-gray-800 mb-4">Participant Selection Methods</h3>
+				<p class="text-sm text-gray-600 mb-6">Select which method to use by editing <code>preproc_participants.m</code>. This is done manually by commenting or uncommenting relevant sections within the function. Click each method below to expand its configuration details.</p>
+				
+				<div class="space-y-4">
+					<details open class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm transition-all duration-200">
+						<summary class="flex justify-between items-center p-5 bg-white hover:bg-gray-50 cursor-pointer border-b border-transparent focus:outline-none">
+							<div class="flex items-center space-x-3">
+								<span class="text-lg font-bold text-gray-800">Method A: Automatically Load All Participants in Folder</span>
+								<span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">Standard</span>
+							</div>
+							<span class="text-gray-400 text-sm font-medium">Click to toggle</span>
+						</summary>
+						<div class="p-6 bg-gray-50 border-t border-gray-100 text-sm text-gray-700 space-y-4">
+							<p class="text-gray-700">For standard processing where every recording present in the targeted group and visit directory should be analysed:</p>
+							<div class="bg-white border border-gray-200 rounded-lg p-4 font-mono text-xs text-gray-800 overflow-x-auto shadow-inner">
+								<span class="text-gray-500">% Discover all participant recordings in the raw data folder</span><br>
+								<code>myPathsOut.subjects = list_participants(myPathsOut.rawdata, {});</code>
+							</div>
+						</div>
+					</details>
+					
+					<details class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm transition-all duration-200">
+						<summary class="flex justify-between items-center p-5 bg-white hover:bg-gray-50 cursor-pointer border-b border-transparent focus:outline-none">
+							<div class="flex items-center space-x-3">
+								<span class="text-lg font-bold text-gray-800">Method B: Automated Clinical Database Selection (select_relevant)</span>
+								<span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">Database</span>
+							</div>
+							<span class="text-gray-400 text-sm font-medium">Click to toggle</span>
+						</summary>
+						<div class="p-6 bg-gray-50 border-t border-gray-100 text-sm text-gray-700 space-y-4">
+							<p class="text-gray-700">Designed for Utrecht clinical datasets. This method cross-references files found on disk with records in <code>myPaths.table1</code> to include only participants meeting predefined diagnostic criteria:</p>
+							<div class="bg-white border border-gray-200 rounded-lg p-4 font-mono text-xs text-gray-800 overflow-x-auto shadow-inner space-y-1">
+								<span class="text-gray-500 block">% 1. Discover all recordings in the raw directory</span>
+								<code class="block">myPathsOut.subjects = list_participants(myPathsOut.rawdata, {});</code>
+								<span class="text-gray-500 block mt-2">% 2. Filter against clinical records in Table 1</span>
+								<code class="block">myPathsOut.subjects = select_relevant(myPathsOut.subjects, myPathsOut);</code>
+							</div>
+							<div class="pt-2">
+								<p class="font-medium text-gray-800 mb-2">The <code>select_relevant</code> helper matches detected directory IDs against Table 1 based on clinical diagnosis and genetic status:</p>
+								<ul class="space-y-1 text-xs text-gray-600 bg-white p-4 rounded-lg border border-gray-200">
+									<li><code class="text-blue-700 font-semibold">'ALS'</code>: ALS diagnosis and subtype (excluding PMA).</li>
+									<li><code class="text-blue-700 font-semibold">'CONTROL'</code>: Healthy control participants.</li>
+									<li><code class="text-blue-700 font-semibold">'AFM_C9ORF72'</code>: Asymptomatic family members carrying <em>C9orf72</em> repeat expansions.</li>
+									<li><code class="text-blue-700 font-semibold">'AFM_ARPP21'</code>: Asymptomatic family members carrying <em>ARPP21</em> mutations.</li>
+									<li><code class="text-blue-700 font-semibold">'MND_C9ORF72'</code>: Motor neurone disease patients with <em>C9orf72</em> mutations.</li>
+									<li><code class="text-blue-700 font-semibold">'MND_SOD1'</code>: Motor neurone disease patients from the pre-saved <code>list_sod1_als.mat</code> list.</li>
+								</ul>
+							</div>
+						</div>
+					</details>
+					
+					<details class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm transition-all duration-200">
+						<summary class="flex justify-between items-center p-5 bg-white hover:bg-gray-50 cursor-pointer border-b border-transparent focus:outline-none">
+							<div class="flex items-center space-x-3">
+								<span class="text-lg font-bold text-gray-800">Method C: Manual Subject Selection</span>
+								<span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded">Manual</span>
+							</div>
+							<span class="text-gray-400 text-sm font-medium">Click to toggle</span>
+						</summary>
+						<div class="p-6 bg-gray-50 border-t border-gray-100 text-sm text-gray-700 space-y-4">
+							<p class="text-gray-700">When only specific participants need to be analysed or re-run, use the explicit participant list override:</p>
+							<div class="bg-white border border-gray-200 rounded-lg p-4 font-mono text-xs text-gray-800 overflow-x-auto shadow-inner space-y-1">
+								<span class="text-gray-500 block">% Explicit single participant</span>
+								<code class="block">myPathsOut.subjects = {'ALS12345'};</code>
+								<span class="text-gray-500 block mt-3">% Or load a predefined .mat list:</span>
+								<span class="text-gray-500 block">% load('E:\matlab\preprocessing_pipeline\files\lists\list_c9_als.mat', 'list_als');</span>
+								<span class="text-gray-500 block">% myPathsOut.subjects = list_als;</span>
+							</div>
+						</div>
+					</details>
+				</div>
+			</section>
+			
+			<section id="view-execution" class="content-section p-8 max-w-6xl mx-auto hidden">
+				<div class="mb-8">
+					<h2 class="text-3xl font-bold text-gray-800 mb-4">Pipeline Execution</h2>
+					<p class="text-gray-600 text-lg leading-relaxed">
+						Batch runs are initiated via <code>preproc_main.m</code>. Complete the pre-flight checks and choose between cohort batch processing and multi-task pipeline verification.
+					</p>
+				</div>
+				
+				<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+					<h3 class="text-xl font-semibold mb-4 border-b pb-2 flex items-center text-gray-800"><span class="text-2xl mr-2">✅</span> Checklist</h3>
+					<ol class="list-decimal list-inside space-y-3 text-gray-700 leading-relaxed">
+						<li>Start MATLAB (R2021a or newer, verified on R2025b).</li>
+						<li>Navigate to pipeline root directory.</li>
+						<li>Verify search path: ensure EEGLAB/FieldTrip are not present on the path prior to initialisation.</li>
+						<li>Configure <code>preproc_folders.m</code> settings (paths, task, cohorts, visits).</li>
+						<li>Configure <code>preproc_participants.m</code> selection method (Method A, B, or C).</li>
+						<li>Execute sections within <code>preproc_main.m</code>.</li>
+					</ol>
+					<div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+						<p class="text-sm text-yellow-800"><strong>Note on Figures:</strong> To suppress figure pop-ups during batch execution, set <code>cfg.figure.visible = 'off'</code> in <code>preproc_parameters.m</code>.</p>
+					</div>
+				</div>
+				
+				<h3 class="text-2xl font-semibold text-gray-800 mb-4">Execution Loops</h3>
+				<div class="space-y-4">
+					<div class="bg-gray-800 rounded-lg p-5 text-gray-300">
+						<h4 class="text-white font-bold mb-2">Loop A: Cohort Batch Processing (Default)</h4>
+						<p class="text-sm mb-3">Iterates through every group and visit defined in myPaths.</p>
+						<pre class="text-xs text-green-400 overflow-x-auto"><code>
+							for i_group = 1:length(myPaths.group)
+							for i_visit = 1:length(myPaths.visit)
+							myPathsTmp = preproc_participants(i_group, i_visit, myPaths);
+							[errorLog, listFailed{i_group, i_visit}] = run_subjects(myPathsTmp, errorLog);
+							end
+							end
+						</code></pre>
+					</div>
+					
+					<div class="bg-gray-800 rounded-lg p-5 text-gray-300">
+						<h4 class="text-white font-bold mb-2">Loop B: Multi-Task Batch Processing (Testing)</h4>
+						<p class="text-sm mb-3">Executes paradigms sequentially for a single group/visit index.</p>
+						<pre class="text-xs text-blue-400 overflow-x-auto"><code>list_tasks = {'MMN', 'SART', 'RS', 'MT'};
+							for i_task = 1:length(list_tasks)
+							myPaths.task = list_tasks{i_task};
+							myPathsTmp = preproc_participants(i_group, i_visit, myPaths);
+							[errorLog, listFailed{i_task, i_visit}] = run_subjects(myPathsTmp, errorLog);
+						end</code></pre>
+					</div>
+				</div>
+				
+			</section>
+			
+			<section id="view-outputs" class="content-section p-8 max-w-6xl mx-auto hidden">
+				<div class="mb-8">
+					<h2 class="text-3xl font-bold text-gray-800 mb-4">Outputs & Error Tracking</h2>
+					<p class="text-gray-600 text-lg leading-relaxed">
+						Output directories are created per subject and pipeline version, containing clean epoched data and diagnostic plots alongside structured error logs from batch processing.
+					</p>
+				</div>
+				
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+					<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+						<h3 class="text-xl font-semibold mb-4 border-b pb-2">Exported Deliverables</h3>
+						
+						<div class="font-mono text-sm bg-gray-50 p-4 rounded border border-gray-200">
+							<details open>
+								<summary class="font-bold text-gray-700 hover:text-accentDark">📁 &lt;rootpreproc&gt; <span class="text-xs text-gray-400 font-normal ml-2">e.g. E:\data\preprocessed\</span></summary>
+								<div class="pl-6 pt-2 border-l border-gray-300 ml-2">
+									<details open>
+										<summary class="font-bold text-gray-700 hover:text-accentDark">📁 &lt;task&gt; <span class="text-xs text-gray-400 font-normal ml-2">e.g. MMN, RS, SART, MT</span></summary>
+										<div class="pl-6 pt-2 border-l border-gray-300 ml-2">
+											<details open>
+												<summary class="font-bold text-gray-700 hover:text-accentDark">📁 &lt;group&gt; <span class="text-xs text-gray-400 font-normal ml-2">e.g. ALS, CONTROL</span></summary>
+												<div class="pl-6 pt-2 border-l border-gray-300 ml-2">
+													<details open>
+														<summary class="font-bold text-gray-700 hover:text-accentDark">📁 T&lt;visit&gt; <span class="text-xs text-gray-400 font-normal ml-2">e.g. T1, T2</span></summary>
+														<div class="pl-6 pt-2 border-l border-gray-300 ml-2">
+															<details open>
+																<summary class="font-bold text-gray-700 hover:text-accentDark">📁 &lt;subject_id&gt; <span class="text-xs text-gray-400 font-normal ml-2">e.g. ALS12345</span></summary>
+																<div class="pl-6 pt-2 border-l border-gray-300 ml-2">
+																	<details open>
+																		<summary class="font-bold text-gray-700 hover:text-accentDark">📁 &lt;pipeline_ver&gt; <span class="text-xs text-gray-400 font-normal ml-2">e.g. 2</span></summary>
+																		<div class="pl-6 pt-2 ml-2 flex flex-col gap-2">
+																			<span class="text-gray-700">📁 data/</span>
+																			<span class="text-gray-700">📁 figures/</span>
+																			<span class="text-gray-700">📁 qa/</span>
+																		</div>
+																	</details>
+																</div>
+															</details>
+														</div>
+													</details>
+												</div>
+											</details>
+										</div>
+									</details>
+								</div>
+							</details>
+						</div>
+						
+						<div class="mt-6 p-4 bg-teal-50 border border-teal-200 rounded-lg">
+							<span class="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-1">Example Folder Path:</span>
+							<code class="text-teal-900 font-mono text-sm block font-semibold">E:\data\preprocessed\MMN\ALS\T1\ALS12345\2\</code>
+						</div>
+						
+						<ul class="space-y-4 mt-8">
+							<li class="flex items-start">
+								<span class="text-2xl mr-3">💾</span>
+								<div>
+									<strong class="text-gray-800 block">Cleaned EEG</strong>
+									<span class="text-sm text-gray-500 font-mono">.../data/</span>
+									<p class="text-sm text-gray-600 mt-1">Continuous and/or epoched files ready for further analysis.</p>
+								</div>
+							</li>
+							<li class="flex items-start">
+								<span class="text-2xl mr-3">📈</span>
+								<div>
+									<strong class="text-gray-800 block">Diagnostic Figures</strong>
+									<span class="text-sm text-gray-500 font-mono">.../figures/</span>
+									<p class="text-sm text-gray-600 mt-1">Exported visual verification plots including bad channel maps, ICA component spectra, and ERP difference waves.</p>
+								</div>
+							</li>
+							<li class="flex items-start">
+								<span class="text-2xl mr-3">🛡️</span>
+								<div>
+									<strong class="text-gray-800 block">Quality Assurance</strong>
+									<span class="text-sm text-gray-500 font-mono">.../qa/</span>
+									<p class="text-sm text-gray-600 mt-1">Metrics, channel rejection counts, and trial retention logs.</p>
+								</div>
+							</li>
+						</ul>
+					</div>
+					
+					<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-red-400">
+						<h3 class="text-xl font-semibold mb-4 border-b pb-2 text-red-800">Automated Error Tracking</h3>
+						<p class="text-sm text-gray-700 mb-4">If an individual dataset encounters an exception, <code>run_subjects</code> catches it without terminating the overnight batch queue.</p>
+						
+						<div class="space-y-3">
+							<div class="p-3 bg-red-50 rounded border border-red-100">
+								<p class="text-sm font-semibold text-red-800">1. Structured Log</p>
+								<p class="text-xs text-red-600">These errors are captured in the <code>errorLog</code> array (group, visit, subject, index, step, message).</p>
+							</div>
+							<div class="p-3 bg-red-50 rounded border border-red-100">
+								<p class="text-sm font-semibold text-red-800">2. Command Window</p>
+								<p class="text-xs text-red-600"> The log is printed as a summary report upon batch completion.</p>
+							</div>
+							<div class="p-3 bg-red-50 rounded border border-red-100">
+								<p class="text-sm font-semibold text-red-800">3. Export</p>
+								<p class="text-xs text-red-600"> The log is also saved: &lt;myPaths.rootpreproc&gt;/overnight_pipeline_errors.csv</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+			
+			<section id="view-exclusion" class="content-section p-8 max-w-6xl mx-auto hidden">
+				<div class="mb-8">
+					<h2 class="text-3xl font-bold text-gray-800 mb-4">Exclusion of Participants Due to Low-Quality Data</h2>
+					<p class="text-gray-600 text-lg leading-relaxed">
+						Guidelines for identifying datasets with suboptimal signal quality.
+					</p>
+				</div>
+				
+				<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+					<h3 class="text-xl font-semibold mb-4 border-b pb-2 text-gray-800">Quality Assurance</h3>
+					<p class="text-sm text-gray-600 mb-4">
+						*...Figures with group-level measures...*
+					</p>
+					<div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+						<p class="text-sm text-yellow-800">
+							<strong>Status:</strong> Section content under preparation (<em>TODO</em>).
+						</p>
+					</div>
+				</div>
+			</section>
+			
+		</main>
+		
+		<script>
+			document.querySelectorAll('.nav-item').forEach(button => {
+				button.addEventListener('click', (e) => {
+					document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+					e.target.classList.add('active');
+					
+					document.querySelectorAll('.content-section').forEach(section => {
+						section.classList.remove('block');
+						section.classList.add('hidden');
+					});
+					
+					const targetId = e.target.getAttribute('data-target');
+					const targetSection = document.getElementById(targetId);
+					targetSection.classList.remove('hidden');
+					targetSection.classList.add('block');
+					
+					if(targetId === 'view-overview' && !window.overviewChartRendered) {
+						renderOverviewChart();
+					}
+				});
+			});
+			
+			Chart.defaults.font.family = 'Inter, sans-serif';
+			Chart.defaults.color = '#4A5568';
+			
+			function renderOverviewChart() {
+				const ctx = document.getElementById('overviewChart').getContext('2d');
+				new Chart(ctx, {
+					type: 'doughnut',
+					data: {
+						labels: [
+						'Run 1: Continuous data processing (~5 min)', 
+						'Run 2: Epoched data processing (~1 min)'
+						],
+						datasets: [{
+							data: [5, 1],
+							backgroundColor: [
+							'#319795',
+							'#2B6CB0'
+							],
+							borderWidth: 0,
+							hoverOffset: 6
+						}]
+					},
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						plugins: {
+							legend: {
+								position: 'bottom',
+								labels: { 
+									boxWidth: 12, 
+									padding: 12,
+									font: { size: 11 }
+								}
+							},
+							tooltip: {
+								callbacks: {
+									label: function(context) {
+										const mins = context.raw;
+										const total = 6;
+										const pct = Math.round((mins / total) * 100);
+										return ` ${context.label.split(':')[0]}: ~${mins} min (${pct}% of total)`;
+									}
+								}
+							}
+						},
+						cutout: '68%'
+					}
+				});
+				window.overviewChartRendered = true;
+			}
+			
+			renderOverviewChart();
+		</script>
+	</body>
+</html>

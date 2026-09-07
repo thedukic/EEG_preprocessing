@@ -20,16 +20,16 @@ myPathsOut.rawdata  = fullfile(myPathsOut.rootrawdata, myPathsOut.group, ['T' nu
 myPathsOut.preproc  = fullfile(myPathsOut.rootpreproc, myPathsOut.task, myPathsOut.group, ['T' num2str(myPathsOut.visit)]);
 
 % #########################################################################
-% % Preprocess all participants
+% % A: Preprocess all participants i nthe given folder
 % myPathsOut.subjects = list_participants(myPathsOut.rawdata, {});
 
 % -------------------------------------------------------------------------
-% % Select only the relevant participants
+% % B: Select only the relevant participants (Utrecht datasets)
 % % eg. folder may have more participants but you want ALS only
 % myPathsOut.subjects = select_relevant(myPathsOut.subjects, myPathsOut);
 
 % -------------------------------------------------------------------------
-% Overrride
+% C: Manually select 
 myPathsOut.subjects = {'ALS37930'};
 % load('C:\DATA\MATLAB\myCodes\preprocessing\files\list_c9_als.mat', 'list_als'); myPathsOut.subjects = list_als;
 

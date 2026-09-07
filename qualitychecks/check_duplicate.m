@@ -1,5 +1,5 @@
-function check_duplicatefunc(functionName)
-% CHECK_DUPLICATEFUNC Checks for multiple instances of a function on the MATLAB path.
+function check_duplicate(functionName)
+% CHECK_DUPLICATE_ONE Checks for multiple instances of a function on the MATLAB path.
 %   Throws an error if multiple instances are found.
 
   paths = which('-all', functionName);

@@ -39,27 +39,46 @@ function myPaths = preproc_folders
 % ALS Centre, University Medical Centre Utrecht
 % License: GNU General Public License v3.0
 
-% Define
-myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\preprocessing';     % Pipeline
-myPaths.rootrawdata = 'E:\1_EEG_DATA';                            % Input
-myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA';                   % Output
-% myPaths.rootrawdata = 'C:\DATA\MATLAB\EEG\1_EEG_DATA';          % Input
-% myPaths.rootpreproc = 'C:\DATA\MATLAB\EEG\3_PREPROCESSED_DATA'; % Output
+% =========================================================================
+% !!!!!!!!!!!!      Define the parameters in this section      !!!!!!!!!!!!
+% =========================================================================
+% The scritop assumes that your data are strctured as, examples:
+% E:\1_EEG_DATA\ALS\ALS12345\ALS12345_T1_MMN1.bdf
+% E:\1_EEG_DATA\ALS\C42\C42_T1_EO1.bdf
 
-% Task (char): MMN / SART / RS / MT
-myPaths.task  = 'MMN';
-% Group (cell): ALS / CONTROL / AFM / PLS / PMA
-myPaths.group = {'ALS'};
-% Subgroup (char): AFM_C9ORF72 / AFM_ARPP21 / MND_C9ORF72 / MND_SOD1
-myPaths.subgroup = '';
-% Visit (num): 1-5
-myPaths.visit = 1:5;
+% Root path of the pipeline code
+myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\preprocessing';
 
-% Path to the table 1 (export from R)
-myPaths.table1 = 'C:\DATA\MATLAB\EEG\2_OTHER_DATA\FULL_CLINICAL_TABLE_2026-08-14.txt';
+% Root path containing raw EEG recordings
+myPaths.rootrawdata = 'E:\1_EEG_DATA';
+
+% Root path where preprocessed files will be saved
+myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA';
+
+% Target experimental paradigm (char): 'MMN', 'SART', 'RS', or 'MT'
+myPaths.task        = 'MMN';
+
+% Target cohort group(s) (cell array): {'ALS'}, {'CONTROL'}, {'AFM'}, {'PLS'}, or {'PMA'}
+myPaths.group       = {'ALS'};
+
+% Utrecht datasets: Optional subgroup filter (char): '', 'AFM_C9ORF72', 'AFM_ARPP21', 'MND_C9ORF72', or 'MND_SOD1'
+myPaths.subgroup    = '';
+
+% Longitudinal visit sessions to process (numeric vector): 1:5 or a single visit such as 1
+myPaths.visit       = 1:5;
+
+% Utrecht datasets: Master clinical metadata file exported from R
+myPaths.table1      = 'C:\DATA\MATLAB\EEG\2_OTHER_DATA\FULL_CLINICAL_TABLE_2026-08-14.txt';
+
+
+
 
 % =========================================================================
-% The script below does not need changing
+% =========================================================================
+% =========================================================================
+% !!!!!!!!!!!!     The script below does not need changing     !!!!!!!!!!!!
+% =========================================================================
+% =========================================================================
 % =========================================================================
 warning on; warning('off', 'backtrace');
 
@@ -69,7 +88,11 @@ myPaths.codever = '2';
 fprintf('==================================================================\n');
 fprintf('Setting up the paths and loading the toolboxes\n');
 fprintf('==================================================================\n');
+
 fprintf('Pipeline version: %s\n\n', myPaths.codever);
+fprintf('EEG data paths:\n');
+fprintf('Raw: %s\n', myPaths.rootrawdata);
+fprintf('Cleaned: %s\n', myPaths.rootpreproc);
 
 % Track time
 myPaths.proctime = strrep(strrep(char(datetime("now")), ':', '-'), ' ', '-');
@@ -77,9 +100,8 @@ myPaths.proctime = strrep(strrep(char(datetime("now")), ':', '-'), ' ', '-');
 % Navigate the main folder
 cd(myPaths.mycodes);
 
-fprintf('EEG data paths:\n');
-fprintf('Raw: %s\n', myPaths.rootrawdata);
-fprintf('Cleaned: %s\n', myPaths.rootpreproc);
+% Clear exisiting paths
+clean_toolbox_paths;
 
 % Add folders
 listFolders  = dir(myPaths.mycodes);
@@ -128,29 +150,30 @@ fprintf('%s\n', pathsFoldersTmp{:});
 % Check for duplicates to prevent overloading
 % restoredefaultpath % Maybe better not to use it altough it does the job
 % Check if there are functions with the same name
-check_duplicates(myPaths.mycodes, {'external', 'unused'});
-check_duplicatefunc('preproc_main.m');
-check_duplicatefunc('run_subject_1.m');
-check_duplicatefunc('run_subject_2.m');
-check_duplicatefunc('eeglab.m');
-check_duplicatefunc('brewermap.m');
+check_duplicate_all(myPaths.mycodes, {'external', 'unused'});
+check_duplicate('preproc_main.m');
+check_duplicate('run_subject_1.m');
+check_duplicate('run_subject_2.m');
+check_duplicate('eeglab.m');
+check_duplicate('brewermap.m');
 fprintf('\n');
 
 % Initialise the toolboxes
 eeglab; close all;
 
 % Double-check drives
-drive1 = myPaths.rootrawdata(1:3);
-drive2 = myPaths.rootpreproc(1:3);
-if ~(isfolder(drive1) && isfolder(drive2))
-    error('Data paths are not correct. These local/online drives (%s or %s) do not exist.',drive1,drive2);
+drive_1 = myPaths.rootrawdata(1:3);
+drive_2 = myPaths.rootpreproc(1:3);
+if ~(isfolder(drive_1) && isfolder(drive_2))
+    error('Data paths are not correct. These local/online drives (%s or %s) do not exist.', drive_1, drive_2);
 end
 
 % Set EEGLAB options
 pop_editoptions( ...
     'option_parallel', 1, ...
     'option_single', 0, ...
-    'option_computeica',0);
+    'option_computeica', 0 ...
+    );
 
 % -------------------------------------------------------------------------
 % Reset parallel architecture and clear legacy crash dumps

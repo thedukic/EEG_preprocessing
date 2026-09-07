@@ -1,6 +1,6 @@
-function file_list = check_duplicates(root_path, folders_to_exclude)
+function file_list = check_duplicates_all(root_path, folders_to_exclude)
 %CHECK_DUPLICATES Recursively finds .m files and checks for duplicates.
-%   FILE_LIST = CHECK_FOR_DUPLICATES(ROOT_PATH, FOLDERS_TO_EXCLUDE) searches
+%   FILE_LIST = CHECK_DUPLICATES_ALL(ROOT_PATH, FOLDERS_TO_EXCLUDE) searches
 %   the folder ROOT_PATH for .m files, ignoring any files within subfolders
 %   listed in FOLDERS_TO_EXCLUDE.
 %
@@ -66,15 +66,15 @@ if isempty(file_list)
 end
 
 % --- 4. Check Each Remaining File for Duplicates ---
-[file_list.path] = deal("");
+[file_list.path]          = deal("");
 [file_list.all_instances] = deal({});
-[file_list.is_duplicate] = deal(false);
+[file_list.is_duplicate]  = deal(false);
 
 for i = 1:numel(file_list)
-    file_list(i).path = fullfile(file_list(i).folder, file_list(i).name);
-    instances_found = which(file_list(i).name, '-all');
+    file_list(i).path          = fullfile(file_list(i).folder, file_list(i).name);
+    instances_found            = which(file_list(i).name, '-all');
     file_list(i).all_instances = instances_found;
-    file_list(i).is_duplicate = (numel(instances_found) > 1);
+    file_list(i).is_duplicate  = (numel(instances_found) > 1);
 end
 
 % Check and report
