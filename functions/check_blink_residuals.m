@@ -39,7 +39,8 @@ fs = DATA.srate;
 % -------------------------------------------------------------------------
 % 2. Extract Scalp Channels & Bipolar VEOG
 % -------------------------------------------------------------------------
-ch_idx = 1:min(128, DATA.nbchan);
+% ch_idx = 1:min(128, DATA.nbchan);
+ch_idx = find(strcmpi({DATA.chanlocs.type}, 'EEG'));
 [n_chans, n_pnts, n_trials] = size(DATA.data(ch_idx, :, :));
 
 % Locate VEOG channel

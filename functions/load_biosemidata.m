@@ -83,10 +83,15 @@ end
 assert(all([DATA(:).srate] == 512));
 fprintf('Done!\n');
 
-
 % Cut intruder blocks from other tasks
 fprintf('\nChecking for task crosstalk (1 block = 2 tasks)...\n');
 [DATA, subject.datablocks_trimmed] = trim_crosstask_data(DATA, subject, cfg);
+
+% Attach experimental configuration and metadata
+for i_block = 1:num_blocks
+    DATA(i_block).ALSUTRECHT.subject = subject;
+    DATA(i_block).ALSUTRECHT.cfg     = cfg;
+end
 
 end
 

@@ -1,11 +1,13 @@
-function mytopoplot(data, mask, myTitle, ah, myClim)
+function mytopoplot(data, mask, myTitle, ah, maplimits)
 
 % chanlocs = readlocs('biosemi128_eeglab.ced');
 load('biosemi128_eeglab.mat', 'chanlocs');
 
 % Topoplot style
-% fcap = 0.5;
-fcap = 'rim';
+% headrad = 0.5;
+headrad    = 'rim';
+style      = 'map'; % map / both
+electrodes = 'off';
 
 if ~exist('myTitle','var')
     myTitle = '';
@@ -36,27 +38,27 @@ end
 % Colour limits
 if ~exist('myClim','var')
     myDlim = [min(data), max(data)];
-    myClim = max(abs(data)) * [-1 1];
+    maplimits = max(abs(data)) * [-1 1];
 
     % y = prctile(data,70);
     % mask = data>y;
 
     if diff(myDlim) == 0
         if all(data == 0)
-            myClim = [0 1];
+            maplimits = [0 1];
         else
-            myClim(1) = 0;
+            maplimits(1) = 0;
         end
     elseif all(myDlim>=0)
         % myClim(1) = 0;
-        myClim(1) = myDlim(1);
+        maplimits(1) = myDlim(1);
     elseif all(myDlim<=0)
         % myClim(2) = 0;
-        myClim(2) = myDlim(2);
+        maplimits(2) = myDlim(2);
     end
 end
 
-myClim = 0.98 * myClim;
+maplimits = 0.98 * maplimits;
 
 % Colour map
 if all(data >= 0)
@@ -71,13 +73,13 @@ end
 % Plot
 if isempty(mask)
     topoplot_new(data, chanlocs, ...
-        'headrad', fcap, 'whitebk', 'on', 'electrodes', 'off', 'style', 'both', 'shading', 'interp', 'gridscale', 300, 'maplimits', myClim);
+        'headrad', headrad, 'whitebk', 'on', 'electrodes', electrodes, 'style', style, 'shading', 'interp', 'gridscale', 300, 'maplimits', maplimits);
 else
     if length(mask) == 128
         mask = find(mask);
     end
     topoplot_new(data, chanlocs, ...
-        'headrad', fcap, 'whitebk', 'on', 'electrodes', 'on', 'style', 'both', 'shading', 'interp', 'gridscale', 300, 'maplimits', myClim, ...
+        'headrad', headrad, 'whitebk', 'on', 'electrodes', 'on', 'style', style, 'shading', 'interp', 'gridscale', 300, 'maplimits', maplimits, ...
         'emarker', {'.',[.5 .5 .5],[],2}, 'emarker2', {mask,'o','k',4,1});
     % 'emarker2',{mask,'d','k',10,1}
 end
@@ -89,7 +91,7 @@ end
 
 axis tight;
 colormap(ah, myCmap);
-clim(ah, myClim);
+clim(ah, maplimits);
 
 % % Colourbar
 % cbh = colorbar;

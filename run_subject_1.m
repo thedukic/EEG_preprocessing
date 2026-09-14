@@ -39,7 +39,7 @@ cfg = preproc_parameters;
 % -------------------------------------------------------------------------
 % Define paths and files
 % -------------------------------------------------------------------------
-subject = preproc_folders_subject(id, myPaths, 1);
+subject = preproc_folders_subject(id, myPaths);
 
 % Print
 fprintf('==================================================================\n');
@@ -55,33 +55,34 @@ subject.datablocks = list_datasets(subject.rawdata, subject.task);
 % Load those files
 if ~isempty(subject.datablocks)
     EEG = load_biosemidata(subject, cfg);
+    clearvars subject;
 else
     warning([subject.id ' is missing ' subject.task ' data. Skipping...']); return;
 end
 
 % Make a folder for this participant
-if exist(subject.preproc, 'dir') ~= 7
-    mkdir(subject.preproc);
-    mkdir(subject.data);
-    mkdir(subject.figures);
-    mkdir(subject.qa);
+if exist(EEG(1).ALSUTRECHT.subject.preproc, 'dir') ~= 7
+    mkdir(EEG(1).ALSUTRECHT.subject.preproc);
+    mkdir(EEG(1).ALSUTRECHT.subject.data);
+    mkdir(EEG(1).ALSUTRECHT.subject.figures);
+    mkdir(EEG(1).ALSUTRECHT.subject.qa);
 else
     fprintf('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
-    warning('The folder already exists!\nThe old and the new files might be mixed:\n%s', subject.preproc);
+    warning('The folder already exists!\nThe old and the new files might be mixed:\n%s', EEG(1).ALSUTRECHT.subject.preproc);
     fprintf('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
 end
 
 % Open a report
-subject = report_proc(subject, myPaths, 'open');
+EEG = report_proc(EEG, myPaths, 'open');
 
 % Manually fix some datasets
-EEG = do_manualfix(EEG, subject);
+EEG = do_manualfix(EEG);
 
 % Fix events
 EEG = fix_events(EEG);
 
 % Add subject/channel info
-EEG = add_info(EEG, subject, cfg);
+EEG = add_info(EEG);
 
 % Estimate electrode offsets
 EEG = estimate_electrodeoffsets(EEG, cfg);
@@ -101,7 +102,7 @@ EEG = remove_flatelectrodes(EEG, cfg);
 % if flag_exclude, warning('%s has very noisy data. Skipping...', subject.id); return; end
 
 % Mark where each RS block starts/ends
-if ismember(upper(subject.task), {'RS', 'EO', 'EC'})
+if ismember(upper(EEG(1).ALSUTRECHT.subject.task), {'RS', 'EO', 'EC'})
     EEG = make_blockmasks(EEG);
 end
 
@@ -120,6 +121,9 @@ EEG = do_reref(EEG, 'aRobust');
 
 % % Make a copy
 % EEGRAW = EEG;
+
+% Save raw power for later
+save_raw_power(EEG, cfg);
 
 % -------------------------------------------------------------------------
 % Reduce spectral peaks
@@ -258,9 +262,9 @@ EEG = report_leftovers(EEG, 1, cfg);
 % Save
 % -------------------------------------------------------------------------
 % Close the report
-subject = report_proc(subject, myPaths, 'close');
+EEG = report_proc(EEG, myPaths, 'close');
 
 % Save data
-export_data(EEG, subject, 0);
+save_data(EEG, 0);
 
 end

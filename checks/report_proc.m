@@ -1,8 +1,10 @@
-function subject = report_proc(subject, myPaths, myTask)
+function DATA = report_proc(DATA, myPaths, to_do)
 
+
+subject = DATA(1).ALSUTRECHT.subject;
 fixTimeStamp = @(thisTime) strrep(strrep(char(thisTime),':','-'),' ','-');
 
-switch myTask
+switch to_do
     case 'open'
         % Time
         subject.time.t0 = datetime("now");
@@ -16,7 +18,6 @@ switch myTask
         fprintf(subject.fid,'%s | %s | %s dataset\n\n', myPaths.group, subject.id, myPaths.task);
         fprintf(subject.fid,'Code version %s\n', myPaths.codever);
         fprintf(subject.fid,'Started: %s\n', subject.time.t0);
-
     case 'close'
         % Time
         subject.time.t1 = datetime("now");
@@ -38,7 +39,21 @@ switch myTask
         % Report
         fprintf('Finished: %s\n', subject.time.t1);
         fprintf('Running time: %d min.\n\n', subject.time.dd);
-
 end
+
+
+% Update experimental configuration and metadata
+for i_block = 1:length(DATA)
+    DATA(i_block).ALSUTRECHT.subject = subject;
+end
+
+% num_blocks = length(DATA);
+% if num_blocks > 1
+%     for i_block = 1:num_blocks
+%         DATA(i_block).ALSUTRECHT.subject = subject;
+%     end
+% else
+%     DATA.ALSUTRECHT.subject = subject;
+% end
 
 end

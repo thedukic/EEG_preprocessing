@@ -18,7 +18,8 @@
 %   1. Evaluate Eye-Catch integration for automated ocular IC detection.
 %   2. Offsets not correct for dataset collected with fs > 256 Hz.
 %   3. PCA before ICA not needed for SART/MMN?
-%
+% Rename GEDAI folder
+
 % ALS Centre, University Medical Centre Utrecht
 % Author: S. Dukic, August 2026
 % License: GNU General Public License v3.0

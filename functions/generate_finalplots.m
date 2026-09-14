@@ -8,17 +8,6 @@ function generate_finalplots(DATA, NumberTrials, thisTask, thisTag, cfg)
 % -------------------------------------------------------------------------
 % 1. Config Parsing & Defaults
 % -------------------------------------------------------------------------
-if nargin < 5; cfg = struct(); end
-
-% Figure visibility
-if isfield(cfg, 'figure') && isfield(cfg.figure, 'visible')
-    optVisible = cfg.figure.visible;
-elseif isfield(cfg, 'visible')
-    optVisible = cfg.visible;
-else
-    optVisible = 'on';
-end
-
 % % Ensure central ROI definitions exist in cfg (BioSemi 128 defaults)
 % if ~isfield(cfg, 'roi'); cfg.roi = struct(); end
 %
@@ -62,6 +51,14 @@ eeg_labels   = chan_labels(chaneeg);
 
 % Estimate spectra
 [psdspectra, freq] = estimate_power(DATA, 'preproc2');
+
+if thisTag == 1
+    subject   = DATA.ALSUTRECHT.subject;
+    path_rawpower = fullfile(subject.data, [subject.filename '_rawpower.mat']);
+    % fh = plot_pre_post_topoplots(path_rawpower, psdspectra', freq);
+    fh = plot_relative_power_diagnostics(path_rawpower, psdspectra', freq);
+    save_figure(fh, path_figures, sprintf('%s_power_post_final_%s', ALSnr, num2str(thisTag)), [32 15]);
+end
 
 % Visual styling
 col_gray_trace = [0.25 0.25 0.25 0.15];
@@ -123,7 +120,7 @@ if any(strcmpi(thisTask, {'MMN', 'SART'}))
     end
 
     total_tiles = num_conds + (num_conds == 2) + 1;
-    fh = figure('Visible', optVisible, 'Color', [1 1 1]);
+    fh = figure('Visible', cfg.figure.visible, 'Color', [1 1 1]);
     tiled_h = tiledlayout(1, total_tiles, 'TileSpacing', 'compact', 'Padding', 'compact');
 
     all_erp_vals = cell2mat(erp_data);
@@ -252,7 +249,6 @@ if any(strcmpi(thisTask, {'MMN', 'SART'}))
     cb.Label.String = 'uV';
 
     save_figure(fh, path_figures, sprintf('%s_erp_final_%s', ALSnr, num2str(thisTag)), size_fig);
-    if strcmpi(optVisible, 'off'); close(fh); end
 
     % =========================================================================
     % 4. Resting-State (RS) PSD
@@ -263,7 +259,7 @@ elseif strcmpi(thisTask, 'RS')
     psd_db  = 10 * log10(psd_eeg + eps);
     alpha_roi_mask = ismember(eeg_labels, cfg.roi.rs_alpha);
 
-    fh = figure('Visible', optVisible, 'Color', [1 1 1]);
+    fh = figure('Visible', cfg.figure.visible, 'Color', [1 1 1]);
     tiled_h = tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
 
     ax1 = nexttile(tiled_h);
@@ -308,7 +304,6 @@ elseif strcmpi(thisTask, 'RS')
     pbaspect(ax2, [1.5 1 1]);
 
     save_figure(fh, path_figures, sprintf('%s_psd_final_%s', ALSnr, num2str(thisTag)), [24 9]);
-    if strcmpi(optVisible, 'off'); close(fh); end
 
     % =========================================================================
     % 5. Motor Task (MT) PSD (Consuming cfg.roi.motor_left / right)
@@ -322,7 +317,7 @@ elseif strcmpi(thisTask, 'MT')
     mask_left  = ismember(eeg_labels, cfg.roi.motor_left);
     mask_right = ismember(eeg_labels, cfg.roi.motor_right);
 
-    fh = figure('Visible', optVisible, 'Color', [1 1 1]);
+    fh = figure('Visible', cfg.figure.visible, 'Color', [1 1 1]);
     tiled_h = tiledlayout(1, 2 + has_emg, 'TileSpacing', 'compact', 'Padding', 'compact');
 
     % A. Motor EEG Spectrum
@@ -401,23 +396,20 @@ elseif strcmpi(thisTask, 'MT')
     cb.Label.String = '%';
 
     save_figure(fh, path_figures, sprintf('%s_psd_final_%s', ALSnr, num2str(thisTag)), [18 9]);
-    if strcmpi(optVisible, 'off'); close(fh); end
 end
 
 % Diagnostic IAF Peak
-plot_iaf(DATA, freq, mean(psdspectra(:, chaneeg), 2), optVisible);
+plot_iaf(DATA, freq, mean(psdspectra(:, chaneeg), 2), cfg.figure.visible);
 
 end
 
-function plot_iaf(EEG, freq1, psdspectra1, optVisible)
+function plot_iaf(EEG, freq1, psdspectra1, opt_visible)
 % =========================================================================
 % PLOT_IAF: Individual Alpha Frequency (IAF / PAF) Diagnostic Report
 % =========================================================================
 % Overlays the whole-cap average power spectrum with the dedicated IAF channel
 % spectrum, canonical frequency bands, and the peak alpha frequency marker.
 % =========================================================================
-
-if nargin < 4 || isempty(optVisible); optVisible = 'on'; end
 
 % -------------------------------------------------------------------------
 % 1. Data Extraction & Validation
@@ -468,7 +460,7 @@ bands(5).name  = 'Gamma'; bands(5).range = [30 48]; bands(5).col = [0.93 0.84 0.
 % -------------------------------------------------------------------------
 % 3. Plotting
 % -------------------------------------------------------------------------
-fh = figure('Visible', optVisible, 'Color', [1 1 1]);
+fh = figure('Visible', opt_visible, 'Color', [1 1 1]);
 ax = axes(fh);
 hold(ax, 'on'); box(ax, 'off');
 
@@ -546,15 +538,9 @@ legend(ax, legend_handles, 'Location', 'eastoutside', 'FontSize', 6.5);
 % -------------------------------------------------------------------------
 % 5. Save Figure
 % -------------------------------------------------------------------------
-if isfield(EEG, 'ALSUTRECHT') && isfield(EEG.ALSUTRECHT, 'subject')
-    save_figure(fh, EEG.ALSUTRECHT.subject.figures, ...
-        [EEG.ALSUTRECHT.subject.id '_pspectra_iaf'], [20 8]);
-end
-
-if strcmpi(optVisible, 'off'); close(fh); end
+save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_pspectra_iaf'], [20 8]);
 
 end
-
 
 
 function triggers_list = extract_events(DATA)
@@ -657,7 +643,172 @@ if isfield(DATA, 'epoch') && ~isempty(DATA.epoch)
 end
 end
 
-% function generate_finalplots(DATA, NumberTrials, thisTask, thisTag, optVisible)
+
+function fh = plot_relative_power_diagnostics(rawpower_path, psd_post, freq_post)
+% PLOT_RELATIVE_POWER_DIAGNOSTICS Compares pre- and post-cleaning spectra
+% across 3 rows:
+%   Row 1: Relative Power Before (% of 1-45 Hz broadband)
+%   Row 2: Relative Power After (% of 1-45 Hz broadband)
+%   Row 3: Absolute Attenuation in Decibels (10*log10(Post / Pre))
+%          with strictly zero-centred symmetric limits [-max, +max].
+
+% -------------------------------------------------------------------------
+% 1. Load Pre-Cleaning Data
+% -------------------------------------------------------------------------
+assert(exist(rawpower_path, 'file') == 2, 'File not found: %s', rawpower_path);
+raw_dat = load(rawpower_path);
+
+psd_pre   = raw_dat.psd_pre;
+freq_pre  = raw_dat.freq_pre(:);
+freq_post = freq_post(:);
+
+n_chans = size(psd_pre, 1);
+assert(size(psd_post, 1) == n_chans, ...
+    'Channel mismatch: psd_pre has %d channels, psd_post has %d.', n_chans, size(psd_post, 1));
+
+% -------------------------------------------------------------------------
+% 2. Define Frequency Bands and Total Power Window
+% -------------------------------------------------------------------------
+f_broadband = [1 45];
+idx_bb_pre  = freq_pre >= f_broadband(1)  & freq_pre <= f_broadband(2);
+idx_bb_post = freq_post >= f_broadband(1) & freq_post <= f_broadband(2);
+
+tot_pwr_pre  = trapz(freq_pre(idx_bb_pre),   psd_pre(:, idx_bb_pre),   2);
+tot_pwr_post = trapz(freq_post(idx_bb_post), psd_post(:, idx_bb_post), 2);
+
+bands = { ...
+    'Delta', [1 4]; ...
+    'Theta', [4 8]; ...
+    'Alpha', [8 13]; ...
+    'Beta',  [13 30]; ...
+    'Gamma', [30 45] ...
+    };
+n_bands = size(bands, 1);
+
+abs_pwr_pre  = zeros(n_chans, n_bands);
+abs_pwr_post = zeros(n_chans, n_bands);
+rel_pwr_pre  = zeros(n_chans, n_bands);
+rel_pwr_post = zeros(n_chans, n_bands);
+
+for i_b = 1:n_bands
+    f_range = bands{i_b, 2};
+    idx_pre  = freq_pre >= f_range(1)  & freq_pre <= f_range(2);
+    idx_post = freq_post >= f_range(1) & freq_post <= f_range(2);
+
+    % Absolute power integration (\muV^2)
+    abs_pwr_pre(:, i_b)  = trapz(freq_pre(idx_pre),   psd_pre(:, idx_pre),   2);
+    abs_pwr_post(:, i_b) = trapz(freq_post(idx_post), psd_post(:, idx_post), 2);
+
+    % Relative power (% of 1-45 Hz total power)
+    rel_pwr_pre(:, i_b)  = (abs_pwr_pre(:, i_b)  ./ tot_pwr_pre)  * 100;
+    rel_pwr_post(:, i_b) = (abs_pwr_post(:, i_b) ./ tot_pwr_post) * 100;
+end
+
+% Absolute attenuation in Decibels (Post vs Pre)
+diff_db = 10 * log10(abs_pwr_post ./ abs_pwr_pre);
+
+% Absolute retention percentage (Post / Pre * 100%)
+retention_pct = (abs_pwr_post ./ abs_pwr_pre) * 100;
+
+% -------------------------------------------------------------------------
+% 3. Console Integrity Diagnostic
+% -------------------------------------------------------------------------
+fprintf('\n--- Power Retention Audit (Median %% Across All Channels) ---\n');
+for i_b = 1:n_bands
+    fprintf('  %-6s (%2d-%2d Hz): Median Retention = %5.1f%% (IQR: %4.1f - %4.1f%%) | Max dB = %+5.2f dB\n', ...
+        bands{i_b, 1}, bands{i_b, 2}(1), bands{i_b, 2}(2), ...
+        median(retention_pct(:, i_b), 'omitnan'), ...
+        prctile(retention_pct(:, i_b), 25), ...
+        prctile(retention_pct(:, i_b), 75), ...
+        max(diff_db(:, i_b), [], 'omitnan'));
+end
+fprintf('------------------------------------------------------------\n\n');
+
+% -------------------------------------------------------------------------
+% 4. Tiled Topography Plot (3 Rows x 5 Canonical Bands)
+% -------------------------------------------------------------------------
+fh = figure('Color', 'w', 'Position', [50 50 1600 850]);
+t = tiledlayout(3, n_bands, 'TileSpacing', 'compact', 'Padding', 'normal');
+
+for i_b = 1:n_bands
+    band_name  = bands{i_b, 1};
+    band_range = bands{i_b, 2};
+
+    r_pre  = rel_pwr_pre(:, i_b);
+    r_post = rel_pwr_post(:, i_b);
+    r_db   = diff_db(:, i_b);
+
+    med_ret = median(retention_pct(:, i_b), 'omitnan');
+    q25_ret = prctile(retention_pct(:, i_b), 25);
+    q75_ret = prctile(retention_pct(:, i_b), 75);
+
+    % Shared colour limits for Pre and Post rows
+    c_max = max([r_pre; r_post], [], 'omitnan');
+    c_min = min([r_pre; r_post], [], 'omitnan');
+    if c_min == c_max, c_max = c_min + 1; end
+    clim_rel = [0, c_max];
+
+    % Strictly symmetric zero-centred limits for Difference row
+    finite_db = r_db(isfinite(r_db));
+    if isempty(finite_db)
+        max_shift = 1;
+    else
+        max_shift = max(abs(finite_db), [], 'omitnan');
+        if max_shift == 0, max_shift = 1; end
+    end
+    clim_shift = [-max_shift, max_shift];
+
+    % Row 1: Relative Power Before
+    ax1 = nexttile(i_b);
+    mytopoplot(r_pre, [], '', ax1, clim_rel);
+    colormap(ax1, brewermap([], 'Reds'));
+    clim(ax1, clim_rel);
+    hcb1 = colorbar(ax1);
+    hcb1.Title.String = '%';
+
+    title(ax1, sprintf('%s\n(%d–%d Hz)', band_name, band_range(1), band_range(2)), ...
+        'FontSize', 11, 'FontWeight', 'bold');
+
+    if i_b == 1
+        ylabel(ax1, 'Before (Rel %)', 'FontWeight', 'bold', 'FontSize', 12, 'Visible', 'on');
+    end
+
+    % Row 2: Relative Power After
+    ax2 = nexttile(i_b + n_bands);
+    mytopoplot(r_post, [], '', ax2, clim_rel);
+    colormap(ax2, brewermap([], 'Reds'));
+    clim(ax2, clim_rel);
+    hcb2 = colorbar(ax2);
+    hcb2.Title.String = '%';
+
+    if i_b == 1
+        ylabel(ax2, 'After (Rel %)', 'FontWeight', 'bold', 'FontSize', 12, 'Visible', 'on');
+    end
+
+    % Row 3: Absolute Attenuation in Decibels
+    ax3 = nexttile(i_b + 2 * n_bands);
+    mytopoplot(r_db, [], '', ax3, clim_shift);
+    colormap(ax3, brewermap([], '*RdBu'));
+
+    clim(ax3, clim_shift);
+    set(ax3, 'CLim', clim_shift);
+
+    hcb3 = colorbar(ax3);
+    hcb3.Title.String = 'dB';
+
+    title(ax3, sprintf('Ret: %.0f%%\n(IQR: %.0f–%.0f%%)', med_ret, q25_ret, q75_ret), ...
+        'FontSize', 10, 'FontWeight', 'bold');
+
+    if i_b == 1
+        ylabel(ax3, 'Difference (dB)', 'FontWeight', 'bold', 'FontSize', 12, 'Visible', 'on');
+    end
+end
+
+end
+
+
+
+% function generate_finalplots(DATA, NumberTrials, thisTask, thisTag, opt_visible)
 %
 % fprintf('\n================================\n');
 % fprintf('Final reports\n');
@@ -739,7 +890,7 @@ end
 %     dataCmap = brewermap(128, 'PRGn');
 %     % dataCmap = brewermap(128, 'BrBG');
 %
-%     fh = figure('Visible', optVisible);
+%     fh = figure('Visible', opt_visible);
 %     th = tiledlayout(1, num_tiles);
 %     th.TileSpacing = 'compact'; th.Padding = 'compact';
 %
@@ -818,7 +969,7 @@ end
 %     % Resting-state
 %     dataCmap = brewermap(sum(chaneeg), 'BrBG');
 %
-%     fh = figure('Visible', optVisible);
+%     fh = figure('Visible', opt_visible);
 %     th = tiledlayout(1, 2);
 %     th.TileSpacing = 'compact'; th.Padding = 'compact';
 %
@@ -859,7 +1010,7 @@ end
 %     dataCmap1 = brewermap(sum(chaneeg), 'BrBG');
 %     dataCmap2 = brewermap(sum(chanemg), 'PRGn');
 %
-%     fh = figure('Visible', optVisible);
+%     fh = figure('Visible', opt_visible);
 %     th = tiledlayout(2, 2);
 %     th.TileSpacing = 'compact'; th.Padding = 'compact';
 %
@@ -928,7 +1079,7 @@ end
 % % =============================
 % % Plot 2
 % % =============================
-% plot_iaf(DATA, freq, mean(psdspectra(:, chaneeg), 2), optVisible);
+% plot_iaf(DATA, freq, mean(psdspectra(:, chaneeg), 2), opt_visible);
 %
 % % fprintf('Done!\n');
 %

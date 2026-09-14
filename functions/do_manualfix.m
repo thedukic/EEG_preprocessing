@@ -1,4 +1,4 @@
-function EEG = do_manualfix(EEG, subject)
+function EEG = do_manualfix(EEG)
 % C48 (SART) is very strage - low quality data?
 % Note:
 % This part can be automated by checking the electric potential duing
@@ -11,18 +11,20 @@ fprintf('Manually fixing some datasets\n');
 fprintf('================================\n');
 
 % Define
-NBLK = length(EEG);
+num_blocks = length(EEG);
+id   = EEG(1).ALSUTRECHT.subject.id;
+task = EEG(1).ALSUTRECHT.subject.task;
 
 % Swapped electrode sets
-if strcmp(subject.id, 'C50') && strcmpi(subject.task, 'SART')
-    warning([subject.id 'has swapped C- and B- set. Fixing that now...']);
-    for i_block = 1:NBLK
+if strcmp(id, 'C50') && strcmpi(task, 'SART')
+    warning([id 'has swapped C- and B- set. Fixing that now...']);
+    for i_block = 1:num_blocks
         EEG(i_block).data(33:96, :) = [EEG(i_block).data(65:96, :); EEG(i_block).data(33:64, :)];
     end
 
-elseif strcmp(subject.id, 'P49') && (strcmpi(subject.task, 'RS') || strcmpi(subject.task, 'EO'))
-    warning([subject.id 'has swapped C- and D- set. Fixing that now...']);
-    for i_block = 1:NBLK
+elseif strcmp(id, 'P49') && (strcmpi(task, 'RS') || strcmpi(task, 'EO'))
+    warning([id 'has swapped C- and D- set. Fixing that now...']);
+    for i_block = 1:num_blocks
         EEG(i_block).data(65:128, :) = [EEG(i_block).data(97:128, :); EEG(i_block).data(65:96, :)];
     end
 

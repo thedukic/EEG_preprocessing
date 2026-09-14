@@ -59,16 +59,16 @@ myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA';
 myPaths.task        = 'RS';
 
 % Target cohort group(s) (cell array): {'ALS'}, {'CONTROL'}, {'AFM'}, {'PLS'}, or {'PMA'}
-myPaths.group       = {'ALS'};
+myPaths.group       = {'AFM'};
 
 % Utrecht datasets: Optional subgroup filter (char): '', 'AFM_C9ORF72', 'AFM_ARPP21', 'MND_C9ORF72', or 'MND_SOD1'
-myPaths.subgroup    = 'MND_C9ORF72';
+myPaths.subgroup    = 'AFM_C9ORF72';
 
 % Longitudinal visit sessions to process (numeric vector): 1:5 or a single visit such as 1
 myPaths.visit       = 1:5;
 
 % Utrecht datasets: Master clinical metadata file exported from R
-myPaths.table1      = 'C:\DATA\MATLAB\EEG\2_OTHER_DATA\FULL_CLINICAL_TABLE_2026-08-31.txt';
+myPaths.table1      = 'C:\DATA\MATLAB\EEG\2_OTHER_DATA\FULL_CLINICAL_TABLE_2026-09-09.txt';
 
 
 
@@ -128,7 +128,8 @@ if isempty(pathsFoldersTmp)
     pathsFoldersTmp{1} = fullfile(thisFolder, 'eeglab2025.1.0');
     pathsFoldersTmp{2} = fullfile(thisFolder, 'noisetools_29-Apr-2023');
     pathsFoldersTmp{3} = fullfile(thisFolder, 'zaplineplus_14-Apr-2023');
-    pathsFoldersTmp{4} = fullfile(thisFolder, 'gedai_05082026');
+    % pathsFoldersTmp{4} = fullfile(thisFolder, 'gedai_05082026');
+    pathsFoldersTmp{4} = fullfile(thisFolder, 'gedai_11092026');
     pathsFoldersTmp{5} = fullfile(thisFolder, 'restingiaf_20-Jan-2025');
     pathsFoldersTmp{6} = fullfile(thisFolder, 'brewermap-3.2.8');
 end

@@ -1,4 +1,4 @@
-function EEG = add_info(EEG, subject, cfg)
+function EEG = add_info(EEG)
 
 fprintf('\n================================\n');
 fprintf('Adding participant / channel info\n');
@@ -14,12 +14,12 @@ labels_emg = {'APB', 'FDI', 'FPB', 'EPB', 'EDC', 'FDS'};
 % Fix chanlocs field
 EEG = fix_chanlocs(EEG, chanlocs, labels_ext, labels_emg);
 
-% Attach experimental configuration and metadata
-num_blocks = length(EEG);
-for i_block = 1:num_blocks
-    EEG(i_block).ALSUTRECHT.subject = subject;
-    EEG(i_block).ALSUTRECHT.cfg     = cfg;
-end
+% % Attach experimental configuration and metadata
+% num_blocks = length(EEG);
+% for i_block = 1:num_blocks
+%     EEG(i_block).ALSUTRECHT.subject = subject;
+%     EEG(i_block).ALSUTRECHT.cfg     = cfg;
+% end
 
 fprintf('Channel metadata and subject info successfully added.\n');
 

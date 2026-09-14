@@ -1,13 +1,13 @@
 function myPathsOut = preproc_participants(i_group, i_visit, myPaths)
 
 % #########################################################################
-% Define
+% Define (don't change)
+% #########################################################################
 myPathsOut       = myPaths;
 myPathsOut.task  = myPaths.task;
 myPathsOut.group = myPaths.group{i_group};
 myPathsOut.visit = myPaths.visit(i_visit);
 
-% #########################################################################
 % % Messy but it could be imporved if all cohorts are in one folder
 % if ismember(myPathsTmp.group, {'ALS','PLS','PMA','MND'})
 %     myPathsTmp.rawdata  = fullfile(myPathsTmp.rootrawdata, 'ALS', ['T' num2str(myPathsTmp.visit)]);
@@ -19,6 +19,8 @@ myPathsOut.visit = myPaths.visit(i_visit);
 myPathsOut.rawdata  = fullfile(myPathsOut.rootrawdata, myPathsOut.group, ['T' num2str(myPathsOut.visit)]);
 myPathsOut.preproc  = fullfile(myPathsOut.rootpreproc, myPathsOut.task, myPathsOut.group, ['T' num2str(myPathsOut.visit)]);
 
+% #########################################################################
+% Select a method for participant selection (change if needed)
 % #########################################################################
 % -------------------------------------------------------------------------
 % Method A: Preprocess all participants in the given folder
@@ -33,19 +35,18 @@ myPathsOut.subjects = list_participants(myPathsOut.rawdata, {});
 myPathsOut.subjects = select_relevant(myPathsOut.subjects, myPathsOut);
 
 % -------------------------------------------------------------------------
-% Method C: Manually select 
+% Method C: Manually select
 % -------------------------------------------------------------------------
 % myPathsOut.subjects = {'ALS12345'};
 % load(fullfile(myPaths.mycodes, 'files', 'list_c9_als.mat'), 'list_als'); myPathsOut.subjects = list_als;
 
-% -------------------------------------------------------------------------
+% #########################################################################
 % % Check (but fails for DUB data)
 % assert(all(contains(subjects, 'ALS')));
 
-% #########################################################################
 % Report
-NSUB = length(myPathsOut.subjects);
-fprintf('Processing %d %s participants...\n', NSUB, myPathsOut.group);
+num_subjects = length(myPathsOut.subjects);
+fprintf('Processing %d %s participants...\n', num_subjects, myPathsOut.group);
 
 end
 
@@ -127,7 +128,7 @@ n_extra = sum(list_extrafound1);
 if n_extra > 0
     list_extrafound2 = subjects(list_extrafound1);
     fprintf('Found %d extra participant(s) in the given folder.\n', n_extra);
-    
+
     % Print first few as examples if the list is long
     max_to_show = 5;
     if n_extra <= max_to_show

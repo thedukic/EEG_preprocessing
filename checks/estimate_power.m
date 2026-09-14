@@ -23,11 +23,6 @@ else
     chanemg = false(1, EEG(1).nbchan);
 end
 
-% Fallback if no channels are explicitly labelled 'EEG'
-if ~any(chaneeg)
-    chaneeg = true(1, size(EEG(1).data, 1));
-end
-
 fs = EEG(1).srate;
 
 switch lower(this_script)
@@ -35,11 +30,7 @@ switch lower(this_script)
         % @preproc_cleaning2 (@generate_finalplots)
         assert(ndims(EEG.data) == 3, 'Input EEG.data must be 3D for preproc2 mode.');
 
-        is_MT = isfield(EEG, 'ALSUTRECHT') && ...
-            isfield(EEG.ALSUTRECHT, 'subject') && ...
-            isfield(EEG.ALSUTRECHT.subject, 'task') && ...
-            strcmpi(EEG.ALSUTRECHT.subject.task, 'MT');
-
+        is_MT = strcmpi(EEG.ALSUTRECHT.subject.task, 'MT');
         if is_MT
             dataeeg = EEG.data;
         else

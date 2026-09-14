@@ -31,7 +31,7 @@ cov_matrices     = NaN(128, 128, NSUB);
 fprintf('Loading QA metrics for %d datasets... ', NSUB);
 for i_subj = 1:NSUB
     i_file = 1;
-    subject  = preproc_folders_subject(subjects{i_subj}, myPaths, 2);
+    subject  = preproc_folders_subject(subjects{i_subj}, myPaths);
     qa_name  = fullfile(subject.qa, subject.qametrics{i_file});
 
     if exist(qa_name, 'file')

@@ -43,7 +43,7 @@ cfg = preproc_parameters;
 % -------------------------------------------------------------------------
 % Define paths and files
 % -------------------------------------------------------------------------
-subject = preproc_folders_subject(id, myPaths, 2);
+subject = preproc_folders_subject(id, myPaths);
 
 % Print
 fprintf('\n==================================================================\n');
@@ -51,13 +51,14 @@ fprintf('%s | %s | %s dataset | processing part 2 | pipeline v%s\n', myPaths.gro
 fprintf('==================================================================\n');
 
 % Load cleaned data
-fileName = fullfile(subject.data, subject.clnfile0);
-if exist(fileName, 'file') == 2
+filename_clean_1 = fullfile(subject.data, subject.filename_clean_1);
+if exist(filename_clean_1, 'file') == 2
     fprintf('\n================================\n');
     fprintf('Loading data\n');
     fprintf('================================\n');
 
-    load(fileName, 'EEG');
+    load(filename_clean_1, 'EEG');
+    clearvars subject;
     fprintf('Done!\n');
 else
     warning([subject.id ' is missing preprocessed ' myPaths.task ' data. Skipping...']); return;
@@ -81,7 +82,7 @@ EEG = do_filtering(EEG, 'lowpass', cfg.flt);
 EEG = check_iaf(EEG);
 
 % Epoch
-EEGcell = epoch_data(EEG, cfg.trg);
+EEGcell = epoch_data(EEG, cfg);
 clearvars EEG
 
 % -------------------------------------------------------------------------
@@ -145,10 +146,10 @@ for i_file = 1:length(EEGcell)
     generate_finalplots(EEG, num_trials, myPaths.task, i_file, cfg);
 
     % EEGLAB / BIDS metadata
-    EEG = add_bidsmetadata(EEG, subject);
+    EEG = add_bidsmetadata(EEG);
 
     % Save data
-    export_data(EEG, subject, i_file);
+    save_data(EEG, i_file);
 end
 
 % Report

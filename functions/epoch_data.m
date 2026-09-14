@@ -1,9 +1,13 @@
-function EEG = epoch_data(EEG,cfg)
+function EEG = epoch_data(EEG, cfg)
 
 fprintf('\n================================\n');
 fprintf('Epoching data\n');
 fprintf('================================\n');
 
+% Select relevant params
+cfg = cfg.trg;
+
+% Select experimental paradigm  
 if strcmpi(EEG.ALSUTRECHT.subject.task, 'MMN')
     triggers_extract = arrayfun(@(x) ['condition ' num2str(x)], cfg.mmn{1}, 'Uniformoutput', 0);
     EEG = pop_epoch(EEG, triggers_extract, cfg.mmn{2}, 'epochinfo', 'yes');
