@@ -1,15 +1,8 @@
-function EEG = report_badelectrodes(EEG, cfg)
+function report_badelectrodes(EEG, cfg)
 
 fprintf('\n================================\n');
 fprintf('Generating bad electrode reports\n');
 fprintf('================================\n');
-
-% Merge all bad electrodes
-EEG.ALSUTRECHT.badchaninfo.badElectrodes = unique([ ...
-    EEG.ALSUTRECHT.badchaninfo.offsets.electrodes, ...
-    EEG.ALSUTRECHT.badchaninfo.flat.electrodes, ...
-    EEG.ALSUTRECHT.badchaninfo.prep.electrodes, ...
-    EEG.ALSUTRECHT.badchaninfo.slope.electrodes]);
 
 % -------------------------------------------------------------------------
 fprintf(EEG.ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');

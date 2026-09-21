@@ -1,4 +1,4 @@
-function generate_finalplots(DATA, NumberTrials, thisTask, thisTag, cfg)
+function DATA = generate_finalplots(DATA, NumberTrials, task, tag, cfg)
 % =========================================================================
 % GENERATE_FINALPLOTS: BioSemi 128 Quality Control Visualisations
 % =========================================================================
@@ -31,7 +31,7 @@ function generate_finalplots(DATA, NumberTrials, thisTask, thisTag, cfg)
 % 2. Extract Data & Metadata
 % -------------------------------------------------------------------------
 fprintf('\n================================\n');
-fprintf('Final QC Reports: %s (BioSemi 128 Montage)\n', upper(thisTask));
+fprintf('Final QC Reports: %s (BioSemi 128 Montage)\n', upper(task));
 fprintf('================================\n');
 
 if length(NumberTrials) >= 2
@@ -52,12 +52,15 @@ eeg_labels   = chan_labels(chaneeg);
 % Estimate spectra
 [psdspectra, freq] = estimate_power(DATA, 'preproc2');
 
-if thisTag == 1
-    subject   = DATA.ALSUTRECHT.subject;
+if tag == 1
+    subject = DATA.ALSUTRECHT.subject;
     path_rawpower = fullfile(subject.data, [subject.filename '_rawpower.mat']);
+    
     % fh = plot_pre_post_topoplots(path_rawpower, psdspectra', freq);
-    fh = plot_relative_power_diagnostics(path_rawpower, psdspectra', freq);
-    save_figure(fh, path_figures, sprintf('%s_power_post_final_%s', ALSnr, num2str(thisTag)), [32 15]);
+    [fh, power_diff] = plot_relative_power_diagnostics(path_rawpower, psdspectra', freq);
+    
+    save_figure(fh, path_figures, sprintf('%s_power_post_final_%s', ALSnr, num2str(tag)), [32 15]);
+    DATA.ALSUTRECHT.power_diff = power_diff;
 end
 
 % Visual styling
@@ -68,8 +71,8 @@ col_emg        = [0.85 0.33 0.10];
 % =========================================================================
 % 3. Cognitive ERPs (MMN / SART)
 % =========================================================================
-if any(strcmpi(thisTask, {'MMN', 'SART'}))
-    if strcmpi(thisTask, 'SART')
+if any(strcmpi(task, {'MMN', 'SART'}))
+    if strcmpi(task, 'SART')
         if strcmpi(DATA.ALSUTRECHT.SART.type, 'StimulusLocked')
             roi_target      = cfg.roi.sart_p300;
             roi_name        = 'Parietal Pz';
@@ -88,7 +91,7 @@ if any(strcmpi(thisTask, {'MMN', 'SART'}))
             size_fig        = [18 9];
         end
 
-    elseif strcmpi(thisTask, 'MMN')
+    elseif strcmpi(task, 'MMN')
         roi_target          = cfg.roi.mmn;
         roi_name            = 'Frontal Fz/FCz';
         triggers_unique     = [12 17];
@@ -98,7 +101,7 @@ if any(strcmpi(thisTask, {'MMN', 'SART'}))
         size_fig            = [32 9];
     end
 
-    if strcmpi(thisTask, 'SART')
+    if strcmpi(task, 'SART')
         [med_rt, iqr_rt, rt_pct] = estimate_rt(DATA);
     end
 
@@ -139,7 +142,7 @@ if any(strcmpi(thisTask, {'MMN', 'SART'}))
         % -----------------------------------------------------------------
         % Visual RT Indicator (Shaded 25th-75th Percentile + Median Line)
         % -----------------------------------------------------------------
-        is_go_stimlocked = strcmpi(thisTask, 'SART') && ...
+        is_go_stimlocked = strcmpi(task, 'SART') && ...
             strcmpi(cond_names{i_c}, 'Go') && ...
             strcmpi(DATA.ALSUTRECHT.SART.type, 'StimulusLocked') && ...
             ~isnan(med_rt);
@@ -198,7 +201,7 @@ if any(strcmpi(thisTask, {'MMN', 'SART'}))
         % -----------------------------------------------------------------
         % Visual RT Indicator (Shaded SD window + Mean line)
         % -----------------------------------------------------------------
-        is_sart_stimlocked = strcmpi(thisTask, 'SART') && ...
+        is_sart_stimlocked = strcmpi(task, 'SART') && ...
             strcmpi(DATA.ALSUTRECHT.SART.type, 'StimulusLocked') && ...
             ~isnan(med_rt);
 
@@ -248,12 +251,12 @@ if any(strcmpi(thisTask, {'MMN', 'SART'}))
     cb.Location = 'southoutside';
     cb.Label.String = 'uV';
 
-    save_figure(fh, path_figures, sprintf('%s_erp_final_%s', ALSnr, num2str(thisTag)), size_fig);
+    save_figure(fh, path_figures, sprintf('%s_erp_final_%s', ALSnr, num2str(tag)), size_fig);
 
     % =========================================================================
     % 4. Resting-State (RS) PSD
     % =========================================================================
-elseif strcmpi(thisTask, 'RS')
+elseif strcmpi(task, 'RS')
 
     psd_eeg = psdspectra(:, chaneeg);
     psd_db  = 10 * log10(psd_eeg + eps);
@@ -303,12 +306,12 @@ elseif strcmpi(thisTask, 'RS')
     legend(ax2, 'Location', 'southwest', 'FontSize', 6.5);
     pbaspect(ax2, [1.5 1 1]);
 
-    save_figure(fh, path_figures, sprintf('%s_psd_final_%s', ALSnr, num2str(thisTag)), [24 9]);
+    save_figure(fh, path_figures, sprintf('%s_psd_final_%s', ALSnr, num2str(tag)), [24 9]);
 
     % =========================================================================
     % 5. Motor Task (MT) PSD (Consuming cfg.roi.motor_left / right)
     % =========================================================================
-elseif strcmpi(thisTask, 'MT')
+elseif strcmpi(task, 'MT')
 
     psd_eeg    = psdspectra(:, chaneeg);
     psd_eeg_db = 10 * log10(psd_eeg + eps);
@@ -395,7 +398,7 @@ elseif strcmpi(thisTask, 'MT')
     cb.Location = 'southoutside';
     cb.Label.String = '%';
 
-    save_figure(fh, path_figures, sprintf('%s_psd_final_%s', ALSnr, num2str(thisTag)), [18 9]);
+    save_figure(fh, path_figures, sprintf('%s_psd_final_%s', ALSnr, num2str(tag)), [18 9]);
 end
 
 % Diagnostic IAF Peak
@@ -644,7 +647,7 @@ end
 end
 
 
-function fh = plot_relative_power_diagnostics(rawpower_path, psd_post, freq_post)
+function [fh, diff_db] = plot_relative_power_diagnostics(rawpower_path, psd_post, freq_post)
 % PLOT_RELATIVE_POWER_DIAGNOSTICS Compares pre- and post-cleaning spectra
 % across 3 rows:
 %   Row 1: Relative Power Before (% of 1-45 Hz broadband)
@@ -742,11 +745,17 @@ for i_b = 1:n_bands
     q25_ret = prctile(retention_pct(:, i_b), 25);
     q75_ret = prctile(retention_pct(:, i_b), 75);
 
+    % % Shared colour limits for Pre and Post rows
+    % c_max = max([r_pre; r_post], [], 'omitnan');
+    % c_min = min([r_pre; r_post], [], 'omitnan');
+    % if c_min == c_max, c_max = c_min + 1; end
+    % clim_rel = [0, c_max];
+
     % Shared colour limits for Pre and Post rows
-    c_max = max([r_pre; r_post], [], 'omitnan');
-    c_min = min([r_pre; r_post], [], 'omitnan');
-    if c_min == c_max, c_max = c_min + 1; end
-    clim_rel = [0, c_max];
+    c_max_1 = max(r_pre, [], 'omitnan');
+    c_max_2 = max(r_post, [], 'omitnan');
+    clim_rel_1 = [0, c_max_1];
+    clim_rel_2 = [0, c_max_2];
 
     % Strictly symmetric zero-centred limits for Difference row
     finite_db = r_db(isfinite(r_db));
@@ -760,9 +769,8 @@ for i_b = 1:n_bands
 
     % Row 1: Relative Power Before
     ax1 = nexttile(i_b);
-    mytopoplot(r_pre, [], '', ax1, clim_rel);
+    mytopoplot(r_pre, [], '', ax1, clim_rel_1);
     colormap(ax1, brewermap([], 'Reds'));
-    clim(ax1, clim_rel);
     hcb1 = colorbar(ax1);
     hcb1.Title.String = '%';
 
@@ -775,9 +783,8 @@ for i_b = 1:n_bands
 
     % Row 2: Relative Power After
     ax2 = nexttile(i_b + n_bands);
-    mytopoplot(r_post, [], '', ax2, clim_rel);
+    mytopoplot(r_post, [], '', ax2, clim_rel_2);
     colormap(ax2, brewermap([], 'Reds'));
-    clim(ax2, clim_rel);
     hcb2 = colorbar(ax2);
     hcb2.Title.String = '%';
 
@@ -787,7 +794,7 @@ for i_b = 1:n_bands
 
     % Row 3: Absolute Attenuation in Decibels
     ax3 = nexttile(i_b + 2 * n_bands);
-    mytopoplot(r_db, [], '', ax3, clim_shift);
+    mytopoplot(r_db, false(size(r_db)), '', ax3, clim_shift);
     colormap(ax3, brewermap([], '*RdBu'));
 
     clim(ax3, clim_shift);
@@ -808,7 +815,7 @@ end
 
 
 
-% function generate_finalplots(DATA, NumberTrials, thisTask, thisTag, opt_visible)
+% function generate_finalplots(DATA, NumberTrials, task, tag, opt_visible)
 %
 % fprintf('\n================================\n');
 % fprintf('Final reports\n');
@@ -841,10 +848,10 @@ end
 % % Plot 1
 % % =============================
 % % Plots differe per task
-% if strcmpi(thisTask, 'MMN') || strcmpi(thisTask, 'SART')
+% if strcmpi(task, 'MMN') || strcmpi(task, 'SART')
 %     % ERP
 %     triggers_list = [DATA.event.edftype];
-%     if strcmpi(thisTask, 'SART')
+%     if strcmpi(task, 'SART')
 %         if strcmpi(DATA.ALSUTRECHT.SART.type, 'StimulusLocked')
 %             triggers_unique = [3 6];
 %             triggers_mask = triggers_list==triggers_unique(1) | triggers_list==triggers_unique(2);
@@ -856,7 +863,7 @@ end
 %         end
 %         minClim = [-8 8];
 %
-%     elseif strcmpi(thisTask, 'MMN')
+%     elseif strcmpi(task, 'MMN')
 %         triggers_unique = [17 12];
 %         triggers_mask = triggers_list==triggers_unique(1) | triggers_list==triggers_unique(2);
 %         minClim = [-3 3];
@@ -949,7 +956,7 @@ end
 %     end
 %
 %     % Add MMN topolot
-%     if strcmpi(thisTask, 'MMN')
+%     if strcmpi(task, 'MMN')
 %         [bl, al] = butter(2, 20/(DATA.srate/2), 'low'); assert(isstable(bl, al));
 %         data_plot = filtfilt(bl, al, data_plot')';
 %
@@ -962,10 +969,10 @@ end
 %     % plotX=30; plotY=8;
 %     % set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 %     % set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-%     % print(fh, fullfile(subject.figures, [ALSnr '_erp_final_' num2str(thisTag)]), '-dtiff', '-r200'); close(fh);
-%     save_figure(fh, path_figures, [ALSnr '_erp_final_' num2str(thisTag)], [30 8]);
+%     % print(fh, fullfile(subject.figures, [ALSnr '_erp_final_' num2str(tag)]), '-dtiff', '-r200'); close(fh);
+%     save_figure(fh, path_figures, [ALSnr '_erp_final_' num2str(tag)], [30 8]);
 %
-% elseif strcmpi(thisTask, 'RS')
+% elseif strcmpi(task, 'RS')
 %     % Resting-state
 %     dataCmap = brewermap(sum(chaneeg), 'BrBG');
 %
@@ -1003,10 +1010,10 @@ end
 %     % plotX=20; plotY=8;
 %     % set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 %     % set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-%     % print(fh, fullfile(subject.figures, [ALSnr '_pspectra_final_' num2str(thisTag)]), '-dtiff', '-r200'); close(fh);
-%     save_figure(fh, path_figures, [ALSnr '_pspectra_final_' num2str(thisTag)], [30 8]);
+%     % print(fh, fullfile(subject.figures, [ALSnr '_pspectra_final_' num2str(tag)]), '-dtiff', '-r200'); close(fh);
+%     save_figure(fh, path_figures, [ALSnr '_pspectra_final_' num2str(tag)], [30 8]);
 %
-% elseif strcmpi(thisTask, 'MT') && has_emg
+% elseif strcmpi(task, 'MT') && has_emg
 %     dataCmap1 = brewermap(sum(chaneeg), 'BrBG');
 %     dataCmap2 = brewermap(sum(chanemg), 'PRGn');
 %
@@ -1071,8 +1078,8 @@ end
 %     % plotX=20; plotY=14;
 %     % set(fh,'InvertHardCopy','Off','Color',[1 1 1]);
 %     % set(fh,'PaperPositionMode','Manual','PaperUnits','Centimeters','PaperPosition',[0 0 plotX plotY],'PaperSize',[plotX plotY]);
-%     % print(fh, fullfile(subject.figures, [ALSnr '_pspectra_final_' num2str(thisTag)]), '-dtiff', '-r200'); close(fh);
-%     save_figure(fh, path_figures, [ALSnr '_pspectra_final_' num2str(thisTag)], [20 14]);
+%     % print(fh, fullfile(subject.figures, [ALSnr '_pspectra_final_' num2str(tag)]), '-dtiff', '-r200'); close(fh);
+%     save_figure(fh, path_figures, [ALSnr '_pspectra_final_' num2str(tag)], [20 14]);
 %
 % end
 %

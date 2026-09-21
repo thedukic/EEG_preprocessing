@@ -66,14 +66,13 @@ end
 
 % Time
 t0 = datetime("now");
-EEG.ALSUTRECHT.procTimeTags = {myPaths.proctime; strrep(strrep(char(t0),':','-'),' ','-')};
+EEG.ALSUTRECHT.procTimeTags = {myPaths.proctime; strrep(strrep(char(t0), ':', '-'), ' ', '-')};
 
 % -------------------------------------------------------------------------
 % Basic post-preprocessing
 % -------------------------------------------------------------------------
-
 % Filter lowpass (should be done on continuous data)
-EEG = do_filtering(EEG, 'lowpass', cfg.flt);
+EEG = do_filtering(EEG, 'lowpass', cfg);
 
 % % Empirical frequency boundaries (only RS)
 % EEG = estimate_gedBounds(EEG);
@@ -99,7 +98,7 @@ for i_file = 1:length(EEGcell)
     EEG = do_baselinecorrection(EEG, 'traditional');
 
     % Detect bad epochs
-    [EEG, num_trials] = detect_badepochs(EEG, cfg);
+    [EEG, num_trials] = detect_badepochs(EEG, i_file, cfg);
 
     % Final estimates
     fprintf('\n================================\n');
@@ -108,14 +107,18 @@ for i_file = 1:length(EEGcell)
 
     % EOG leftovers
     fprintf('\nChecking EOG leftovers..\n');
-    EEG = check_blink_residuals(EEG);
+    EEG = check_blink_residuals(EEG, i_file);
     num_trials(end + 1) = EEG.trials;
 
-    % EMG leftovers
+    % EMG leftovers 1
     fprintf('\nChecking EMG leftovers...\n');
-    [slopes, mask_emg_matrix] = detect_emg(EEG, cfg);
+    [~, mask_emg_matrix] = detect_emg(EEG, cfg);
     emg_leftover = mean(mask_emg_matrix, 'all');
     fprintf('EMG leftovers: %1.2f\n', emg_leftover);
+
+    % EMG leftovers 2
+    fprintf('\nChecking EMG leftovers...\n');
+    [noise_ratio, ~, noise_ratio_all] = estimate_noise_ratio(EEG);
 
     % Median voltage shift
     fprintf('\nEstimating voltage range...\n\n');
@@ -138,12 +141,14 @@ for i_file = 1:length(EEGcell)
 
     % Log
     EEG.ALSUTRECHT.epochRejections.MedianvoltageshiftwithinepochFinal = voltage_shift;
-    EEG.ALSUTRECHT.epochRejections.muscle2 = emg_leftover;
-    EEG.ALSUTRECHT.leftovers.muscle2       = emg_leftover;
-    EEG.ALSUTRECHT.automagicmetrics        = quality;
+    EEG.ALSUTRECHT.epochRejections.muscle2   = emg_leftover;
+    EEG.ALSUTRECHT.leftovers.muscle2         = emg_leftover;
+    EEG.ALSUTRECHT.leftovers.noise_ratio     = noise_ratio;
+    EEG.ALSUTRECHT.leftovers.noise_ratio_all = noise_ratio_all;
+    EEG.ALSUTRECHT.automagicmetrics          = quality;
 
     % Final reports/plots
-    generate_finalplots(EEG, num_trials, myPaths.task, i_file, cfg);
+    EEG = generate_finalplots(EEG, num_trials, myPaths.task, i_file, cfg);
 
     % EEGLAB / BIDS metadata
     EEG = add_bidsmetadata(EEG);

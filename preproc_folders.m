@@ -125,13 +125,12 @@ if isempty(pathsFoldersTmp)
     fprintf('Your ''external'' folder is empty.\nUsing fallback instead: %s\n', thisFolder);
 
     pathsFoldersTmp    = {};
-    pathsFoldersTmp{1} = fullfile(thisFolder, 'eeglab2025.1.0');
+    pathsFoldersTmp{1} = fullfile(thisFolder, 'eeglab2026.1.0');
     pathsFoldersTmp{2} = fullfile(thisFolder, 'noisetools_29-Apr-2023');
     pathsFoldersTmp{3} = fullfile(thisFolder, 'zaplineplus_14-Apr-2023');
-    % pathsFoldersTmp{4} = fullfile(thisFolder, 'gedai_05082026');
-    pathsFoldersTmp{4} = fullfile(thisFolder, 'gedai_11092026');
+    pathsFoldersTmp{4} = fullfile(thisFolder, 'gedai_05-Aug-2026');
     pathsFoldersTmp{5} = fullfile(thisFolder, 'restingiaf_20-Jan-2025');
-    pathsFoldersTmp{6} = fullfile(thisFolder, 'brewermap-3.2.8');
+    pathsFoldersTmp{6} = fullfile(thisFolder, 'brewermap_15-Sept-2026');
 end
 
 addpath(pathsFoldersTmp{:});
@@ -199,8 +198,8 @@ if ~isempty(crashedJobs)
     end
 end
 
-% 3. Spin up a fresh, clean parallel pool
-parpool("Processes");
+% % 3. Spin up a fresh, clean parallel pool
+% parpool("Processes");
 
 end
 
@@ -216,7 +215,7 @@ path_list = strsplit(path, pathsep);
 
 % Target keywords to match (case-insensitive)
 % 'fieldtrip' catches both standard FieldTrip and fieldtrip-lite
-target_patterns = {'fieldtrip', 'eeglab'};
+target_patterns = {'fieldtrip', 'eeglab', 'brewermap'};
 
 % Match folders containing any of the target patterns
 match_idx = false(size(path_list));

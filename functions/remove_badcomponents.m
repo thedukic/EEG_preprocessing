@@ -20,24 +20,21 @@ ICsChannel = EEG.ALSUTRECHT.ica.final.channel(:);
 ICsGenBad  = EEG.ALSUTRECHT.ica.final.genbad(:);
 
 % -------------------------------------------------------------------------
-% Dynamic Variance & Rank Evaluation (BioSemi 128 Montage)
+% Dynamic Variance & Rank Evaluation
 % -------------------------------------------------------------------------
-floor_compvar  = 0.5;  % PVAF floor (%): ICs with < 0.5% compvar are spared past rank 25
-protect_rank_n = 25;   % Top 25 components are always evaluated regardless of PVAF
+% floor_compvar  = 0.5; % PVAF floor (%): ICs with < 0.5% compvar are spared past rank 25
+% protect_rank_n = 25;   % Top 25 components are always evaluated regardless of PVAF
 
-if isfield(cfg, 'ica')
-    if isfield(cfg.ica, 'floor_compvar');  floor_compvar  = cfg.ica.floor_compvar;  end
-    if isfield(cfg.ica, 'protect_rank_n'); protect_rank_n = cfg.ica.protect_rank_n; end
-end
+floor_compvar  = cfg.ica.floor_compvar;
+protect_rank_n = cfg.ica.protect_rank_n; 
 
 fprintf('\nEvaluating IC importance based on EEGLAB compvar PVAF...\n');
-fprintf('Threshold: vaf_compvar >= %.2f%% (Always evaluate top %d ICs)\n', ...
-    floor_compvar, protect_rank_n);
+fprintf('Threshold: vaf_compvar >= %.2f%% (Always evaluate top %d ICs)\n', floor_compvar, protect_rank_n);
 
 % Extract vaf_compvar (calculates if not present)
 vaf_compvar = EEG.ALSUTRECHT.ica.vaf_compvar(:);
-num_ics  = length(vaf_compvar);
-ic_ranks = (1:num_ics)';
+num_ics     = length(vaf_compvar);
+ic_ranks    = (1:num_ics)';
 
 % Spares components that have low PVAF (< 0.25%) AND are outside top 25 rank
 is_negligible = (vaf_compvar < floor_compvar) & (ic_ranks > protect_rank_n);
@@ -62,49 +59,45 @@ fprintf('  Channel ICs spared : %d / %d\n', cnt_c, num_channel_0);
 fprintf('  GenBad ICs spared  : %d / %d\n', cnt_b, num_bad_0);
 
 % -------------------------------------------------------------------------
-% Check likelihood of EMG ICs
+% Check likelihood of EMG ICs (prevent removing true beta oscillations)
 % -------------------------------------------------------------------------
-ICsMuscle_tmp = ICsMuscle;
-ICsMuscle_tmp(30:end) = false;
-
-% Check
-[EEG, safe_to_remove] = check_ic_peripherality(EEG, ICsMuscle_tmp, cfg);
-
-% % Prune muscle candidates that overlap sensorimotor cortex or central scalp
-% num_emg_before_periph = sum(ICsMuscle);
-% num_bad_before_periph = sum(ICsGenBad);
+% ICsMuscle_all = ICsMuscle;
+% ICsGenBad_all = ICsGenBad;
 %
-% ICsMuscle_safe = ICsMuscle & safe_to_remove(:);
-% ICsGenBad_safe = ICsGenBad & safe_to_remove(:);
+% [EEG, is_important] = check_ic_peripherality(EEG, ICsMuscle, cfg);
 %
-% protected_emg_cnt = num_emg_before_periph - sum(ICsMuscle_safe);
-% protected_bad_cnt = num_bad_before_periph - sum(ICsGenBad_safe);
+% % % Prune muscle candidates that overlap sensorimotor cortex or central scalp
+% % num_emg_before_periph = sum(ICsMuscle);
+% % num_bad_before_periph = sum(ICsGenBad);
+% %
+% % ICsMuscle = ICsMuscle & muscle_remove(:);
+% % ICsGenBad = ICsGenBad & muscle_remove(:);
+% %
+% % protected_emg_cnt = num_emg_before_periph - sum(ICsMuscle);
+% % protected_bad_cnt = num_bad_before_periph - sum(ICsGenBad);
+% %
+% % fprintf('Muscle ICs evaluated: %d candidate(s) -> %d verified peripheral (%d protected over motor/central areas).\n', ...
+% %     num_emg_before_periph, sum(ICsMuscle), protected_emg_cnt);
+% % fprintf('GenBad ICs evaluated: %d candidate(s) -> %d verified peripheral (%d protected over motor/central areas).\n', ...
+% %     num_bad_before_periph, sum(ICsGenBad), protected_bad_cnt);
+
+% -------------------------------------------------------------------------
+% Check ICs using dipole fitting (not very useful)
+% -------------------------------------------------------------------------
+% ICsforRemove = false(num_ica, 1);
+% ICsforRemove(ICsEye | ICsHeart | ICsComplex | ICsMuscle | ICsChannel | ICsGenBad) = true;
 %
-% fprintf('Muscle ICs evaluated: %d candidate(s) -> %d verified peripheral (%d protected over motor/central areas).\n', ...
-%     num_emg_before_periph, sum(ICsMuscle_safe), protected_emg_cnt);
-% fprintf('GenBad ICs evaluated: %d candidate(s) -> %d verified peripheral (%d protected over motor/central areas).\n', ...
-%     num_bad_before_periph, sum(ICsGenBad_safe), protected_bad_cnt);
-
-ICsMuscle_safe = ICsMuscle;
-ICsGenBad_safe = ICsGenBad;
-
-% -------------------------------------------------------------------------
-% Check ICs using dipole fitting
-% -------------------------------------------------------------------------
-ICsforRemove = false(num_ica, 1);
-ICsforRemove(ICsEye | ICsHeart | ICsComplex | ICsMuscle_safe | ICsChannel | ICsGenBad_safe) = true;
-
-[EEG, inside_brain, good_fits] = fit_ic_dipoles(EEG, find(ICsforRemove), cfg);
-
-% ICsEye(inside_brain)         = false; % eyes are sometimes
-% ICsComplex(inside_brain)     = false;
-ICsHeart(inside_brain)       = false;
-ICsMuscle_safe(inside_brain) = false;
-ICsChannel(inside_brain)     = false;
-ICsGenBad_safe(inside_brain) = false;
+% [EEG, is_inside, is_good] = fit_ic_dipoles(EEG, find(ICsforRemove), cfg);
+%
+% % ICsEye(is_inside)     = false; % eyes are sometimes wrongly put inside
+% % ICsComplex(is_inside) = false;
+% ICsHeart(is_inside)     = false;
+% ICsMuscle(is_inside)    = false;
+% ICsChannel(is_inside)   = false;
+% ICsGenBad(is_inside)    = false;
 
 % -------------------------------------------------------------------------
-% 3. Compile Master Removal Vector
+% Compile Master Removal Vector
 % -------------------------------------------------------------------------
 ICsforRemove = false(num_ica, 1);
 
@@ -112,15 +105,15 @@ ICsforRemove = false(num_ica, 1);
 ICsforRemove(ICsEye | ICsHeart | ICsComplex) = true;
 
 % Muscle ICs (Controlled via cfg.ica.emg)
-if isfield(cfg.ica, 'emg') && cfg.ica.emg
-    fprintf('Muscle components (N = %d) will be removed.\n', sum(ICsMuscle_safe));
-    ICsforRemove(ICsMuscle_safe) = true;
+if cfg.ica.emg
+    fprintf('Muscle components (N = %d) will be removed.\n', sum(ICsMuscle));
+    ICsforRemove(ICsMuscle) = true;
 else
-    fprintf('Muscle components (N = %d) will be retained.\n', sum(ICsMuscle_safe));
+    fprintf('Muscle components (N = %d) will be retained.\n', sum(ICsMuscle));
 end
 
 % Channel ICs (Controlled via cfg.ica.channel)
-if isfield(cfg.ica, 'channel') && cfg.ica.channel
+if cfg.ica.channel
     fprintf('Channel components (N = %d) will be removed.\n', sum(ICsChannel));
     ICsforRemove(ICsChannel) = true;
 else
@@ -128,11 +121,11 @@ else
 end
 
 % GenBad ICs (Controlled via cfg.ica.bad)
-if isfield(cfg.ica, 'bad') && cfg.ica.bad
-    fprintf('Generally bad components (N = %d) will be removed.\n', sum(ICsGenBad_safe));
-    ICsforRemove(ICsGenBad_safe) = true;
+if cfg.ica.bad
+    fprintf('Generally bad components (N = %d) will be removed.\n', sum(ICsGenBad));
+    ICsforRemove(ICsGenBad) = true;
 else
-    fprintf('Generally bad components (N = %d) will be retained.\n', sum(ICsGenBad_safe));
+    fprintf('Generally bad components (N = %d) will be retained.\n', sum(ICsGenBad));
 end
 
 % Summary Report to Console
@@ -141,15 +134,16 @@ fprintf('Component Rejection Breakdown:\n');
 fprintf('  Eye ICs:         %2d\n', sum(ICsEye));
 fprintf('  Heart ICs:       %2d\n', sum(ICsHeart));
 fprintf('  Complex ICs:     %2d\n', sum(ICsComplex));
-fprintf('  Muscle ICs:      %2d (Safe Peripheral)\n', sum(ICsMuscle_safe));
+% fprintf('  Muscle ICs:      %2d (Safe Peripheral)\n', sum(ICsMuscle));
+fprintf('  Muscle ICs:      %2d\n', sum(ICsMuscle));
 fprintf('  Channel ICs:     %2d\n', sum(ICsChannel));
-fprintf('  Gen. Bad ICs:    %2d\n', sum(ICsGenBad_safe));
+fprintf('  Gen. Bad ICs:    %2d\n', sum(ICsGenBad));
 fprintf('  --------------------\n');
 fprintf('  Total Removed:   %2d / %d ICs\n', sum(ICsforRemove), num_ica);
 fprintf('--------------------------------------------------\n\n');
 
 % -------------------------------------------------------------------------
-% 4. Compute True Channel Variance Removed & Diagnostic Check
+% Compute True Channel Variance Removed & Diagnostic Check
 % -------------------------------------------------------------------------
 ch_idx   = EEG.ALSUTRECHT.ica.icachansind;
 eeg_data = double(reshape(EEG.data(ch_idx, :, :), length(ch_idx), []));
@@ -170,101 +164,31 @@ end
 
 % Re-verify EEGLAB dataset structure
 EEG = eeg_checkset(EEG);
-
-% % =========================================================================
-% % Must-remove ICs
-% if any(ICsforRemove)
-%     fprintf('-> Removing bad ICs (N = %d)...\n', sum(ICsforRemove));
-%     artifactComponents(ICsforRemove, :) = dataICs(ICsforRemove, :);
-% end
-%
-% % -------------------------------------------------------------------------
-% % Muscle ICs
-% if cfg.ica.emg
-%     if any(ICsMostLikelyMuscle)
-%         fprintf('-> Filtering muscle ICs (N = %d)...\n', sum(ICsMostLikelyMuscle));
-%         [bh, ah] = butter(2, muscleFreqCutoff/(EEG.srate/2), 'high');
-%         artifactComponents(ICsMostLikelyMuscle, :) = do_filteringcore(bh, ah, dataICs(ICsMostLikelyMuscle, :), EEG.event, EEG.srate);
-%     else
-%         fprintf('-> Muscle ICs are not found.\n');
-%     end
-% else
-%     fprintf('-> Muscle ICs (N = %d) are kept in the EEG.\n', sum(ICsMostLikelyMuscle));
-% end
-%
-% % -------------------------------------------------------------------------
-% % Obtain channel artifact for subtraction by wavelet-thresholding
-% % -> this did not work well
-% % if any(ICsMostLikelyChannel)
-% %     ICsMostLikelyChannel2 = find(ICsMostLikelyChannel);
-% %
-% %     for i = 1:length(ICsMostLikelyChannel2)
-% %         artifactComponents(ICsMostLikelyChannel2(i),:) = wThresholding(dataICs(ICsMostLikelyChannel2(i),:));
-% %     end
-% % end
-%
-% % -------------------------------------------------------------------------
-% % % Channel ICs
-% % % Regress out channel ICs
-% % if cfg.ica.channel
-% %     if any(ICsMostLikelyChannel)
-% %         fprintf('-> Removing channel ICs (N = %d)...\n', sum(ICsMostLikelyChannel));
-% %         artifactComponents(ICsMostLikelyChannel,:) = dataICs(ICsMostLikelyChannel,:);
-% %     else
-% %         fprintf('-> Channel ICs are not found.\n');
-% %     end
-% % else
-% %     fprintf('-> Channel ICs (N = %d) are kept in the EEG.\n', sum(ICsMostLikelyChannel));
-% % end
-% %
-% % EEGNEW = EEG;
-% % EEGNEW.data(chaneeg,:) = cleanEEG';
-% % vis_artifacts(EEGNEW,EEG);
-%
-% % -------------------------------------------------------------------------
-% % Remove artifact and reconstruct data
-% artifactEEG = EEG.icawinv * artifactComponents;
-% artifactEEG = reshape(artifactEEG, EEG.nbchan, NTPT, EEG.trials);
-%
-% % chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-% % EEGNEW = EEG;
-% % EEGNEW.data(chaneeg,:) = EEG.data(chaneeg,:) - artifactEEG;
-% % vis_artifacts(EEGNEW,EEG);
-%
-% chaneeg = strcmp({EEG.chanlocs.type}, 'EEG');
-% EEG.data(chaneeg, :) = EEG.data(chaneeg, :) - artifactEEG;
+EEG.icaact = [];
 
 % -------------------------------------------------------------------------
-% 5. Audit Logging
+% Logging
 % -------------------------------------------------------------------------
 EEG.ALSUTRECHT.ica.final.removed        = ICsforRemove;
-EEG.ALSUTRECHT.ica.final.all_bad_marked = ICsEye | ICsHeart | ICsComplex | ICsMuscle_safe | ICsChannel | ICsGenBad_safe;
-EEG.ALSUTRECHT.ica.final.protected_emg  = ICsMuscle & ~safe_to_remove(:);
+EEG.ALSUTRECHT.ica.final.all_marked_bad = ICsEye | ICsHeart | ICsComplex | ICsMuscle | ICsChannel | ICsGenBad;
+EEG.ALSUTRECHT.ica.final.is_negligible  = is_negligible;
 
-if isfield(EEG, 'ALSUTRECHT') && isfield(EEG.ALSUTRECHT, 'subject') && ...
-        isfield(EEG.ALSUTRECHT.subject, 'fid') && ~isempty(EEG.ALSUTRECHT.subject.fid) && ...
-        EEG.ALSUTRECHT.subject.fid > 0
-
-    fid = EEG.ALSUTRECHT.subject.fid;
-    fprintf(fid, '\n---------------------------------------------------------\n');
-    fprintf(fid, 'ICA Bad Component Removal Summary\n');
-    fprintf(fid, '---------------------------------------------------------\n');
-    fprintf(fid, 'Total ICs Removed:           %d\n', sum(ICsforRemove));
-    fprintf(fid, '  - Eye:                     %d\n', sum(ICsEye));
-    fprintf(fid, '  - Heart:                   %d\n', sum(ICsHeart));
-    fprintf(fid, '  - Complex:                 %d\n', sum(ICsComplex));
-    fprintf(fid, '  - Muscle:                  %d\n', sum(ICsMuscle_safe));
-    fprintf(fid, '  - Channel:                 %d\n', sum(ICsChannel));
-    fprintf(fid, '  - GenBad:                  %d\n', sum(ICsGenBad_safe));
-    % fprintf(fid, 'Protected Motor EMG ICs:     %d\n', protected_emg_cnt);
-    % fprintf(fid, 'Protected Motor GenBad ICs:  %d\n', protected_bad_cnt);
-    if any(ICsforRemove)
-        fprintf(fid, 'Variance Accounted For:   %.2f%%\n', true_pct_var_removed);
-    end
-end
-
-% Clear activations cache to conserve memory
-EEG.icaact = [];
+% fid = EEG.ALSUTRECHT.subject.fid;
+% fprintf(fid, '\n---------------------------------------------------------\n');
+% fprintf(fid, 'ICA Bad Component Removal Summary\n');
+% fprintf(fid, '---------------------------------------------------------\n');
+% fprintf(fid, 'Total ICs Removed:           %d\n', sum(ICsforRemove));
+% fprintf(fid, '  - Eye:                     %d\n', sum(ICsEye));
+% fprintf(fid, '  - Heart:                   %d\n', sum(ICsHeart));
+% fprintf(fid, '  - Complex:                 %d\n', sum(ICsComplex));
+% fprintf(fid, '  - Muscle:                  %d\n', sum(ICsMuscle));
+% fprintf(fid, '  - Channel:                 %d\n', sum(ICsChannel));
+% fprintf(fid, '  - GenBad:                  %d\n', sum(ICsGenBad));
+% % fprintf(fid, 'Protected Motor EMG ICs:     %d\n', protected_emg_cnt);
+% % fprintf(fid, 'Protected Motor GenBad ICs:  %d\n', protected_bad_cnt);
+% if any(ICsforRemove)
+%     fprintf(fid, 'Variance Accounted For:   %.2f%%\n', true_pct_var_removed);
+% end
 
 end
 
@@ -332,3 +256,67 @@ end
 % title('Time Series (10s window around maximum deflection)');
 % xlim([t_win(1) t_win(end)]);
 % end
+
+% % OLD CODE
+% % =========================================================================
+% % Must-remove ICs
+% if any(ICsforRemove)
+%     fprintf('-> Removing bad ICs (N = %d)...\n', sum(ICsforRemove));
+%     artifactComponents(ICsforRemove, :) = dataICs(ICsforRemove, :);
+% end
+%
+% % -------------------------------------------------------------------------
+% % Muscle ICs
+% if cfg.ica.emg
+%     if any(ICsMostLikelyMuscle)
+%         fprintf('-> Filtering muscle ICs (N = %d)...\n', sum(ICsMostLikelyMuscle));
+%         [bh, ah] = butter(2, muscleFreqCutoff/(EEG.srate/2), 'high');
+%         artifactComponents(ICsMostLikelyMuscle, :) = do_filteringcore(bh, ah, dataICs(ICsMostLikelyMuscle, :), EEG.event, EEG.srate);
+%     else
+%         fprintf('-> Muscle ICs are not found.\n');
+%     end
+% else
+%     fprintf('-> Muscle ICs (N = %d) are kept in the EEG.\n', sum(ICsMostLikelyMuscle));
+% end
+%
+% % -------------------------------------------------------------------------
+% % Obtain channel artifact for subtraction by wavelet-thresholding
+% % -> this did not work well
+% % if any(ICsMostLikelyChannel)
+% %     ICsMostLikelyChannel2 = find(ICsMostLikelyChannel);
+% %
+% %     for i = 1:length(ICsMostLikelyChannel2)
+% %         artifactComponents(ICsMostLikelyChannel2(i),:) = wThresholding(dataICs(ICsMostLikelyChannel2(i),:));
+% %     end
+% % end
+%
+% % -------------------------------------------------------------------------
+% % % Channel ICs
+% % % Regress out channel ICs
+% % if cfg.ica.channel
+% %     if any(ICsMostLikelyChannel)
+% %         fprintf('-> Removing channel ICs (N = %d)...\n', sum(ICsMostLikelyChannel));
+% %         artifactComponents(ICsMostLikelyChannel,:) = dataICs(ICsMostLikelyChannel,:);
+% %     else
+% %         fprintf('-> Channel ICs are not found.\n');
+% %     end
+% % else
+% %     fprintf('-> Channel ICs (N = %d) are kept in the EEG.\n', sum(ICsMostLikelyChannel));
+% % end
+% %
+% % EEGNEW = EEG;
+% % EEGNEW.data(chaneeg,:) = cleanEEG';
+% % vis_artifacts(EEGNEW,EEG);
+%
+% % -------------------------------------------------------------------------
+% % Remove artifact and reconstruct data
+% artifactEEG = EEG.icawinv * artifactComponents;
+% artifactEEG = reshape(artifactEEG, EEG.nbchan, NTPT, EEG.trials);
+%
+% % chaneeg = strcmp({EEG.chanlocs.type},'EEG');
+% % EEGNEW = EEG;
+% % EEGNEW.data(chaneeg,:) = EEG.data(chaneeg,:) - artifactEEG;
+% % vis_artifacts(EEGNEW,EEG);
+%
+% chaneeg = strcmp({EEG.chanlocs.type}, 'EEG');
+% EEG.data(chaneeg, :) = EEG.data(chaneeg, :) - artifactEEG;

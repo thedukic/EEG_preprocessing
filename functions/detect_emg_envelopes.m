@@ -39,7 +39,7 @@ mask_final = 100 * mean(mask_final,1);
 % Mask1
 % -> Many channels affected together with the EOG
 % -> This happens due in large EMG/movement/blink artifacts
-P3 = 15; % X% of elec
+P3 = 10; % X% of elec (original: 15)
 extremeMaskTmp2 = mask_final >= 2*P3;
 
 % Mask

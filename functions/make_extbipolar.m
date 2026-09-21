@@ -55,36 +55,40 @@ for i_block = 1:num_block
         fprintf('  [ECG]  True bipolar ECG derived (ECGL - ECGR -> ECG).\n');
 
     elseif ~isempty(idx_lel) && ~isempty(idx_rel)
-        % Extract 2-channel earlobe data across all continuous samples
-        lel_data = squeeze(DATA(i_block).data(idx_lel, :, :));
-        rel_data = squeeze(DATA(i_block).data(idx_rel, :, :));
-
-        % Flatten if data is epoched [samples x 2]
-        ear_mat = [lel_data(:), rel_data(:)];
-
-        % Extract 1st Principal Component (maximises shared cardiac variance)
-        [~, score] = pca(ear_mat);
-        ecg_approx = score(:, 1);
-
-        % Enforce positive R-peak polarity (R-peaks generate positive skewness)
-        if skewness(ecg_approx) < 0
-            ecg_approx = -ecg_approx;
-        end
-
-        % Reshape back to original dimensions
-        DATA(i_block).data(idx_lel, :, :) = reshape(ecg_approx, size(DATA(i_block).data(idx_lel, :, :)));
-        DATA(i_block).chanlocs(idx_lel).labels = 'ECG';
-        DATA(i_block).chanlocs(idx_lel).type   = 'EXT';
-
-        % Remove redundant reference channel
-        DATA(i_block).data(idx_rel, :, :) = [];
-        DATA(i_block).chanlocs(idx_rel)   = [];
-        eleclabels = {DATA(i_block).chanlocs.labels};
-
+        % % Extract 2-channel earlobe data across all continuous samples
+        % lel_data = squeeze(DATA(i_block).data(idx_lel, :, :));
+        % rel_data = squeeze(DATA(i_block).data(idx_rel, :, :));
+        % 
+        % % Flatten if data is epoched [samples x 2]
+        % ear_mat = [lel_data(:), rel_data(:)];
+        % 
+        % % Extract 1st Principal Component (maximises shared cardiac variance)
+        % [~, score] = pca(ear_mat);
+        % ecg_approx = score(:, 1);
+        % 
+        % % Enforce positive R-peak polarity (R-peaks generate positive skewness)
+        % if skewness(ecg_approx) < 0
+        %     ecg_approx = -ecg_approx;
+        % end
+        % 
+        % % Reshape back to original dimensions
+        % DATA(i_block).data(idx_lel, :, :) = reshape(ecg_approx, size(DATA(i_block).data(idx_lel, :, :)));
+        % DATA(i_block).chanlocs(idx_lel).labels = 'ECG';
+        % DATA(i_block).chanlocs(idx_lel).type   = 'EXT';
+        % 
+        % % Remove redundant reference channel
+        % DATA(i_block).data(idx_rel, :, :) = [];
+        % DATA(i_block).chanlocs(idx_rel)   = [];
+        % eleclabels = {DATA(i_block).chanlocs.labels};
+        % 
+        % % Metadata logging
+        % DATA(i_block).ALSUTRECHT.subject.ecg = 'approximated';
+        % 
+        % fprintf('  [ECG]  Approximated bipolar ECG derived from earlobes (LEL - REL -> ECG).\n');
+      
         % Metadata logging
-        DATA(i_block).ALSUTRECHT.subject.ecg = 'approximated';
-
-        fprintf('  [ECG]  Approximated bipolar ECG derived from earlobes (LEL - REL -> ECG).\n');
+        DATA(i_block).ALSUTRECHT.subject.ecg = 'none';
+        fprintf('  [ECG]  ECG channels not found.\n');
 
     else
         error('Something went wrong.');

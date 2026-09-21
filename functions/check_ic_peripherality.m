@@ -257,11 +257,11 @@ if ~isempty(ics_plot)
     Nrow    = ceil(n_plots / 2);
 
     % Dynamic figure dimensions (cm) for saving
-    tile_w  = 5.5;   % Width per tile
-    tile_h  = 4.5;   % Height per row
-    margin  = 2.0;   % Margin for padding/titles
-    fig_w   = max(20, Ncol * tile_w);
-    fig_h   = max(10, Nrow * tile_h + margin);
+    tile_w  = 8;   % Width per tile
+    tile_h  = 6;   % Height per row
+    margin  = 2.0; % Margin for padding/titles
+    fig_w   = max(30, Ncol * tile_w);
+    fig_h   = max(40, Nrow * tile_h + margin);
     fig_dim = [fig_w, fig_h];
 
     fh = figure('Color', 'w', 'Name', 'IC Diagnostics', ...
@@ -283,8 +283,9 @@ if ~isempty(ics_plot)
         % Col A: Topoplot using mytopoplot
         ax_topo = nexttile(th);
         set(ax_topo, 'Color', 'w');
-        topo_title = sprintf('IC %d Topography', k);
-        % mytopoplot(data, mask_channel_mark, title_char, handle_tile, clim_vals)
+        topo_title = sprintf('IC%d Topography', k);
+        % mytopoplot(data, mask_channel_mark, title_char, handle_tile,
+        % clim_vals);
         mytopoplot(EEG.icawinv(:, k), [], topo_title, ax_topo);
 
         % Col B: Power Spectrum
@@ -321,9 +322,10 @@ if ~isempty(ics_plot)
             stats(k).pei*100, stats(k).moi*100, stats(k).kurtosis, ...
             stats(k).hf_roughness, plot_action);
 
-        text(ax_spec, 0.50, 0.75, info_str, 'Units', 'normalized', 'FontSize', 8, ...
+        text(ax_spec, 0.75, 0.85, info_str, 'Units', 'normalized', 'FontSize', 6, ...
             'BackgroundColor', bg_col, 'EdgeColor', 'k', 'HorizontalAlignment', 'center');
-        title(ax_spec, sprintf('IC %d Spectrum', k), 'FontSize', 10, 'FontWeight', 'bold');
+        title(ax_spec, sprintf('IC%d Spectrum', k), 'FontSize', 10, 'FontWeight', 'bold');
+        pbaspect([1.4 1 1]);
     end
 
     % -------------------------------------------------------------------------

@@ -18,9 +18,9 @@ fprintf('================================\n');
 % Define params
 if strcmpi(type_data, 'eeg')
     Niter   = 2;    % Number of STAR iterations
-    Nneigh  = 8;    % Number of neighouring channels
+    Nneigh  = 10;   % Number of neighouring channels
     Texc    = 3;    % Threshold for excentricity, higher -> looser
-    Ndeep   = 2;    % Maximum number of channels to fix at each sample
+    Ndeep   = 3;    % Maximum number of channels to fix at each sample
     Tpca    = 0.15; % Threshold for discarding weak PCs (percent of the max{PCs} of C of that neigh group of channels)
     Nsmooth = 64;   % Samples for smoothing applied on excentricity, too short -> too sensitive
 
@@ -59,26 +59,28 @@ end
 
 % Extract
 x_old = double(DATA.data(mask_channel, :))';
-x_clean = x_old;
-assert(ismatrix(x_old));
+x_new = x_old;
+
+% Must be continuous
+assert(ismatrix(x_new));
 
 % Run
 fprintf('Applying %d iterations.\n', Niter);
 for i_iter = 1:Niter
     fprintf('Iteration: %d\n', i_iter);
-    [x_clean, w, ww] = nt_star(x_clean, Texc, channel_neighbours, Ndeep, Tpca, Nsmooth);
+    [x_new, w, ww] = nt_star(x_new, Texc, channel_neighbours, Ndeep, Tpca, Nsmooth);
 end
 
 % % Check
-% EEGNEW = DATA;
-% EEGNEW.data(mask_channel,:) = x_clean';
-% vis_artifacts(EEGNEW, DATA);
+% DATA_NEW = DATA;
+% DATA_NEW.data(mask_channel,:) = x_new';
+% vis_artifacts(DATA_NEW, DATA);
 
 % Store
-DATA.data(mask_channel, :) = x_clean';
+DATA.data(mask_channel, :) = x_new';
 
 % Plot
-fh = visualise_sparse_repairs(x_old, x_clean, ww, DATA.chanlocs(mask_channel), DATA.srate, cfg.figure.visible);
+fh = visualise_sparse_repairs(x_old, x_new, ww, DATA.chanlocs(mask_channel), DATA.srate, cfg.figure.visible);
 save_figure(fh, DATA.ALSUTRECHT.subject.figures, [DATA.ALSUTRECHT.subject.id '_star'], [30 15]);
 
 end

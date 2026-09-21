@@ -1,4 +1,4 @@
-function [neg_integral, slope_low, slope_discrepancy] = estimate_spectral_metrics(powspctrm, freqs, interest_range, censor_range, plot_indx)
+function [neg_integral, neg_prop, slope, slope_discrepancy] = estimate_spectral_metrics(powspctrm, freqs, interest_range, censor_range, plot_indx)
 % ESTIMATE_SPECTRAL_METRICS Computes slope discrepancy and negative integral metrics.
 %
 % Inputs:
@@ -46,6 +46,8 @@ if isempty(idx_low) && ~isempty(idx_high)
 end
 
 % --- ALLOCATION & MODEL FITTING ---
+offset            = NaN(num_channels, 1);
+slope             = NaN(num_channels, 1);
 slope_low         = NaN(num_channels, 1);
 slope_discrepancy = NaN(num_channels, 1);
 ap_fit            = NaN(num_channels, length(freqs));
@@ -63,10 +65,10 @@ for i_channel = 1:num_channels
 
     % Global fit to calculate the aperiodic baseline
     mdl = fitlm(log_freqs_select, power_channel(:));
-    intercept = mdl.Coefficients.Estimate(1);
-    slope     = mdl.Coefficients.Estimate(2);
+    offset(i_channel, 1) = mdl.Coefficients.Estimate(1);
+    slope(i_channel, 1)  = mdl.Coefficients.Estimate(2);
 
-    ap_fit_log = intercept + (slope * log_freqs');
+    ap_fit_log = offset(i_channel, 1) + (slope(i_channel, 1) * log_freqs');
     ap_fit(i_channel, :) = 10.^ap_fit_log;
 
     % Sub-segment fits for internal consistency
@@ -75,15 +77,6 @@ for i_channel = 1:num_channels
 
     slope_low(i_channel, 1) = mdl_low.Coefficients.Estimate(2);
     slope_discrepancy(i_channel, 1) = abs(mdl_low.Coefficients.Estimate(2) - mdl_high.Coefficients.Estimate(2));
-
-    if ~isempty(plot_indx) && ismember(i_channel, plot_indx)
-        fit_params(i_channel).int_glob   = intercept;
-        fit_params(i_channel).slope_glob = slope;
-        fit_params(i_channel).int_low    = mdl_low.Coefficients.Estimate(1);
-        fit_params(i_channel).slope_low  = mdl_low.Coefficients.Estimate(2);
-        fit_params(i_channel).int_high   = mdl_high.Coefficients.Estimate(1);
-        fit_params(i_channel).slope_high = mdl_high.Coefficients.Estimate(2);
-    end
 end
 
 % --- NEGATIVE RESIDUAL ESTIMATION ---
@@ -93,6 +86,7 @@ neg_mask          = periodic_estimate < 0;
 
 % Area of 'impossible' power per channel
 neg_integral = sum(abs(periodic_estimate .* neg_mask), 2);
+neg_prop = mean(neg_mask, 2);
 
 % --- VISUALISATION ---
 if ~isempty(plot_indx)
@@ -143,7 +137,7 @@ if ~isempty(plot_indx)
             xlim(ax, [log10(interest_range(1)), log10(interest_range(2))]);
 
             title(ax, sprintf('IC/Ch %d | \\Delta Slope: %.2f | NegInt: %.2f', ...
-                ch, slope_discrepancy(ch), neg_integral(ch)), 'FontSize', 9, 'FontWeight', 'bold');
+                ch, slope_discrepancy(ch), neg_prop(ch)), 'FontSize', 9, 'FontWeight', 'bold');
 
             if mod(p - 1, cols) == 0
                 ylabel(ax, 'log_{10} Power', 'FontSize', 8);

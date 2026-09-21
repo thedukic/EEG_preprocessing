@@ -1,4 +1,4 @@
-function [EEG, badElectrodes1] = remove_noisyelectrodes(EEG, cfg)
+function [EEG, bad_channels_1] = remove_noisyelectrodes(EEG, cfg)
 %
 % In this function, however, instead "findNoisyChannels" is called (from PREP pipeline)
 % Note: "findNoisyChannels" must be edited so that it is undeterministic!
@@ -19,20 +19,13 @@ fprintf('\n================================\n');
 fprintf('Detecting noisy electrodes\n');
 fprintf('================================\n');
 
-% % Detect which channels are EEG/EXT
-% chaneeg = strcmp({EEG.chanlocs.type},'EEG');
-% chanext = {EEG.chanlocs(~chaneeg).labels};
-% chanLabelsEEG = {EEG.chanlocs(chaneeg).labels};
-%
-% % Remove EXT channels, we dont want to check them
-% EEGTMP = pop_select(EEG,'nochannel',chanext);
-
 channel_mask = strcmp({EEG.chanlocs.type}, 'EEG');
 channel_labels = {EEG.chanlocs(channel_mask).labels};
 assert(all(channel_mask));
 
 % =========================================================================
 % PREP function
+% =========================================================================
 fprintf('Detecting noisy electrodes using the PREP toolbox...\n');
 
 if cfg.channel.ransacOff
@@ -42,7 +35,7 @@ if cfg.channel.ransacOff
     noisyOut = findNoisyChannels(EEG, cfg.channel);
 
     % Extract
-    badElectrodes1 = noisyOut.noisyChannels.all;
+    bad_channels_1 = noisyOut.noisyChannels.all;
 
 else
     % badElectrodes_iter = false(EEG.nbchan,cfg.channel.iter.num);
@@ -72,24 +65,24 @@ else
     % end
     %
     % % Final detection
-    % badElectrodes = find(badness_percent >= cfg.channel.iter.frc);
+    % bad_channels_1 = find(badness_percent >= cfg.channel.iter.frc);
 end
 
 % Report
-Nremoved1 = length(badElectrodes1);
-fprintf('PREP detected: %d\n', Nremoved1);
-
-% =========================================================================
-% Determine how many we can still remove
-totalInitialChannels = sum(strcmp({EEG.allchans.type}, 'EEG'));
-currentChannels      = sum(channel_mask) - Nremoved1;
-maxThatCanBeRemoved  = round(cfg.channel.prop_badchan_max * totalInitialChannels);
-youCanRejectThisManyChannelsHere = maxThatCanBeRemoved - (totalInitialChannels - currentChannels);
+num_removed_1 = length(bad_channels_1);
+fprintf('PREP detected: %d\n', num_removed_1);
 
 % =========================================================================
 % Power spectra slope
+% =========================================================================
+% Determine how many we can still remove
+channels_initial   = sum(strcmp({EEG.allchans.type}, 'EEG'));
+channels_current   = sum(channel_mask) - num_removed_1;
+max_remove_setting = round(cfg.channel.prop_badchan_max * channels_initial);
+max_remove_here    = max_remove_setting - (channels_initial - channels_current);
+
 fprintf('\nDetecting noisy electrodes using power slopes...\n');
-if youCanRejectThisManyChannelsHere > 0
+if max_remove_here > 0
     % Estimate log-log slopes
     slopesChannelsxEpochs = detect_emg(EEG, cfg);
 
@@ -97,30 +90,31 @@ if youCanRejectThisManyChannelsHere > 0
     fprintf('Slope treshold: %1.2f\n', cfg.emg.slope_threshold_1);
     emgSlopeTimeAvg = mean(slopesChannelsxEpochs > cfg.emg.slope_threshold_1, 2);
 
-    badElectrodes2   = find(emgSlopeTimeAvg > cfg.emg.slope_time);
-    initalNumber     = length(badElectrodes2);
-    initalProportion = initalNumber / length(emgSlopeTimeAvg);
+    bad_channels_2    = find(emgSlopeTimeAvg > cfg.emg.slope_time);
+    inital_number     = length(bad_channels_2);
+    inital_proportion = inital_number / length(emgSlopeTimeAvg);
 
-    if initalNumber > youCanRejectThisManyChannelsHere
-        fprintf('Warning: Too many electrodes (N = %d, max = %d) are marked for rejection based on their slope.\n', initalNumber, youCanRejectThisManyChannelsHere);
-        badElectrodes2sorted = sort(emgSlopeTimeAvg, 1, 'descend');
-        emgSlopeTimeNew      = badElectrodes2sorted(youCanRejectThisManyChannelsHere, 1);
-        badElectrodes2       = find(emgSlopeTimeAvg >= emgSlopeTimeNew);
-        fprintf('Lowering that to N = %d.\n', length(badElectrodes2));
+    if inital_number > max_remove_here
+        fprintf('Warning: Too many electrodes (N = %d, max = %d) are marked for rejection based on their slope.\n', inital_number, max_remove_here);
+        bad_channels_2sorted = sort(emgSlopeTimeAvg, 1, 'descend');
+        emgSlopeTimeNew      = bad_channels_2sorted(max_remove_here, 1);
+        bad_channels_2       = find(emgSlopeTimeAvg >= emgSlopeTimeNew);
+        fprintf('Lowering that to N = %d.\n', length(bad_channels_2));
     end
 
-    fprintf('Aberrant slope(s) detected: %d\n', length(badElectrodes2));
+    fprintf('Aberrant slope(s) detected: %d\n', length(bad_channels_2));
 
 else
-    warning('Skippping... Too many electrodes (N = %d, max = %d) have already been marked for rejection by the PREP toolbox.', Nremoved1, maxThatCanBeRemoved);
-    badElectrodes2   = [];
-    initalNumber     = NaN;
-    initalProportion = NaN;
+    warning('Skippping... Too many electrodes (N = %d, max = %d) have already been marked for rejection by the PREP toolbox.', num_removed_1, max_remove_setting);
+    bad_channels_2   = [];
+    inital_number     = NaN;
+    inital_proportion = NaN;
 end
 
 % =========================================================================
-% Combine
-badElectrodes = unique([badElectrodes1(:); badElectrodes2(:)]);
+% Combine abd remove (PREP and slope)
+% =========================================================================
+badElectrodes = unique([bad_channels_1(:); bad_channels_2(:)]);
 fprintf('\nTotal detected: %d\n', length(badElectrodes));
 
 % Remove
@@ -130,10 +124,36 @@ if ~isempty(badElectrodes)
 end
 
 % Log
-EEG.ALSUTRECHT.badchaninfo.prep.electrodes         = channel_labels(badElectrodes1);
-EEG.ALSUTRECHT.badchaninfo.slope.electrodes          = channel_labels(badElectrodes2);
-EEG.ALSUTRECHT.badchaninfo.slope.maxThatCanBeRemoved = maxThatCanBeRemoved;
-EEG.ALSUTRECHT.badchaninfo.slope.initalNumber        = initalNumber;
-EEG.ALSUTRECHT.badchaninfo.slope.initalProportion    = initalProportion;
+EEG.ALSUTRECHT.badchaninfo.prep.electrodes           = channel_labels(bad_channels_1);
+EEG.ALSUTRECHT.badchaninfo.slope.electrodes          = channel_labels(bad_channels_2);
+EEG.ALSUTRECHT.badchaninfo.slope.maxThatCanBeRemoved = max_remove_setting;
+EEG.ALSUTRECHT.badchaninfo.slope.initalNumber        = inital_number;
+EEG.ALSUTRECHT.badchaninfo.slope.initalProportion    = inital_proportion;
+
+% =========================================================================
+% Merge all bad electrodes
+% =========================================================================
+subfields = {'offsets', 'flat', 'prep', 'slope'};
+bad_electrodes = [];
+
+for i_field = subfields
+    fn = i_field{1};
+    if isfield(EEG.ALSUTRECHT.badchaninfo, fn) && ...
+            isfield(EEG.ALSUTRECHT.badchaninfo.(fn), 'electrodes') && ...
+            ~isempty(EEG.ALSUTRECHT.badchaninfo.(fn).electrodes)
+
+        vals = EEG.ALSUTRECHT.badchaninfo.(fn).electrodes;
+        if iscell(vals) && isempty(bad_electrodes)
+            bad_electrodes = {};
+        end
+        bad_electrodes = [bad_electrodes, vals(:)']; %#ok<AGROW>
+    end
+end
+
+if isempty(bad_electrodes)
+    EEG.ALSUTRECHT.badchaninfo.badElectrodes = [];
+else
+    EEG.ALSUTRECHT.badchaninfo.badElectrodes = unique(bad_electrodes);
+end
 
 end

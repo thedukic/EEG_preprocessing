@@ -55,7 +55,7 @@ if num_subjects > 0
 
         % --- PART 1 ---
         try
-            run_subject_1(myPaths, myPaths.subjects{i_subj});
+            % run_subject_1(myPaths, myPaths.subjects{i_subj});
         catch ME
             step1_passed = false;
 

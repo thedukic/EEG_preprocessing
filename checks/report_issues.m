@@ -2,13 +2,13 @@ function qa_data = report_issues(qa_data)
 
 % ALS number
 issues_to_check.aFileName     = qa_data.subject.id;
-issues_to_check.NumberTrials1 = sum([qa_data.eventinfo{:, 3}]);           % Total possible
-issues_to_check.NumberTrials2 = qa_data.epochRejections.initialEpochs;    % Left after preproc1
-issues_to_check.NumberTrials3 = qa_data.epochRejections.remainingEpochs;  % Left after preproc2
+issues_to_check.NumberTrials1 = sum([qa_data.eventinfo{:, 3}]);         % Total possible
+issues_to_check.NumberTrials2 = qa_data.epochRejections.epoch_initial;  % Left after preproc1
+issues_to_check.NumberTrials3 = qa_data.epochRejections.epoch_final;    % Left after preproc2
 
-issues_to_check.NumberIC2 = max(qa_data.ica.num_req);                     % ICA (request)
-issues_to_check.NumberIC3 = qa_data.ica.num_done;                         % ICA (done)
-issues_to_check.NumberIC4 = qa_data.ica.num_max;                          % ICA ()
+issues_to_check.NumberIC2 = max(qa_data.ica.num_req);                   % ICA (request)
+issues_to_check.NumberIC3 = qa_data.ica.num_done;                       % ICA (done)
+issues_to_check.NumberIC4 = qa_data.ica.num_max;                        % ICA ()
 % issues_to_check.DataTooShortForValidICA = 0;
 
 % % Number of blocks

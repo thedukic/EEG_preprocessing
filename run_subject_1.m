@@ -49,15 +49,13 @@ fprintf('==================================================================\n');
 % -------------------------------------------------------------------------
 % Basic data preparation
 % -------------------------------------------------------------------------
-% Find files
-subject.datablocks = list_datasets(subject.rawdata, subject.task);
+% Find and load files
+EEG = load_biosemidata(subject, cfg);
 
-% Load those files
-if ~isempty(subject.datablocks)
-    EEG = load_biosemidata(subject, cfg);
-    clearvars subject;
+if isempty(EEG)
+    return;
 else
-    warning([subject.id ' is missing ' subject.task ' data. Skipping...']); return;
+    clearvars subject
 end
 
 % Make a folder for this participant
@@ -111,7 +109,7 @@ EEG = extract_eventinfo(EEG, cfg.trg);
 
 % Filter highpass only
 % EEG = do_filtering_fir(EEG);
-EEG = do_filtering(EEG, 'highpass', cfg.flt);
+EEG = do_filtering(EEG, 'highpass', cfg);
 
 % % Electrode correlations (needs more testing)
 % EEG = detect_swappedelectrodes(EEG, cfg);
@@ -192,7 +190,7 @@ generate_ictemplateweights(EEG, EMG, EXT, cfg);
 EEG = remove_noisyelectrodes(EEG, cfg);
 
 % Report bad/removed electrodes
-EEG = report_badelectrodes(EEG, cfg);
+report_badelectrodes(EEG, cfg);
 
 % -------------------------------------------------------------------------
 % Deeper cleaning
@@ -221,14 +219,13 @@ EEG = do_reref(EEG, 'aRegular');
 EEG = do_ica(EEG, cfg);
 
 % Detect artifact ICs
-% EEG = detect_ic_bad(EEG, EXT, EMG, cfg); % not working
 EEG = detect_badcomponents(EEG, EXT, EMG, cfg);
 
 % Remove artifact ICs
 EEG = remove_badcomponents(EEG, cfg);
 
 % Report ICA
-EEG = report_ica(EEG, cfg);
+report_ica(EEG, cfg);
 
 % -------------------------------------------------------------------------
 % Clean EMG (not done here?)
@@ -251,6 +248,11 @@ clearvars EXT EMG
 
 % Report artifact leftovers
 EEG = report_leftovers(EEG, 1, cfg);
+
+% % MWF / DSS
+% if DATA.ALSUTRECHT.leftovers.blink1.flag_redo
+%     EEG = do_mwf_blink(EEG);
+% end
 
 % Interim data saving
 % EEG = pop_saveset(EEG, 'filename', [subject.id '_' subject.visit '_' subject.task '_tmp.set'], 'filepath', subject.preproc);

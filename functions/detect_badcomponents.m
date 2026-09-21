@@ -412,9 +412,9 @@ fprintf('--------------------------------\n');
 
 options = [];
 options.Freq_to_compute       = [1 100];
-options.muscleFreqEx          = 50 + 2*[-1 1]; % Line freq +-bandwith
-options.muscleFreq1           = cfg.emg.slope_freq_1; % e.g., [7 45]
-options.muscleFreq2           = cfg.emg.slope_freq_2; % e.g., [40 70]
+options.muscleFreqEx          = 50 + 2*[-1 1];         % Line freq +-bandwith
+options.muscleFreq1           = cfg.emg.slope_freq_1;  % e.g., [7 45]
+options.muscleFreq2           = cfg.emg.slope_freq_2;  % e.g., [40 70]
 options.muscleSlopeThreshold1 = cfg.emg.slope_threshold_1;
 options.muscleSlopeThreshold2 = cfg.emg.slope_threshold_2;
 
@@ -712,7 +712,7 @@ fprintf('--------------------------------\n');
 % EEG.ALSUTRECHT.ica.blink.TemplateCorr.clss  = 'Blink';
 
 % New
-cfg_base = struct('check_distribution', false, 'sim_thresh', threshold_temp_blink);
+cfg_base = struct('check_distribution', false, 'sim_thresh', threshold_temp_blink, 'biosemi_blink', {cfg.roi.blink});
 [bad_ic, ~, ~, report] = match_ica_template(icawinv, EEG.chanlocs, templates_ica, 'blink', cfg_base);
 
 % Report
@@ -755,7 +755,7 @@ fprintf('--------------------------------\n');
 % EEG.ALSUTRECHT.ica.saccade.TemplateCorr.clss  = 'Saccade';
 
 % New
-cfg_base = struct('check_distribution', false, 'sim_thresh', threshold_temp_saccade);
+cfg_base = struct('check_distribution', false, 'sim_thresh', threshold_temp_saccade, 'biosemi_saccade', {cfg.roi.saccade_all});
 [bad_ic, ~, ~, report] = match_ica_template(icawinv, EEG.chanlocs, templates_ica, 'saccade', cfg_base);
 
 % Report
@@ -1385,20 +1385,8 @@ if cfg.check_distribution
 
     switch lower(template_type)
         case 'blink'
-            if ~isfield(cfg, 'dist_thresh') || isempty(cfg.dist_thresh)
-                cfg.dist_thresh = 0.60; % >= 60% power in anterior pole
-            end
-
             % BioSemi 128 Prefrontal / Polar ROI (C-bank anterior perimeter)
-            biosemi_blink = {'C15', 'C16', 'C17', 'C18', 'C19', 'C20', ...
-                'C21', 'C22', 'C25', 'C26', 'C27', 'C28', ...
-                'C29', 'C30', 'C31', 'C32'};
-            roi_mask = ismember(chan_labels, biosemi_blink);
-
-            if sum(roi_mask) < 4 && has_coords
-                y_coords = [chanlocs.Y];
-                roi_mask = y_coords > (0.65 * max(y_coords));
-            end
+            roi_mask = ismember(chan_labels, cfg.biosemi_blink);
 
             if any(roi_mask)
                 dist_scores = sum(icawinv(roi_mask, :).^2, 1) ./ total_energy;
@@ -1407,22 +1395,9 @@ if cfg.check_distribution
                 warning('Prefrontal BioSemi channels not found; bypassing blink distribution check.');
             end
 
-        case {'saccade', 'horizontal'}
-            if ~isfield(cfg, 'dist_thresh') || isempty(cfg.dist_thresh)
-                cfg.dist_thresh = 0.50; % >= 50% power in outer lateral leads
-            end
-
+        case 'saccade'
             % BioSemi 128 Outer Lateral Temporal/Orbital leads
-            biosemi_saccade = {'B19', 'B20', 'B21', 'B22', 'B23', 'B24', 'B25', 'B26', ...
-                'D11', 'D12', 'D13', 'D14', 'D19', 'D20', 'D21', 'D22', ...
-                'D23', 'D24', 'D25', 'D26', 'C11', 'C12', 'C13', 'C14'};
-            roi_mask = ismember(chan_labels, biosemi_saccade);
-
-            if sum(roi_mask) < 4 && has_coords
-                x_coords = [chanlocs.X];
-                y_coords = [chanlocs.Y];
-                roi_mask = abs(x_coords) > (0.60 * max(abs(x_coords))) & (y_coords > -0.2 * max(abs(y_coords)));
-            end
+            roi_mask = ismember(chan_labels, cfg.biosemi_saccade);
 
             if any(roi_mask)
                 dist_scores = sum(icawinv(roi_mask, :).^2, 1) ./ total_energy;
@@ -1432,10 +1407,6 @@ if cfg.check_distribution
             end
 
         case 'heart'
-            if ~isfield(cfg, 'dist_thresh') || isempty(cfg.dist_thresh)
-                cfg.dist_thresh = 0.15; % Max single lead must not exceed 15% of total cap power
-            end
-
             % True cardiac is broad/diffuse; rejects sharp focal dipoles
             dist_scores = max(icawinv.^2, [], 1) ./ total_energy;
             pass_dist   = dist_scores <= cfg.dist_thresh;

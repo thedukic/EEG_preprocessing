@@ -10,7 +10,7 @@ function [EEG, inside_brain, good_fits] = fit_ic_dipoles(EEG, target_ics, cfg_di
 
 % Thresholds
 depth_threshold = -3.5; % inside brain (< 1mm)
-rv_threshold = 0.15; % residual variance (< 15% == good ICs)
+rv_threshold    = 0.15; % residual variance (< 15% == good ICs)
 
 if nargin < 3; cfg_dip = struct(); end
 
@@ -133,7 +133,7 @@ if cfg_dip.plot_results
             title_color = [0.8 0 0]; % Red for outside
         end
 
-        title_str = sprintf('IC %d | RV: %.1f%%\n%s (d=%.1f)', ic, ic_rv, loc_status, ic_depth);
+        title_str = sprintf('IC%d | RV: %.1f%%\n%s (d=%.1f)', ic, ic_rv, loc_status, ic_depth);
 
         % Plot using custom topoplot function
         mytopoplot(topo_data, [], title_str, ax);
@@ -165,6 +165,6 @@ end
 EEG.ALSUTRECHT.dipfit.rv_list       = rv_list;
 EEG.ALSUTRECHT.dipfit.good_fits     = good_fits;
 EEG.ALSUTRECHT.dipfit.depth         = depth;
-EEG.ALSUTRECHT.dipfit.inside_brain = inside_brain;
+EEG.ALSUTRECHT.dipfit.inside_brain  = inside_brain;
 
 end

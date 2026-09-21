@@ -14,34 +14,42 @@ fprintf('\n--------------------------------\n');
 fprintf('Detecting eye blinks\n');
 fprintf('--------------------------------\n');
 
-trIQRblink = 3;
-winBlink = 150;
-[VEOGmask, VEOGepochs, VEOGmaxLatency, VEOGdata, VEOGEEGdata, treshold] = detect_veog(DATA, winBlink, trIQRblink, cfg.figure.visible);
+cfg_tmp.win     = 150;
+cfg_tmp.trIQR   = 3;
+cfg_tmp.do_plot = false;
+[VEOGmask, VEOGepochs, VEOGmaxLatency, VEOGdata, VEOGEEGdata, treshold] = detect_veog(DATA, cfg_tmp);
 
 % Eye saccades
 fprintf('\n--------------------------------\n');
 fprintf('Detecting eye saccades\n');
 fprintf('--------------------------------\n');
 
-trIQRsaccade = 1;
-winSaccade = 150;
-[HEOGmask, HEOGepochs, HEOGmaxLatency, HEOGdata, HEOGEEGdata, treshold] = detect_heog(DATA, winSaccade, trIQRsaccade, cfg.figure.visible);
+cfg_tmp.win     = 150;
+cfg_tmp.trIQR   = 1;
+cfg_tmp.do_plot = false;
+[HEOGmask, HEOGepochs, HEOGmaxLatency, HEOGdata, HEOGEEGdata, treshold] = detect_heog(DATA, cfg_tmp);
 
 % Heart beats
 fprintf('\n--------------------------------\n');
 fprintf('Detecting heartbeats\n');
 fprintf('--------------------------------\n');
 
-ECGtype = 'ecg';
-winHeart = 30;
-[ECGmask, ECGepochs, ECGlatency, ECGdata, ECGEEGdata, pulsEstimate] = detect_ecg(DATA, winHeart, cfg.figure.visible);
+if ~strcmpi(DATA.ALSUTRECHT.subject.ecg, 'none')
+    cfg_tmp.win     = 30;
+    cfg_tmp.do_plot = false;
+    [ECGmask, ECGepochs, ECGlatency, ECGdata, ECGEEGdata, pulsEstimate] = detect_ecg(DATA, cfg_tmp);
+else
+    ECGmask   = NaN;
+    ECGepochs = NaN;
+    has_ECG   = false;
+end
 
 % -------------------------------------------------------------------------
 % Setup availability flags to clean up downstream logic
 % -------------------------------------------------------------------------
 has_VEOG = any(VEOGmask);
 if islogical(ECGmask)
-    has_ECG  = any(ECGmask);
+    has_ECG = any(ECGmask);
 end
 
 if iscell(HEOGepochs)
@@ -63,9 +71,9 @@ fprintf('Estimating individualised templates\n');
 fprintf('--------------------------------\n');
 
 % Pre-allocate outputs with zeros so topoplot does not crash on empty matrices
-C_VEOG = NaN; A_VEOG = zeros(128,1); R_VEOGEEG = zeros(128,1);
-C_ECG  = NaN; A_ECG  = zeros(128,1); R_ECGEEG  = zeros(128,1);
-C_HEOG = NaN; A_HEOG = zeros(128,1); R_HEOGEEG = zeros(128,1);
+C_VEOG   = NaN; A_VEOG   = zeros(128,1); R_VEOGEEG   = zeros(128,1);
+C_ECG    = NaN; A_ECG    = zeros(128,1); R_ECGEEG    = zeros(128,1);
+C_HEOG   = NaN; A_HEOG   = zeros(128,1); R_HEOGEEG   = zeros(128,1);
 C_HEOG_L = NaN; A_HEOG_L = zeros(128,1); R_HEOGEEG_L = zeros(128,1);
 C_HEOG_R = NaN; A_HEOG_R = zeros(128,1); R_HEOGEEG_R = zeros(128,1);
 
@@ -78,9 +86,7 @@ end
 
 if has_ECG
     [C_ECG, A_ECG] = estimate_params(DATA, ECGmask);
-    if strcmpi(ECGtype, 'ecg')
-        R_ECGEEG = estimate_extcorrelation(DATA, ECGmask, 'ecg');
-    end
+    R_ECGEEG = estimate_extcorrelation(DATA, ECGmask, 'ecg');
 end
 
 if iscell(HEOGepochs)
@@ -109,9 +115,9 @@ load('wSaccade.mat', 'Saccadeweights');
 load('wHeart.mat',   'Heartweights');
 
 % Pre-allocate correlations
-R_VEOG1 = NaN; R_VEOG2 = NaN;
-R_ECG1  = NaN; R_ECG2  = NaN;
-R_HEOG1 = NaN; R_HEOG2 = NaN;
+R_VEOG1   = NaN; R_VEOG2 = NaN;
+R_ECG1    = NaN; R_ECG2  = NaN;
+R_HEOG1   = NaN; R_HEOG2 = NaN;
 R_HEOG1_L = NaN; R_HEOG1_R = NaN;
 R_HEOG2_L = NaN; R_HEOG2_R = NaN;
 
@@ -124,9 +130,7 @@ end
 
 if has_ECG
     [R_ECG1, ~] = corr(Heartweights, A_ECG(1:128));
-    if strcmpi(ECGtype, 'ecg')
-        [R_ECG2, ~] = corr(Heartweights, R_ECGEEG);
-    end
+    [R_ECG2, ~] = corr(Heartweights, R_ECGEEG);
     R_ECG1 = round(R_ECG1, 2);
     R_ECG2 = round(R_ECG2, 2);
 end
@@ -169,47 +173,47 @@ end
 % -------------------------------------------------------------------------
 fprintf('Plotting...\n');
 
-% Plot 1
-fh = figure('Visible', cfg.figure.visible);
-tiledlayout(3, 3, "TileSpacing", "compact", "Padding", "compact");
-% 1
-mytopoplot(A_VEOG(1:128),[],['avgVEOG: N = ' num2str(N_VEOG) ', R = ' num2str(R_VEOG1)],nexttile(1));
-mytopoplot(A_HEOG_L(1:128) + A_HEOG_R(1:128),[],['avgHEOG: N = ' num2str(N_HEOG1+N_HEOG1) ', R = ' num2str(R_HEOG1_L) '/' num2str(R_HEOG1_R)],nexttile(2));
-if ~strcmpi(ECGtype, 'none')
+if cfg.figure.plot
+    % Plot 1
+    fh = figure('Visible', cfg.figure.visible);
+    tiledlayout(3, 3, "TileSpacing", "compact", "Padding", "compact");
+    % 1
+    mytopoplot(A_VEOG(1:128),[],['avgVEOG: N = ' num2str(N_VEOG) ', R = ' num2str(R_VEOG1)],nexttile(1));
+    mytopoplot(A_HEOG_L(1:128) + A_HEOG_R(1:128),[],['avgHEOG: N = ' num2str(N_HEOG1+N_HEOG1) ', R = ' num2str(R_HEOG1_L) '/' num2str(R_HEOG1_R)],nexttile(2));
     R_ECG1 = mean(R_ECG1);
     mytopoplot(A_ECG(1:128),[],['avgECG: N = ' num2str(N_ECG) ', R = ' num2str(R_ECG1)],nexttile(3));
-end
-% 2
-mytopoplot(R_VEOGEEG,[],['corrVEOG: N = ' num2str(N_VEOG) ', R = ' num2str(R_VEOG2)],nexttile(4)); colorbar;
-mytopoplot(R_HEOGEEG_L+R_HEOGEEG_R,[],['corrHEOG: N = ' num2str(N_HEOG1+N_HEOG1) ', R = ' num2str(R_HEOG2_L) '/' num2str(R_HEOG2_R)],nexttile(5)); colorbar;
-if strcmpi(ECGtype, 'ecg')
+
+    % 2
+    mytopoplot(R_VEOGEEG,[],['corrVEOG: N = ' num2str(N_VEOG) ', R = ' num2str(R_VEOG2)],nexttile(4)); colorbar;
+    mytopoplot(R_HEOGEEG_L+R_HEOGEEG_R,[],['corrHEOG: N = ' num2str(N_HEOG1+N_HEOG1) ', R = ' num2str(R_HEOG2_L) '/' num2str(R_HEOG2_R)],nexttile(5)); colorbar;
     mytopoplot(R_ECGEEG,[],['corrECG: N = ' num2str(N_ECG) ', R = ' num2str(mean(R_ECG2))],nexttile(6)); colorbar;
+
+    % 3
+    mytopoplot(Blinkweights,[],'templateVEOG',nexttile(7));
+    mytopoplot(Saccadeweights,[],'templateHEOG',nexttile(8));
+    mytopoplot(mean(Heartweights,2),[],'templateECG',nexttile(9));
+
+    % Save
+    save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_ica_templates1'], [20 20]);
+
+    % Plot 2
+    if iscell(HEOGepochs)
+        fh = figure('Visible', cfg.figure.visible); tiledlayout(2, 2, "TileSpacing", "compact", "Padding", "compact");
+        mytopoplot(A_HEOG_L(1:128),[],['avgHEOG1: N = ' num2str(N_HEOG1) ', R = ' num2str(R_HEOG1_L)],nexttile); axis tight;
+        mytopoplot(A_HEOG_R(1:128),[],['avgHEOG2: N = ' num2str(N_HEOG2) ', R = ' num2str(R_HEOG1_R)],nexttile); axis tight;
+        mytopoplot(R_HEOGEEG_L,[],['corrHEOG1: N = ' num2str(N_HEOG1) ', R = ' num2str(R_HEOG2_L)],nexttile); axis tight;
+        mytopoplot(R_HEOGEEG_R,[],['corrHEOG2: N = ' num2str(N_HEOG2) ', R = ' num2str(R_HEOG2_L)],nexttile); axis tight;
+        plotX=20; plotY=20;
+    else
+        fh = figure; tiledlayout(1, 2, "TileSpacing", "compact", "Padding", "compact");
+        mytopoplot(A_HEOG_L(1:128),[],['avgHEOG: N = ' num2str(N_HEOG) ', R = ' num2str(R_HEOG1)],nexttile); axis tight;
+        mytopoplot(A_HEOG_L(1:128),[],['corrHEOG: N = ' num2str(N_HEOG) ', R = ' num2str(R_HEOG2)],nexttile); axis tight;
+        plotX=20; plotY=10;
+    end
+
+    % Save
+    save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_ica_templates2'], [plotX plotY]);
 end
-% 3
-mytopoplot(Blinkweights,[],'templateVEOG',nexttile(7));
-mytopoplot(Saccadeweights,[],'templateHEOG',nexttile(8));
-mytopoplot(mean(Heartweights,2),[],'templateECG',nexttile(9));
-
-% Save
-save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_ica_templates1'], [20 20]);
-
-% Plot 2
-if iscell(HEOGepochs)
-    fh = figure('Visible', cfg.figure.visible); tiledlayout(2, 2, "TileSpacing", "compact", "Padding", "compact");
-    mytopoplot(A_HEOG_L(1:128),[],['avgHEOG1: N = ' num2str(N_HEOG1) ', R = ' num2str(R_HEOG1_L)],nexttile); axis tight;
-    mytopoplot(A_HEOG_R(1:128),[],['avgHEOG2: N = ' num2str(N_HEOG2) ', R = ' num2str(R_HEOG1_R)],nexttile); axis tight;
-    mytopoplot(R_HEOGEEG_L,[],['corrHEOG1: N = ' num2str(N_HEOG1) ', R = ' num2str(R_HEOG2_L)],nexttile); axis tight;
-    mytopoplot(R_HEOGEEG_R,[],['corrHEOG2: N = ' num2str(N_HEOG2) ', R = ' num2str(R_HEOG2_L)],nexttile); axis tight;
-    plotX=20; plotY=20;
-else
-    fh = figure; tiledlayout(1, 2, "TileSpacing", "compact", "Padding", "compact");
-    mytopoplot(A_HEOG_L(1:128),[],['avgHEOG: N = ' num2str(N_HEOG) ', R = ' num2str(R_HEOG1)],nexttile); axis tight;
-    mytopoplot(A_HEOG_L(1:128),[],['corrHEOG: N = ' num2str(N_HEOG) ', R = ' num2str(R_HEOG2)],nexttile); axis tight;
-    plotX=20; plotY=10;
-end
-
-% Save
-save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_ica_templates2'], [plotX plotY]);
 
 % -------------------------------------------------------------------------
 % Save data
@@ -254,8 +258,8 @@ wArtifacts.Saccadecorr1R    = R_HEOG1_R;
 wArtifacts.Saccadecorr2L    = R_HEOG2_L;
 wArtifacts.Saccadecorr2R    = R_HEOG2_R;
 
-fileName = [EEG(1).ALSUTRECHT.subject.id '_' EEG(1).ALSUTRECHT.subject.visit '_' EEG(1).ALSUTRECHT.subject.task '_wartifacts.mat'];
-save(fullfile(EEG(1).ALSUTRECHT.subject.data, fileName), "wArtifacts");
+file_name = [EEG(1).ALSUTRECHT.subject.id '_' EEG(1).ALSUTRECHT.subject.visit '_' EEG(1).ALSUTRECHT.subject.task '_wartifacts.mat'];
+save(fullfile(EEG(1).ALSUTRECHT.subject.data, file_name), "wArtifacts");
 
 fprintf('Done!\n');
 

@@ -14,6 +14,7 @@ chanext  = find(strcmp({DATA(1).chanlocs.type}, 'EXT'));
 chanemg  = find(strcmp({DATA(1).chanlocs.type}, 'EMG'));
 
 % Make sure that the params are not used (just in case)
+cfg = cfg.flt;
 if strcmpi(type_filter, 'highpass')
     cfg.rs.lp  = [];
     cfg.mt.lp  = [];

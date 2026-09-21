@@ -15,7 +15,7 @@ artifact_threshold_type = 'auto';
 epoch_size_in_cycles    = 12;
 lowcut_frequency        = 0.5;
 do_parallel             = true;
-vis_artifacts           = false;
+do_visualise            = false;
 
 % -------------------------------------------------------------------------
 % Smoothing window
@@ -92,7 +92,7 @@ EEG_old = EEG;
 
 % Process
 [EEG, EEGartifacts, SENSAI_score, SENSAI_score_per_band, artifact_threshold_per_band, mean_ENOVA, ENOVA_per_epoch, com, ENOVA_per_band, ENOVA_per_channel] = ...
-    GEDAI(EEG, artifact_threshold_type, epoch_size_in_cycles, lowcut_frequency, covRef, do_parallel, vis_artifacts, ...
+    GEDAI(EEG, artifact_threshold_type, epoch_size_in_cycles, lowcut_frequency, covRef, do_parallel, do_visualise, ...
     Inf, Inf, 'eeg', smoothing_window_seconds);
 
 % % Check

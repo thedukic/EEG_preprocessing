@@ -1,4 +1,52 @@
 function [DATA, flag_redo] = report_leftovers(DATA, tag_figure, cfg)
+% REPORT_LEFTOVERS Audits cleaned continuous EEG for residual muscle and ocular artefacts.
+% Evaluates post-cleaning signal quality and sets a logical flag (flag_redo) indicating
+% whether ocular leakage exceeds acceptable physiological thresholds.
+%
+% Leftover blink evaluation is determined by four complementary metrics:
+%
+%   1. Frontal Peak T-Statistic (Short Window, -150 to +150 ms):
+%      Tests whether the baseline-subtracted peak amplitude (-25 to +25 ms) across
+%      blink trials significantly deviates from zero. Evaluates the mean of the
+%      top 5 highest t-statistics across the anterior/frontal scalp zone.
+%      Threshold: meanFrontalTstat > 4.0 triggers flag_MeanTstat.
+%
+%   2. Frontal Peak-to-Baseline Ratio (Long Window, -1000 to +1000 ms):
+%      Quantifies residual excursion amplitude by dividing the mean absolute
+%      voltage in the active window (-150 to +250 ms) by the flanking baseline
+%      windows ([-500 to -250 ms] and [+250 to +500 ms]). Evaluates the mean of
+%      the top 5 worst anterior channels. Ideal ratio is ~1.0.
+%      Threshold: meanFrontalRatio > 2.0 triggers flag_MeanRatio.
+%
+%   3. Continuous VEOG-EEG Correlation:
+%      Computes absolute Spearman rank correlations across the continuous recording
+%      between the detrended VEOG channel and all EEG electrodes. Evaluates the
+%      mean correlation across the top 5 anterior channels to detect uncorrected
+%      ocular tracking.
+%      Threshold: meanFrontalCorr_cont > 0.20 triggers flag_ContCorr.
+%
+%   4. ERP-VEOG Active Correlation:
+%      Computes the Spearman rank correlation between the trial-averaged frontal
+%      EEG ERP trace (top 5 worst channels) and the mean VEOG trace specifically
+%      within the active blink excursion window (-150 to +250 ms). Detects preserved
+%      blink morphology in the trial-averaged response.
+%      Threshold: FrontalCorr_erp > 0.20 triggers flag_ERPCorr.
+%
+% Inputs:
+%   DATA       - EEGLAB continuous EEG structure containing fields:
+%                .data, .srate, .chanlocs, and .ALSUTRECHT
+%   tag_figure - Numeric or character tag appended to diagnostic output figures
+%   cfg        - Configuration structure with fields:
+%                .emg.slope_threshold_1, .emg.slope_time
+%                .figure.visible ('on' or 'off')
+%
+% Outputs:
+%   DATA       - EEG structure updated with leftover diagnostic metrics in:
+%                .ALSUTRECHT.leftovers.muscle1
+%                .ALSUTRECHT.leftovers.blink1
+%   flag_redo  - Logical scalar (true/false). Returns true if ANY of the four
+%                blink metrics fail their quality threshold, signalling that
+%                artefact cleaning needs to be rerun or adjusted.
 
 fprintf('\n================================\n');
 fprintf('Detecting leftovers\n');

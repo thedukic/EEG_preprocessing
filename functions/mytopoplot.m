@@ -36,7 +36,7 @@ else
 end
 
 % Colour limits
-if ~exist('myClim','var')
+if ~exist('maplimits', 'var')
     myDlim = [min(data), max(data)];
     maplimits = max(abs(data)) * [-1 1];
 
@@ -50,10 +50,10 @@ if ~exist('myClim','var')
             maplimits(1) = 0;
         end
     elseif all(myDlim>=0)
-        % myClim(1) = 0;
+        % maplimits(1) = 0;
         maplimits(1) = myDlim(1);
     elseif all(myDlim<=0)
-        % myClim(2) = 0;
+        % maplimits(2) = 0;
         maplimits(2) = myDlim(2);
     end
 end

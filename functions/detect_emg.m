@@ -99,23 +99,23 @@ freq = (0:(n_fft/2)) * (fs / n_fft);
 % 5. Linear Regression in Log-Log Space
 % -------------------------------------------------------------------------
 % Default frequency fitting band (20 to 45 Hz keeps inside 60 Hz LP passband)
-if ~isfield(cfg.emg, 'slope_freq_1') || isempty(cfg.emg.slope_freq_1)
-    cfg.emg.slope_freq_1 = [20 45];
-end
+% if ~isfield(cfg.emg, 'slope_freq_1') || isempty(cfg.emg.slope_freq_1)
+%     cfg.emg.slope_freq_1 = [20 45];
+% end
+% 
+% if ~isfield(cfg.emg, 'slope_threshold_1') || isempty(cfg.emg.slope_threshold_1)
+%     cfg.emg.slope_threshold_1 = -0.50;
+% end
+% 
+% if ~isfield(cfg.emg, 'segment_ratio_threshold') || isempty(cfg.emg.segment_ratio_threshold)
+%     cfg.emg.segment_ratio_threshold = 1/3; % Contaminated if > 33% of sub-segments are bad
+% end
 
-if ~isfield(cfg.emg, 'slope_threshold_1') || isempty(cfg.emg.slope_threshold_1)
-    cfg.emg.slope_threshold_1 = -0.50;
-end
+mask_freq = (freq >= cfg.emg.slope_freq_1(1)) & (freq <= cfg.emg.slope_freq_1(2));
+assert(sum(mask_freq) >= 3, 'Insufficient frequency points for regression in the selected band.');
 
-if ~isfield(cfg.emg, 'segment_ratio_threshold') || isempty(cfg.emg.segment_ratio_threshold)
-    cfg.emg.segment_ratio_threshold = 1/3; % Contaminated if > 33% of sub-segments are bad
-end
-
-frqmsk = (freq >= cfg.emg.slope_freq_1(1)) & (freq <= cfg.emg.slope_freq_1(2));
-assert(sum(frqmsk) >= 3, 'Insufficient frequency points for regression in the selected band.');
-
-logfoi = log10(freq(frqmsk))';
-logpow = log10(psdspectra(frqmsk, :) + eps);
+logfoi = log10(freq(mask_freq))';
+logpow = log10(psdspectra(mask_freq, :) + eps);
 
 % Linear fit: log10(Power) = slope * log10(Freq) + intercept
 X = [logfoi, ones(length(logfoi), 1)];

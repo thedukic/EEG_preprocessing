@@ -1,4 +1,9 @@
-function [eyeBlinksMask, eyeBlinksEpochs, BlinkMaxLatency, eyeBlinkData, brainData, threshold] = detect_veog(DATA, winBlink, trIQR, optVisible)
+function [eyeBlinksMask, eyeBlinksEpochs, BlinkMaxLatency, eyeBlinkData, brainData, threshold] = detect_veog(DATA,cfg)
+
+
+winBlink   = cfg.win;
+trIQR      = cfg.trIQR;
+do_plot    = cfg.do_plot;
 
 % -------------------------------------------------------------------------
 % 1. Extract and Filter VEOG
@@ -134,48 +139,50 @@ if num_epoch > 0
 
     blinks_avg = mean(blinks_data, 1);
 
-    fh = figure('Name', 'VEOG Blinks QA', 'Color', 'w', 'Position', [100, 100, 800, 450], 'Visible', optVisible);
+    if do_plot
+        fh = figure('Name', 'VEOG Blinks QA', 'Color', 'w', 'Position', [100, 100, 800, 450], 'Visible', cfg.plot_visible);
 
-    % Setup compact single-tile layout to match processing standard assets
-    t = tiledlayout(1, 1, 'Padding', 'compact', 'TileSpacing', 'tight');
-    ax = nexttile(t);
-    hold(ax, 'on');
+        % Setup compact single-tile layout to match processing standard assets
+        t = tiledlayout(1, 1, 'Padding', 'compact', 'TileSpacing', 'tight');
+        ax = nexttile(t);
+        hold(ax, 'on');
 
-    % % Create time axis centered around the peak (0 ms)
-    % T = ((-winBlinksmpl:winBlinksmpl) * mspersmpl) / 1000; % Time in seconds
+        % % Create time axis centered around the peak (0 ms)
+        % T = ((-winBlinksmpl:winBlinksmpl) * mspersmpl) / 1000; % Time in seconds
 
-    % Generate smooth, high-contrast density cloud palette (YlGn/Greens variation)
-    colors = brewermap(num_epoch, 'YlGn');
+        % Generate smooth, high-contrast density cloud palette (YlGn/Greens variation)
+        colors = brewermap(num_epoch, 'YlGn');
 
-    % Plot individual blink traces with heavy alpha transparency
-    for i_epoch = 1:num_epoch
-        h_line = plot(ax, T, blinks_data(i_epoch, :), 'LineWidth', 1, 'Color', colors(i_epoch, :));
-        h_line.Color(4) = 0.10; % 10% opacity
+        % Plot individual blink traces with heavy alpha transparency
+        for i_epoch = 1:num_epoch
+            h_line = plot(ax, T, blinks_data(i_epoch, :), 'LineWidth', 1, 'Color', colors(i_epoch, :));
+            h_line.Color(4) = 0.10; % 10% opacity
+        end
+
+        % Overlay the bold Grand Average trend
+        h_avg = plot(ax, T, blinks_avg, 'Color', [0.10, 0.45, 0.30], 'LineWidth', 2.5);
+
+        % Axis Styling & Grid Typography
+        grid(ax, 'on');
+        set(ax, 'GridLineStyle', ':', 'GridAlpha', 0.5, 'Layer', 'top');
+        set(ax, 'Box', 'off', 'FontName', 'Helvetica', 'FontSize', 11);
+
+        axis(ax, 'tight');
+        xlim(ax, [T(1), T(end)]);
+
+        % Absolute, non-overlapping formatting labels
+        xlabel(ax, 'Time Relative to Blink Peak (s)', 'FontSize', 12, 'FontWeight', 'bold');
+        ylabel(ax, 'Amplitude (\muV)', 'FontSize', 12, 'FontWeight', 'bold');
+
+        title_str = sprintf('Detected VEOG Eyeblinks (N = %d)', num_epoch);
+        title(ax, title_str, 'FontSize', 13, 'FontWeight', 'bold');
+
+        legend(h_avg, 'Grand Average Blink', 'Location', 'NorthEast', 'Box', 'off');
+        hold(ax, 'off');
+
+        % Save
+        save_figure(fh, DATA.ALSUTRECHT.subject.figures, [DATA.ALSUTRECHT.subject.id '_detected_veog'], [20 11]);
     end
-
-    % Overlay the bold Grand Average trend
-    h_avg = plot(ax, T, blinks_avg, 'Color', [0.10, 0.45, 0.30], 'LineWidth', 2.5);
-
-    % Axis Styling & Grid Typography
-    grid(ax, 'on');
-    set(ax, 'GridLineStyle', ':', 'GridAlpha', 0.5, 'Layer', 'top');
-    set(ax, 'Box', 'off', 'FontName', 'Helvetica', 'FontSize', 11);
-
-    axis(ax, 'tight');
-    xlim(ax, [T(1), T(end)]);
-
-    % Absolute, non-overlapping formatting labels
-    xlabel(ax, 'Time Relative to Blink Peak (s)', 'FontSize', 12, 'FontWeight', 'bold');
-    ylabel(ax, 'Amplitude (\muV)', 'FontSize', 12, 'FontWeight', 'bold');
-
-    title_str = sprintf('Detected VEOG Eyeblinks (N = %d)', num_epoch);
-    title(ax, title_str, 'FontSize', 13, 'FontWeight', 'bold');
-
-    legend(h_avg, 'Grand Average Blink', 'Location', 'NorthEast', 'Box', 'off');
-    hold(ax, 'off');
-
-    % Save
-    save_figure(fh, DATA.ALSUTRECHT.subject.figures, [DATA.ALSUTRECHT.subject.id '_detected_veog'], [20 11]);
 end
 
 

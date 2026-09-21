@@ -1,8 +1,8 @@
 function [list_blocks, num_blocks] = list_datasets(datapath,thistask)
 
-fprintf('\n================================\n');
+% fprintf('\n================================\n');
 fprintf('Looking up EEG files\n');
-fprintf('================================\n');
+% fprintf('================================\n');
 
 if strcmpi(thistask, 'RS')
     % Resting-state
@@ -82,7 +82,7 @@ actualCount = numel(tmpStruct);
 if actualCount ~= expectedCount
     warning('Expected %d file(s) for pattern "%s" in path "%s", but found %d.', ...
         expectedCount, searchPattern, datapath, actualCount);
-
+else
     % Create a cell array of names and format for printing
     fileNamesCell = {tmpStruct.name};
 

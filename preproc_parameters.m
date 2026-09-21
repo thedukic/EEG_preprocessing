@@ -111,6 +111,13 @@ cfg.roi.saccade_right = { ...
 % Combined bilateral mask for HEOG dipole validation
 cfg.roi.saccade_all = [cfg.roi.saccade_left, cfg.roi.saccade_right];
 
+% Horizontal EOG / Saccade: Right Outer Fronto-Temporal Rim (F8 equivalent)
+cfg.roi.blink_anti = { ...
+    'A12', 'A13', 'A25', 'A26', 'B9', ...   % Posterior border 1
+    'A11', 'A14', 'A24', 'A27', 'B8'        % Posterior border 2
+    };
+
+
 % =========================================================================
 % IIR Butterworth Filter Configuration
 % =========================================================================
@@ -255,10 +262,12 @@ cfg.ica.num_ica = [100 80 50];
 %     NaN NaN];  % Other
 
 % Base threshold template for all paradigms
+% ACTUALLY THIS IS NOT USED, THE CODE JUST CHECKS WHICH IS THE MOST LIKELY
+% CLASSIFICATION AND USES THAT ONE REGARDLESS OF THE PROBABILITY
 cfg.ica.iclabel.base = [ ...
     NaN  NaN;    % 1. Brain
     0.80 1.0;    % 2. Muscle (placeholder)
-    0.70 1.0;    % 3. Eye
+    0.50 1.0;    % 3. Eye
     0.50 1.0;    % 4. Heart
     NaN  NaN;    % 5. Line noise
     0.80 1.0;    % 6. Channel noise
@@ -293,6 +302,10 @@ cfg.ica.channel = true;
 
 % Generally bad components [without a precise label]
 cfg.ica.bad = true;
+
+% Do not bother removing components that are of low relevance / power
+cfg.ica.floor_compvar  = 0.5;
+cfg.ica.protect_rank_n = 25;
 
 % =========================================================================
 % Event Triggers and Epoch Settings
@@ -341,6 +354,7 @@ cfg.epoch.allChannelKurtosisThreshold          = 4; % SD across all channels
 % =========================================================================
 % Figure settings
 % =========================================================================
+cfg.figure.plot    = true;
 cfg.figure.visible = 'on';
 
 end

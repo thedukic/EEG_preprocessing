@@ -5,3 +5,4 @@ files/weights/ecg/
 *.asv
 files/weights/ecg/
 *.asv
+test/figures/

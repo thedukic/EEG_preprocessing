@@ -15,13 +15,12 @@
 %     4. Structured error tracking and generation of failure logs.
 %
 % TODO:
-%   1. Evaluate Eye-Catch integration for automated ocular IC detection.
-%   2. Offsets not correct for dataset collected with fs > 256 Hz.
-%   3. PCA before ICA not needed for SART/MMN?
-% Rename GEDAI folder
+%   1. Offsets not correct for dataset collected with fs > 256 Hz.
+%   2. PCA before ICA not needed for SART/MMN?
+%   3. Iterative DSS on eye blink leftovers
 
 % ALS Centre, University Medical Centre Utrecht
-% Author: S. Dukic, August 2026
+% Author: S. Dukic,  2026
 % License: GNU General Public License v3.0
 % =========================================================================
 
@@ -55,24 +54,6 @@ for i_group = 1:length(myPaths.group)
         [errorLog, listFailed{i_group, i_visit}] = run_subjects(myPathsTmp, errorLog);
     end
 end
-
-% =========================================================================
-% 2. Batch process: task (for pipeline testing)
-% =========================================================================
-% % Select participants
-% list_tasks = {'MMN', 'SART', 'RS', 'MT'};
-% i_group = 1;
-% i_visit = 1;
-% 
-% % Run
-% for i_task = 1:length(list_tasks)
-%     % Select task
-%     myPaths.task = list_tasks{i_task};
-%     myPathsTmp = preproc_participants(i_group, i_visit, myPaths);
-% 
-%     % Run
-%     [errorLog, listFailed{i_task, i_visit}] = run_subjects(myPathsTmp, errorLog);
-% end
 
 % =========================================================================
 % 3. Failure report

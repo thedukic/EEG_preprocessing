@@ -1,4 +1,9 @@
-function [saccadesMask, saccadesEpochs, saccadesMaxLatency, saccadesData, brainData, threshold] = detect_heog(DATA, winSaccade, trIQRsaccade, optVisible)
+function [saccadesMask, saccadesEpochs, saccadesMaxLatency, saccadesData, brainData, threshold] = detect_heog(DATA, cfg)
+
+winSaccade   = cfg.win;
+trIQRsaccade = cfg.trIQR;
+do_plot      = cfg.do_plot;
+do_combined  = false;
 
 % -------------------------------------------------------------------------
 % Initialize Outputs (Prevents crashes if no saccades are found)
@@ -7,11 +12,10 @@ saccadesMask       = [];
 saccadesEpochs     = [];
 saccadesMaxLatency = [];
 brainData          = [];
-threshold          = NaN;
 
-winBlink    = 200;
-trIQRblink  = 1;
-do_combined = false;
+cfg_blink.win     = 200;
+cfg_blink.trIQR   = 1;
+cfg_blink.do_plot = false;
 
 % -------------------------------------------------------------------------
 % Extract and Filter HEOG
@@ -44,8 +48,9 @@ end
 % -------------------------------------------------------------------------
 % 1. Exclude False Positives using VEOG
 % -------------------------------------------------------------------------
-fprintf('\nEye blinks (L = +-%d ms) from VEOG will be used to remove false saccades in HEOG.\n', winBlink);
-[noiseMaskBlink, ~] = detect_veog(DATA, winBlink, trIQRblink, optVisible);
+fprintf('\nEye blinks (L = +-%d ms) from VEOG will be used to remove false saccades in HEOG.\n', cfg_blink.win);
+
+[noiseMaskBlink, ~] = detect_veog(DATA, cfg_blink);
 
 jump = find(diff([false, saccadesMaskTmp, false]) ~= 0);
 durall = jump(2:2:end) - jump(1:2:end);
@@ -135,80 +140,82 @@ end
 % -------------------------------------------------------------------------
 % Plotting
 % -------------------------------------------------------------------------
-fh = figure('Name', 'HEOG Saccades QA', 'Color', 'w', 'Position', [100, 100, 800, 450], 'Visible', optVisible);
+if do_plot
+    fh = figure('Name', 'HEOG Saccades QA', 'Color', 'w', 'Position', [100, 100, 800, 450], 'Visible', cfg.plot_visible);
 
-% Setup a compact single-tile layout to eliminate thick white space borders
-t = tiledlayout(1, 1, 'Padding', 'compact', 'TileSpacing', 'tight');
-ax = nexttile(t);
-hold(ax, 'on');
+    % Setup a compact single-tile layout to eliminate thick white space borders
+    t = tiledlayout(1, 1, 'Padding', 'compact', 'TileSpacing', 'tight');
+    ax = nexttile(t);
+    hold(ax, 'on');
 
-T = linspace(-0.5, 0.5, size(saccadesData_norm, 1));
+    T = linspace(-0.5, 0.5, size(saccadesData_norm, 1));
 
-% Refined, earthy color palette for left/right saccades
-% Primary Red/Burgundy for class 1, Deep Slate Blue/Teal for class 2
-c_heog = [0.65, 0.15, 0.15; ...  % Class 1 (e.g., Left)
-    0.15, 0.40, 0.55];     % Class 2 (e.g., Right)
+    % Refined, earthy color palette for left/right saccades
+    % Primary Red/Burgundy for class 1, Deep Slate Blue/Teal for class 2
+    c_heog = [0.65, 0.15, 0.15; ...  % Class 1 (e.g., Left)
+        0.15, 0.40, 0.55];     % Class 2 (e.g., Right)
 
-% Step 1: Plot individual traces with high transparency
-% This allows hundreds of step functions to cluster cleanly into a density map
-for i = 1:num_heog
-    y = saccadesData_norm(:, i);
-    if indx1(i)
-        h_line = plot(ax, T, y, 'LineWidth', 1, 'Color', c_heog(1, :));
-        h_line.Color(4) = 0.08; % 8% opacity
-    elseif indx2(i)
-        h_line = plot(ax, T, y, 'LineWidth', 1, 'Color', c_heog(2, :));
-        h_line.Color(4) = 0.08; % 8% opacity
+    % Step 1: Plot individual traces with high transparency
+    % This allows hundreds of step functions to cluster cleanly into a density map
+    for i = 1:num_heog
+        y = saccadesData_norm(:, i);
+        if indx1(i)
+            h_line = plot(ax, T, y, 'LineWidth', 1, 'Color', c_heog(1, :));
+            h_line.Color(4) = 0.08; % 8% opacity
+        elseif indx2(i)
+            h_line = plot(ax, T, y, 'LineWidth', 1, 'Color', c_heog(2, :));
+            h_line.Color(4) = 0.08; % 8% opacity
+        end
     end
+
+    % Step 2: Plot Grand Averages safely on top
+    % Enforcing a clean 3.0 LineWidth keeps the trend lines bold without cluttering the canvas
+    h_plots = [];
+    legend_labels = {};
+
+    if any(indx1)
+        avg1 = mean(saccadesData_norm(:, indx1), 2);
+        h1 = plot(ax, T, avg1, 'LineWidth', 3.0, 'Color', c_heog(1, :));
+        h_plots = [h_plots, h1];
+        legend_labels = [legend_labels, sprintf('Direction 1 (N = %d)', sum(indx1))];
+    end
+
+    if any(indx2)
+        avg2 = mean(saccadesData_norm(:, indx2), 2);
+        h2 = plot(ax, T, avg2, 'LineWidth', 3.0, 'Color', c_heog(2, :));
+        h_plots = [h_plots, h2];
+        legend_labels = [legend_labels, sprintf('Direction 2 (N = %d)', sum(indx2))];
+    end
+
+    % Step 3: Refined Axis Styling & Grid Typography
+    grid(ax, 'on');
+    set(ax, 'GridLineStyle', ':', 'GridAlpha', 0.5, 'Layer', 'top');
+    set(ax, 'Box', 'off', 'FontName', 'Helvetica', 'FontSize', 11);
+
+    axis(ax, 'tight');
+    xlim(ax, [T(1), T(end)]);
+
+    % Clear, non-overlapping labels
+    xlabel(ax, 'Time (s)', 'FontSize', 12, 'FontWeight', 'bold');
+    ylabel(ax, 'HEOG Amplitude (Z-Score)', 'FontSize', 12, 'FontWeight', 'bold');
+
+    % Clean Title incorporating metadata dynamically
+    title_str = sprintf('Detected HEOG Saccades (N = %d)', sum(indx1) + sum(indx2));
+    title(ax, title_str, 'FontSize', 13, 'FontWeight', 'bold');
+
+    % Add legend pointing only to the clean average traces
+    if ~isempty(h_plots)
+        legend(h_plots, legend_labels, 'Location', 'NorthEast', 'Box', 'off');
+    end
+
+    hold(ax, 'off');
+
+    % Save configuration using your standard resolution settings
+    % plotX = 20; plotY = 11;
+    % set(fh, 'InvertHardCopy', 'Off', 'PaperPositionMode', 'Manual', 'PaperUnits', 'Centimeters', 'PaperPosition', [0 0 plotX plotY], 'PaperSize', [plotX plotY]);
+    % print(fh, fullfile(DATA.ALSUTRECHT.subject.figures, [DATA.ALSUTRECHT.subject.id '_detected_heog']), '-dtiff', '-r150'); close(fh);
+    save_figure(fh, DATA.ALSUTRECHT.subject.figures, [DATA.ALSUTRECHT.subject.id '_detected_heog'], [20 11]);
 end
-
-% Step 2: Plot Grand Averages safely on top
-% Enforcing a clean 3.0 LineWidth keeps the trend lines bold without cluttering the canvas
-h_plots = [];
-legend_labels = {};
-
-if any(indx1)
-    avg1 = mean(saccadesData_norm(:, indx1), 2);
-    h1 = plot(ax, T, avg1, 'LineWidth', 3.0, 'Color', c_heog(1, :));
-    h_plots = [h_plots, h1];
-    legend_labels = [legend_labels, sprintf('Direction 1 (N = %d)', sum(indx1))];
-end
-
-if any(indx2)
-    avg2 = mean(saccadesData_norm(:, indx2), 2);
-    h2 = plot(ax, T, avg2, 'LineWidth', 3.0, 'Color', c_heog(2, :));
-    h_plots = [h_plots, h2];
-    legend_labels = [legend_labels, sprintf('Direction 2 (N = %d)', sum(indx2))];
-end
-
-% Step 3: Refined Axis Styling & Grid Typography
-grid(ax, 'on');
-set(ax, 'GridLineStyle', ':', 'GridAlpha', 0.5, 'Layer', 'top');
-set(ax, 'Box', 'off', 'FontName', 'Helvetica', 'FontSize', 11);
-
-axis(ax, 'tight');
-xlim(ax, [T(1), T(end)]);
-
-% Clear, non-overlapping labels
-xlabel(ax, 'Time (s)', 'FontSize', 12, 'FontWeight', 'bold');
-ylabel(ax, 'HEOG Amplitude (Z-Score)', 'FontSize', 12, 'FontWeight', 'bold');
-
-% Clean Title incorporating metadata dynamically
-title_str = sprintf('Detected HEOG Saccades (N = %d)', sum(indx1) + sum(indx2));
-title(ax, title_str, 'FontSize', 13, 'FontWeight', 'bold');
-
-% Add legend pointing only to the clean average traces
-if ~isempty(h_plots)
-    legend(h_plots, legend_labels, 'Location', 'NorthEast', 'Box', 'off');
-end
-
-hold(ax, 'off');
-
-% Save configuration using your standard resolution settings
-% plotX = 20; plotY = 11;
-% set(fh, 'InvertHardCopy', 'Off', 'PaperPositionMode', 'Manual', 'PaperUnits', 'Centimeters', 'PaperPosition', [0 0 plotX plotY], 'PaperSize', [plotX plotY]);
-% print(fh, fullfile(DATA.ALSUTRECHT.subject.figures, [DATA.ALSUTRECHT.subject.id '_detected_heog']), '-dtiff', '-r150'); close(fh);
-save_figure(fh, DATA.ALSUTRECHT.subject.figures, [DATA.ALSUTRECHT.subject.id '_detected_heog'], [20 11]);
 
 % -------------------------------------------------------------------------
 % Finalize Outputs (Calculate Max Latencies)

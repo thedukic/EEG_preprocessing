@@ -161,11 +161,11 @@ switch task
 
     case {'RS', 'EO', 'EC'}
         % Epoch length
-        L_seconds = cfg.rs1{1};        % [seconds]
-        L_samples = L_seconds * EEG(1).srate; % [s] -> [samples]
+        L_seconds = cfg.trg.rs1{1};           % [seconds]
+        L_samples = L_seconds * EEG(1).srate; % [seconds] -> [samples]
 
         % Overlap
-        O_percent  = cfg.rs1{2};         % e.g. 0.5
+        O_percent = cfg.trg.rs1{2};           % e.g. 0.5 for 50% overlap
 
         % Calculate step size
         step_size = L_samples * (1-O_percent);
@@ -197,7 +197,6 @@ for i_block = 1:num_block
 end
 
 end
-
 
 function print_events(task, i_block, labels1)
 % Print directly using %s for the string array

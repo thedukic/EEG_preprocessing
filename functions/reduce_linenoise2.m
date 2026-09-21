@@ -129,14 +129,15 @@ for i_block = 1:num_block
         % -----------------------------------------------------------------
         % Visualisation: Column 1 - P-Value Masked Topoplot
         % -----------------------------------------------------------------
-        nexttile((i_block-1)*4 + 1);
+        th = nexttile((i_block-1)*4 + 1);
 
         topo_data_p = -log10(pval{i_block}(chaneeg))';
         % topo_data_p(pval{i_block}(chaneeg)' >= threshold_p) = 0;
 
-        topoplot(topo_data_p, DATA(i_block).chanlocs, 'maplimits', [0 -log10(1e-6)], ...
-            'headrad', 'rim', 'whitebk', 'on', 'style', 'map', 'electrodes', 'on', ...
-            'emarker2', {badelec{i_block}, 'd', 'k', 8, 1}, 'shading', 'flat');
+        mytopoplot(topo_data_p, badelec{i_block}, [], th, [0 -log10(1e-6)]);
+        % topoplot(topo_data_p, DATA(i_block).chanlocs, 'maplimits', [0 -log10(1e-6)], ...
+        %     'headrad', 'rim', 'whitebk', 'on', 'style', 'map', 'electrodes', 'on', ...
+        %     'emarker2', {badelec{i_block}, 'd', 'k', 8, 1}, 'shading', 'flat');
 
         title(sprintf('Block %d Temporal P-Value', i_block), 'FontSize', 11, 'FontWeight', 'bold');
         colormap(gca, masked_cmap1);
@@ -146,15 +147,16 @@ for i_block = 1:num_block
         % -----------------------------------------------------------------
         % Visualisation: Column 2 - Z-Score Masked Topoplot
         % -----------------------------------------------------------------
-        nexttile((i_block-1)*4 + 2);
+        th = nexttile((i_block-1)*4 + 2);
 
         topo_data_z = z_peak(chaneeg)';
         % topo_data_z(z_peak(chaneeg)' <= threshold_z) = 0;
 
+        mytopoplot(topo_data_z, badelec{i_block}, [], th, [0 -log10(1e-6)]);
         % max_z_lim = max([threshold_z * 2, max(z_peak(chaneeg))]);
-        topoplot(topo_data_z, DATA(i_block).chanlocs, 'maplimits', 5 * [-1 1], ...
-            'headrad', 'rim', 'whitebk', 'on', 'style', 'map', 'electrodes', 'on', ...
-            'emarker2', {badelec{i_block}, 'd', 'k', 8, 1}, 'shading', 'flat');
+        % topoplot(topo_data_z, DATA(i_block).chanlocs, 'maplimits', 5 * [-1 1], ...
+        %     'headrad', 'rim', 'whitebk', 'on', 'style', 'map', 'electrodes', 'on', ...
+        %     'emarker2', {badelec{i_block}, 'd', 'k', 8, 1}, 'shading', 'flat');
 
         title(sprintf('Block %d Spectral Z-Score', i_block), 'FontSize', 11, 'FontWeight', 'bold');
         colormap(gca, masked_cmap2);
