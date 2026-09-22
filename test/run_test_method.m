@@ -48,6 +48,10 @@ for i_subj = 1:num_subjects
     end
 end
 
+
+data_dir = 'C:\DATA\MATLAB\myCodes\preprocessing\test\figures\test_ica\classification';
+[cohort_table, benchmark_stats] = benchmark_ica_cohort(data_dir);
+
 end
 
 % =========================================================================

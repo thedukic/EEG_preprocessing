@@ -1,5 +1,5 @@
-function [is_ecg, stats, fh] = check_ic_ecg_erp(EEG, EXT, ECGepochs, cfg)
-% CHECK_IC_ECG_ERP
+function [is_ecg, stats, fh] = check_ecg_erp(EEG, EXT, ECGepochs, cfg)
+% CHECK_ECG_ERP
 % Identifies primary cardiac (ECG) ICs by comparing their QRS ERP morphology,
 % SNR, and latency against the continuous reference ECG channel in EXT.
 %

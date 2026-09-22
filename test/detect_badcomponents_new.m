@@ -94,72 +94,84 @@ evidence.corr_veog = false(num_ica, 1);
 evidence.corr_heog = false(num_ica, 1);
 evidence.corr_ecg  = false(num_ica, 1);
 
+% ECG channel
 if isempty(channel_ecg)
     fprintf('Warning: ECG signal was not recorded.\n');
-    data_ext_ecg = [];
+    corr_ecg = NaN(num_ica, 1);
 else
     data_ext_ecg = EXT.data(channel_ecg, :);
-end
 
-data_ext_eog = EXT.data([channel_veog, channel_heog], :);
-
-% Filter configurations
-[bh_eog, ah_eog] = butter(2, 0.3/(EEG.srate/2), 'high');
-[bl_eog, al_eog] = butter(2, 10/(EEG.srate/2),  'low');
-
-data_ica_eog = do_filteringcore(bh_eog, ah_eog, do_filteringcore(bl_eog, al_eog, data_ica, EEG.event, EEG.srate), EEG.event, EEG.srate)';
-data_ext_eog = do_filteringcore(bh_eog, ah_eog, do_filteringcore(bl_eog, al_eog, data_ext_eog, EEG.event, EEG.srate), EEG.event, EEG.srate);
-
-if ~isempty(data_ext_ecg)
     [bh_ecg, ah_ecg] = butter(2, 10/(EEG.srate/2), 'high');
     [bl_ecg, al_ecg] = butter(2, 20/(EEG.srate/2), 'low');
-    data_ica_ecg = do_filteringcore(bh_ecg, ah_ecg, do_filteringcore(bl_ecg, al_ecg, data_ica, EEG.event, EEG.srate), EEG.event, EEG.srate)';
-    data_ext_ecg = do_filteringcore(bh_ecg, ah_ecg, do_filteringcore(bl_ecg, al_ecg, data_ext_ecg, EEG.event, EEG.srate), EEG.event, EEG.srate);
-    corr_ecg     = corr(data_ica_ecg.^2, abs(data_ext_ecg'), "type", "Spearman");
-else
-    corr_ecg = NaN(num_ica, 1);
+    data_ica_ecg     = do_filteringcore(bh_ecg, ah_ecg, do_filteringcore(bl_ecg, al_ecg, data_ica, EEG.event, EEG.srate), EEG.event, EEG.srate)';
+    data_ext_ecg     = do_filteringcore(bh_ecg, ah_ecg, do_filteringcore(bl_ecg, al_ecg, data_ext_ecg, EEG.event, EEG.srate), EEG.event, EEG.srate);
+
+    corr_ecg = corr(data_ica_ecg.^2, abs(data_ext_ecg'), "type", "Spearman");
 end
+
+% EOG channels
+data_ext_eog = EXT.data([channel_veog, channel_heog], :);
+
+[bh_eog, ah_eog] = butter(2, 0.3/(EEG.srate/2), 'high');
+[bl_eog, al_eog] = butter(2, 10/(EEG.srate/2),  'low');
+data_ica_eog     = do_filteringcore(bh_eog, ah_eog, do_filteringcore(bl_eog, al_eog, data_ica, EEG.event, EEG.srate), EEG.event, EEG.srate)';
+data_ext_eog     = do_filteringcore(bh_eog, ah_eog, do_filteringcore(bl_eog, al_eog, data_ext_eog, EEG.event, EEG.srate), EEG.event, EEG.srate);
 
 corr_veog = corr(data_ica_eog, data_ext_eog(1, :)', "type", "Spearman");
 corr_heog = corr(data_ica_eog, data_ext_eog(2, :)', "type", "Spearman");
 
 % Absolute Z-scores across components
-corr_ext = abs(zscore([corr_ecg, corr_veog, corr_heog]));
+corr_ecg  = abs(zscore(corr_ecg));
+corr_veog = abs(zscore(corr_veog));
+corr_heog = abs(zscore(corr_heog));
 
 % ECG evidence
-if ~any(isnan(corr_ext(:, 1)))
-    tmp = find(corr_ext(:, 1) > threshold_ext);
-    if length(tmp) > 1
-        [~, idx] = max(corr_ext(tmp, 1));
-        tmp = tmp(idx);
+if ~isempty(channel_ecg)
+    tmp_artifact = find(corr_ecg > threshold_ext);
+    if length(tmp_artifact) > 1
+        [~, idx] = max(corr_ext(tmp_artifact, 1));
+        tmp_artifact = tmp_artifact(idx);
     end
-    evidence.corr_ecg(tmp) = true;
+    evidence.corr_ecg(tmp_artifact) = true;
 end
 
 % VEOG evidence
-evidence.corr_veog(corr_ext(:, 2) > threshold_ext) = true;
+evidence.corr_veog(corr_veog > threshold_ext) = true;
 
 % HEOG evidence
-tmp = find(corr_ext(:, 3) > threshold_ext);
-if length(tmp) > 1
-    [~, idx] = max(corr_ext(tmp, 3));
-    tmp = tmp(idx);
+tmp_artifact = find(corr_heog > threshold_ext);
+if length(tmp_artifact) > 1
+    [~, idx] = max(corr_ext(tmp_artifact, 3));
+    tmp_artifact = tmp_artifact(idx);
 end
-evidence.corr_heog(tmp) = true;
+evidence.corr_heog(tmp_artifact) = true;
 
 % Log to EEG struct
-bad_ic = [find(evidence.corr_ecg); find(evidence.corr_veog); find(evidence.corr_heog)];
-bad_ic_type = [ones(sum(evidence.corr_ecg), 1); 2*ones(sum(evidence.corr_veog), 1); 3*ones(sum(evidence.corr_heog), 1)];
-EEG.ALSUTRECHT.ica.corr.corr = single(corr_ext);
-EEG.ALSUTRECHT.ica.corr.bics = bad_ic;
-EEG.ALSUTRECHT.ica.corr.cvec = bad_ic_type;
-EEG.ALSUTRECHT.ica.corr.classes = {'ECG', 'VEOG', 'HEOG'};
+% bad_ic = [find(evidence.corr_ecg); find(evidence.corr_veog); find(evidence.corr_heog)];
+% bad_ic_type = [ones(sum(evidence.corr_ecg), 1); 2*ones(sum(evidence.corr_veog), 1); 3*ones(sum(evidence.corr_heog), 1)];
+% EEG.ALSUTRECHT.ica.corr.corr = single(corr_ext);
+% EEG.ALSUTRECHT.ica.corr.bics = bad_ic;
+% EEG.ALSUTRECHT.ica.corr.cvec = bad_ic_type;
+% EEG.ALSUTRECHT.ica.corr.classes = {'ECG', 'VEOG', 'HEOG'};
+
+% ECG
+EEG.ALSUTRECHT.ica.corr.ecg.corr  = corr_ecg;
+EEG.ALSUTRECHT.ica.corr.ecg.bics  = find(evidence.corr_ecg);
+
+EEG.ALSUTRECHT.ica.corr.veog.corr = corr_veog;
+EEG.ALSUTRECHT.ica.corr.veog.bics = find(evidence.corr_veog);
+
+EEG.ALSUTRECHT.ica.corr.heog.corr = corr_heog;
+EEG.ALSUTRECHT.ica.corr.heog.bics = find(evidence.corr_heog);
 
 % Plotting: External Channel Correlations Heatmap
 if cfg.figure.plot
     fh = figure('Color', 'w', 'Position', [100, 100, 900, 360], 'Visible', cfg.figure.visible);
     t = tiledlayout(1, 1, 'TileSpacing', 'tight', 'Padding', 'compact');
     ax1 = nexttile(t);
+
+    % Combine for plotting
+    corr_ext = [corr_ecg, corr_veog, corr_heog];
 
     imagesc(1:num_ica, 1:3, corr_ext');
     colormap(ax1, brewermap([], 'Reds'));
@@ -288,7 +300,7 @@ if any(strcmp({EXT.chanlocs.labels}, 'ECG'))
     if ~isnan(ecg_mask)
         cfg_tmp = struct('ecg_chan', 'ECG', 'epoch_window_ms', cfg_tmp.win, 'min_corr', min_corr, 'min_snr', min_snr, ...
             'max_lag_ms', max_lag_ms, 'do_plot', cfg.figure.plot, 'plot_visible', cfg.figure.visible);
-        [is_ecg, stats, fh] = check_ic_ecg_erp(EEG, EXT, ecg_epoch, cfg_tmp);
+        [is_ecg, stats, fh] = check_ecg_erp(EEG, EXT, ecg_epoch, cfg_tmp);
 
         if cfg.figure.plot && ishandle(fh)
             save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_ica_ecg_erp'], [20, 15]);
@@ -1015,73 +1027,126 @@ num_ica  = size(data_ica, 1);
 icawinv  = EEG.icawinv;
 ICLabel_struct = EEG.ALSUTRECHT.ica.ICLabel;
 
-% 1. Blinks
-blink_votes        = evidence.corr_veog + evidence.blinkmetrics + evidence.template_blink;
-candidate_blinks   = find(blink_votes >= 1);
-candidate_blinks   = is_false_veog(candidate_blinks, icawinv, templates_ica, ICLabel_struct);
-ICsMostLikelyBlink = false(num_ica, 1);
-ICsMostLikelyBlink(candidate_blinks) = true;
+% -------------------------------------------------------------------------
+% 1. Blink
+% -------------------------------------------------------------------------
+blink_votes         = evidence.corr_veog + evidence.blinkmetrics + evidence.template_blink;
+candidate_blinks    = find(blink_votes >= 1);
+candidate_blinks    = is_false_veog(candidate_blinks, icawinv, templates_ica, ICLabel_struct);
+ICsMostLikely_Blink = false(num_ica, 1);
+ICsMostLikely_Blink(candidate_blinks) = true;
 
-% 2. Saccades
-saccade_votes        = evidence.corr_heog | evidence.template_saccade;
-candidate_saccades   = find(saccade_votes);
-candidate_saccades   = is_false_heog(candidate_saccades, icawinv, templates_ica, ICLabel_struct);
-ICsMostLikelySaccade = false(num_ica, 1);
-ICsMostLikelySaccade(candidate_saccades) = true;
+% -------------------------------------------------------------------------
+% 2. Saccade
+% -------------------------------------------------------------------------
+saccade_votes         = evidence.corr_heog | evidence.template_saccade;
+candidate_saccades    = find(saccade_votes);
+candidate_saccades    = is_false_heog(candidate_saccades, icawinv, templates_ica, ICLabel_struct);
+ICsMostLikely_Saccade = false(num_ica, 1);
+ICsMostLikely_Saccade(candidate_saccades) = true;
 
-% Eye aggregate
-ICsMostLikelyEye = ICsMostLikelyBlink | ICsMostLikelySaccade | evidence.iclabel_eye;
+% Sub-class arbitration: If an IC hits both Blink and Saccade, arbitrate by correlation
+blink_sacc_clash = ICsMostLikely_Blink & ICsMostLikely_Saccade;
+if any(blink_sacc_clash)
+    clash_idx = find(blink_sacc_clash);
+    for k = clash_idx'
+        r_v = 0; r_h = 0;
+        if isfield(evidence, 'corr_veog_val'), r_v = abs(evidence.corr_veog_val(k)); end
+        if isfield(evidence, 'corr_heog_val'), r_h = abs(evidence.corr_heog_val(k)); end
 
+        if r_h > r_v
+            ICsMostLikely_Blink(k) = false;
+        else
+            ICsMostLikely_Saccade(k) = false;
+        end
+    end
+end
+
+% Master Eye Aggregate
+ICsMostLikely_Eye = ICsMostLikely_Blink | ICsMostLikely_Saccade | evidence.iclabel_eye;
+
+% -------------------------------------------------------------------------
 % 3. Muscle
-muscle_votes        = evidence.iclabel_muscle | evidence.emg_slope;
-candidate_muscle    = find(muscle_votes);
-candidate_muscle    = is_false_emg(candidate_muscle, icawinv, templates_ica, ICLabel_struct);
-ICsMostLikelyMuscle = false(num_ica, 1);
-ICsMostLikelyMuscle(candidate_muscle) = true;
+% -------------------------------------------------------------------------
+muscle_votes         = evidence.iclabel_muscle | evidence.emg_slope;
+candidate_muscle     = find(muscle_votes);
+candidate_muscle     = is_false_emg(candidate_muscle, icawinv, templates_ica, ICLabel_struct);
+ICsMostLikely_Muscle = false(num_ica, 1);
+ICsMostLikely_Muscle(candidate_muscle) = true;
 
-% Complex Overlaps
-ICsMostLikelyComplex = ICsMostLikelyMuscle & ICsMostLikelyEye;
-ICsMostLikelyMuscle(ICsMostLikelyComplex) = false;
-ICsMostLikelyEye(ICsMostLikelyComplex)    = false;
+% -------------------------------------------------------------------------
+% Complex Overlaps (Eye & Muscle Co-activation)
+% -------------------------------------------------------------------------
+ICsMostLikely_Complex = ICsMostLikely_Muscle & ICsMostLikely_Eye;
+ICsMostLikely_Eye(ICsMostLikely_Complex)     = false;
+ICsMostLikely_Blink(ICsMostLikely_Complex)   = false;
+ICsMostLikely_Saccade(ICsMostLikely_Complex) = false;
+ICsMostLikely_Muscle(ICsMostLikely_Complex)  = false;
 
-% 4. Channel Noise
+% -------------------------------------------------------------------------
+% 4. Channel Noise (Yields to confident biological detections)
+% -------------------------------------------------------------------------
 channel_votes = evidence.iclabel_channel | evidence.spatial;
-ICsMostLikelyChannel = channel_votes;
-ICsMostLikelyChannel(ICsMostLikelyEye | ICsMostLikelyMuscle | ICsMostLikelyComplex) = false;
+ICsMostLikely_Channel = channel_votes;
+ICsMostLikely_Channel(ICsMostLikely_Eye | ICsMostLikely_Muscle | ICsMostLikely_Complex) = false;
 
-% 5. Heart
-ICsMostLikelyHeart = detect_heart_synthesised(EEG, evidence, templates_ica, cfg);
+% -------------------------------------------------------------------------
+% 5. Heart (Dedicated QRS/ECG-locked detector takes absolute precedence)
+% -------------------------------------------------------------------------
+ICsMostLikely_Heart = detect_heart_synthesised(EEG, evidence, templates_ica, cfg);
 
-% Enforce mutual exclusivity
-ICsMostLikelyEye(ICsMostLikelyHeart)     = false;
-ICsMostLikelyMuscle(ICsMostLikelyHeart)  = false;
-ICsMostLikelyComplex(ICsMostLikelyHeart) = false;
-ICsMostLikelyChannel(ICsMostLikelyHeart) = false;
+% Strip any heart components from earlier classes
+ICsMostLikely_Eye(ICsMostLikely_Heart)     = false;
+ICsMostLikely_Blink(ICsMostLikely_Heart)   = false;
+ICsMostLikely_Saccade(ICsMostLikely_Heart) = false;
+ICsMostLikely_Muscle(ICsMostLikely_Heart)  = false;
+ICsMostLikely_Complex(ICsMostLikely_Heart) = false;
+ICsMostLikely_Channel(ICsMostLikely_Heart) = false;
 
-% 6. General Bad
-% candidate_bad            = find(evidence.spectral_bad | evidence.temporal_bad);
-candidate_bad            = find(evidence.spectral_bad);
-false_bad                = is_likely_brain(candidate_bad, ICLabel_struct, 0.60);
+% -------------------------------------------------------------------------
+% 6. General Bad (Diagnostic flag: independent, non-exclusive)
+% -------------------------------------------------------------------------
+candidate_bad = find(evidence.spectral_bad);
+false_bad     = is_likely_brain(candidate_bad, ICLabel_struct, 0.60);
 candidate_bad(false_bad) = [];
-ICsMostLikelyBad = false(num_ica, 1);
-ICsMostLikelyBad(candidate_bad) = true;
+ICsMostLikely_Bad = false(num_ica, 1);
+ICsMostLikely_Bad(candidate_bad) = true;
 
-% Write final structures
-EEG.ALSUTRECHT.ica.final.eye     = ICsMostLikelyEye;
-EEG.ALSUTRECHT.ica.final.muscle  = ICsMostLikelyMuscle;
-EEG.ALSUTRECHT.ica.final.complex = ICsMostLikelyComplex;
-EEG.ALSUTRECHT.ica.final.channel = ICsMostLikelyChannel;
-EEG.ALSUTRECHT.ica.final.heart   = ICsMostLikelyHeart;
-EEG.ALSUTRECHT.ica.final.genbad  = ICsMostLikelyBad;
+% -------------------------------------------------------------------------
+% 7. Mutual Exclusivity Assertion (Primary Generators Only)
+% -------------------------------------------------------------------------
+primary_generators = [ICsMostLikely_Eye, ICsMostLikely_Muscle, ...
+    ICsMostLikely_Complex, ICsMostLikely_Channel, ...
+    ICsMostLikely_Heart];
+generator_collisions = sum(primary_generators, 2);
+
+if any(generator_collisions > 1)
+    colliding_ics = find(generator_collisions > 1);
+    error('Classification collision: ICs [%s] overlap across Eye, Muscle, Complex, Channel, or Heart.', ...
+        num2str(colliding_ics'));
+end
+
+% -------------------------------------------------------------------------
+% Write Final Structures
+% -------------------------------------------------------------------------
+EEG.ALSUTRECHT.ica.final.eye     = ICsMostLikely_Eye;
+EEG.ALSUTRECHT.ica.final.blink   = ICsMostLikely_Blink;
+EEG.ALSUTRECHT.ica.final.saccade = ICsMostLikely_Saccade;
+EEG.ALSUTRECHT.ica.final.muscle  = ICsMostLikely_Muscle;
+EEG.ALSUTRECHT.ica.final.complex = ICsMostLikely_Complex;
+EEG.ALSUTRECHT.ica.final.channel = ICsMostLikely_Channel;
+EEG.ALSUTRECHT.ica.final.heart   = ICsMostLikely_Heart;
+EEG.ALSUTRECHT.ica.final.genbad  = ICsMostLikely_Bad;
 
 % Summary classification mapping
-% 1: Brain, 2: Muscle, 3: Eye, 4: Heart, 6: Channel, 7: Other/Bad
-EEG.ALSUTRECHT.ica.final.report                       = ICLabel_struct.cvec; % Basis
-EEG.ALSUTRECHT.ica.final.report(ICsMostLikelyBad)     = 7;                   % General marker of artifact components
-EEG.ALSUTRECHT.ica.final.report(ICsMostLikelyMuscle)  = 2;
-EEG.ALSUTRECHT.ica.final.report(ICsMostLikelyEye)     = 3;
-EEG.ALSUTRECHT.ica.final.report(ICsMostLikelyHeart)   = 4;
-EEG.ALSUTRECHT.ica.final.report(ICsMostLikelyChannel) = 6;
+% 1: Brain, 2: Muscle, 3: Eye, 4: Heart, 6: Channel, 7: Other/Bad, 8: Complex
+EEG.ALSUTRECHT.ica.final.report                        = ICLabel_struct.cvec; % Basis 1: ICLabel
+EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Bad)     = 7;                   % Basis 2: Catch-all bad floor
+EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Muscle)  = 2;                   % Overwrite with specific classes
+EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Eye)     = 3;
+EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Heart)   = 4;
+EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Channel) = 6;
+EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Complex) = 8;
 
 end
 
