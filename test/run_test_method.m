@@ -2,6 +2,9 @@ function log_error = run_test_method(myPaths)
 % close all hidden; fclose all; clear all; clc;
 % myPaths = preproc_folders;
 
+
+% CHANGE MY_XXX func names !!!
+
 % Initialise
 log_error = struct('group', {}, 'visit', {}, 'subject', {}, 'index', [], 'step', {}, 'message', {});
 path_plot = 'C:\DATA\MATLAB\myCodes\preprocessing\test\figures\test_ica';

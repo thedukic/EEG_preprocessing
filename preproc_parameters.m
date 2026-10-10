@@ -132,7 +132,8 @@ cfg.roi.blink_anti = { ...
 % -------------------------------------------------------------------------
 % 0.3 Hz preserves P300/MMN and theta without baseline drift.
 % 60 Hz (effective order 8) preserves flat response to 50 Hz while cutting >75 Hz EMG.
-cfg.flt.erp.hp = [0.3, 4];
+% cfg.flt.erp.hp = [0.3, 4];
+cfg.flt.erp.hp = [0.1, 4];
 cfg.flt.erp.lp = [60, 8];
 
 % -------------------------------------------------------------------------
@@ -140,7 +141,8 @@ cfg.flt.erp.lp = [60, 8];
 % -------------------------------------------------------------------------
 % 0.5 Hz removes galvanic sweat drift.
 % Open LP ([]) prevents filter roll-off curvature from biasing 1/f aperiodic fitting.
-cfg.flt.rs.hp = [0.5, 4];
+% cfg.flt.rs.hp = [0.5, 4];
+cfg.flt.rs.hp = [0.1, 4];
 cfg.flt.rs.lp = [];
 
 % -------------------------------------------------------------------------
@@ -148,7 +150,8 @@ cfg.flt.rs.lp = [];
 % -------------------------------------------------------------------------
 % 1.0 Hz removes movement and mechanical cable sway.
 % 60 Hz preserves the 15-45 Hz CMC band with <0.4 dB attenuation at 45 Hz.
-cfg.flt.mt.hp = [1.0, 4];
+% cfg.flt.mt.hp = [1.0, 4];
+cfg.flt.mt.hp = [0.1, 4];
 cfg.flt.mt.lp = [60, 8];
 
 % -------------------------------------------------------------------------

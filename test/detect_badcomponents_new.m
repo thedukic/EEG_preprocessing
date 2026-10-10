@@ -129,7 +129,7 @@ corr_heog = abs(zscore(corr_heog));
 if ~isempty(channel_ecg)
     tmp_artifact = find(corr_ecg > threshold_ext);
     if length(tmp_artifact) > 1
-        [~, idx] = max(corr_ext(tmp_artifact, 1));
+        [~, idx] = max(corr_ecg(tmp_artifact));
         tmp_artifact = tmp_artifact(idx);
     end
     evidence.corr_ecg(tmp_artifact) = true;
@@ -141,7 +141,7 @@ evidence.corr_veog(corr_veog > threshold_ext) = true;
 % HEOG evidence
 tmp_artifact = find(corr_heog > threshold_ext);
 if length(tmp_artifact) > 1
-    [~, idx] = max(corr_ext(tmp_artifact, 3));
+    [~, idx] = max(corr_heog(tmp_artifact));
     tmp_artifact = tmp_artifact(idx);
 end
 evidence.corr_heog(tmp_artifact) = true;
@@ -219,7 +219,7 @@ if any(strcmp({EXT.chanlocs.labels}, 'ECG'))
     cfg_tmp.win          = [-200 250];
     cfg_tmp.do_plot      = true;
     cfg_tmp.plot_visible = cfg.figure.visible;
-    [ecg_mask, ecg_epoch, ~, ~, ~, pulse_estimate] = detect_ecg(EXT, cfg_tmp);
+    [ecg_mask, ecg_epoch, ~, ~, ~, pulse_estimate] = detect_ecg_new(EXT, cfg_tmp);
 
     if ~isnan(ecg_mask)
         [V, pK] = my_ctps(data_ica, ecg_epoch, EEG.event, EEG.srate);
@@ -295,7 +295,7 @@ if any(strcmp({EXT.chanlocs.labels}, 'ECG'))
     cfg_tmp.win          = [-200 250];
     cfg_tmp.do_plot      = true;
     cfg_tmp.plot_visible = cfg.figure.visible;
-    [ecg_mask, ecg_epoch] = detect_ecg(EXT, cfg_tmp);
+    [ecg_mask, ecg_epoch] = detect_ecg_new(EXT, cfg_tmp);
 
     if ~isnan(ecg_mask)
         cfg_tmp = struct('ecg_chan', 'ECG', 'epoch_window_ms', cfg_tmp.win, 'min_corr', min_corr, 'min_snr', min_snr, ...
@@ -514,7 +514,9 @@ if do_plot
     xticks(ax, 1:num_ica); xtickangle(ax, 90);
 
     % Auto-save if subject figures path is configured
-    save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_ica_channel_spatial'], [22 9]);
+    plotX = max(20, num_ica * 0.7 + 5);
+    plotY = 11;
+    save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_ica_channel_spatial'], [plotX plotY]);
 end
 
 end
@@ -1139,14 +1141,15 @@ EEG.ALSUTRECHT.ica.final.heart   = ICsMostLikely_Heart;
 EEG.ALSUTRECHT.ica.final.genbad  = ICsMostLikely_Bad;
 
 % Summary classification mapping
-% 1: Brain, 2: Muscle, 3: Eye, 4: Heart, 6: Channel, 7: Other/Bad, 8: Complex
+% 1: Brain, 2: Muscle, 3: Eye, 4: Heart, 5: Channel, 6: Other/Bad, 7: Complex
+EEG.ALSUTRECHT.ica.final.classes                       = {'Brain', 'Muscle', 'Eye', 'Heart', 'Channel', 'Other/Bad', 'Complex'};
 EEG.ALSUTRECHT.ica.final.report                        = ICLabel_struct.cvec; % Basis 1: ICLabel
-EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Bad)     = 7;                   % Basis 2: Catch-all bad floor
+EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Bad)     = 6;                   % Basis 2: Catch-all bad floor
 EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Muscle)  = 2;                   % Overwrite with specific classes
 EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Eye)     = 3;
 EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Heart)   = 4;
-EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Channel) = 6;
-EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Complex) = 8;
+EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Channel) = 5;
+EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Complex) = 7;
 
 end
 

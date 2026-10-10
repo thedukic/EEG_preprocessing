@@ -6,7 +6,7 @@ function [ECGmask, ECGEpochs, ECGlatency, heartData, brainData, pulsEstimate] = 
 % Inputs:
 %    DATA : EEGLAB dataset structure containing the ECG channel
 %    cfg  : Configuration structure with optional fields:
-%           - cfg.win_heart     : [start_ms, end_ms] relative to R-peak (default: [-200, 250])
+%           - cfg.win     : [start_ms, end_ms] relative to R-peak (default: [-200, 250])
 %           - cfg.plot_path     : Directory path to save figure (default: DATA.ALSUTRECHT.subject.figures)
 %           - cfg.plot_visible  : 'on' or 'off' (default: 'off')
 %           - cfg.do_plot       : true/false whether to generate the plot (default: true)
@@ -33,12 +33,12 @@ if nargin < 2, cfg = struct(); end
 if isnumeric(cfg)
     tmp_win = cfg;
     cfg = struct();
-    cfg.win_heart = tmp_win;
+    cfg.win = tmp_win;
 end
 
 % Parse options with robust fallbacks
-if isscalar(cfg.win_heart)
-    cfg.win_heart = [-abs(cfg.win_heart), abs(cfg.win_heart)];
+if isscalar(cfg.win)
+    cfg.win = [-abs(cfg.win), abs(cfg.win)];
 end
 
 if ~isfield(cfg, 'do_plot') || isempty(cfg.do_plot)
@@ -67,12 +67,19 @@ is_approximated = isfield(DATA, 'ALSUTRECHT') && ...
 
 if is_approximated
     % Shift above occipital alpha (10 Hz) and below muscle beta
-    [b_bp, a_bp] = butter(3, [14, 28] / (fs / 2), 'bandpass');
+    [b_bp, a_bp] = butter(2, [14, 28] / (fs / 2), 'bandpass');
 else
     % Standard thoracic lead: wider cardiac power band
-    [b_bp, a_bp] = butter(3, [6, 18] / (fs / 2), 'bandpass');
+    [b_bp, a_bp] = butter(2, [6, 18] / (fs / 2), 'bandpass');
 end
+
 ecg_filt = filtfilt(b_bp, a_bp, heartData);
+ecg_filt = ecg_filt - mean(ecg_filt);
+
+% Just for plotting
+[b, a] = butter(2, 0.3/(DATA.srate/2), 'high');
+heartData = do_filteringcore(b, a, heartData, DATA.event, DATA.srate);
+heartData = heartData - mean(heartData);
 
 %% 3. Energy Envelope (Derivative + Moving Average Integration)
 ecg_diff = diff([ecg_filt(1), ecg_filt]);
@@ -177,7 +184,7 @@ true_locs = unique(true_locs);
 n_raw_peaks = length(true_locs);
 
 %% 8. Epoch Extraction and Boundary Checking
-win_samples = round(abs(cfg.win_heart) ./ (1000 / fs));
+win_samples = round(abs(cfg.win) ./ (1000 / fs));
 
 starts = true_locs - win_samples(1);
 ends   = true_locs + win_samples(2);
@@ -199,7 +206,7 @@ ECGEpochs  = [starts(:), ends(:)];
 ECGlatency = DATA.times(true_locs) / 1000;
 
 %% 9. Outlier Rejection via Template Matching
-T = linspace(cfg.win_heart(1), cfg.win_heart(2), epoch_len) / 1000;
+T = linspace(cfg.win(1), cfg.win(2), epoch_len) / 1000;
 
 [valid_idx, ~, ~] = find_template_outliers(ECG', T);
 ECGEpochs  = ECGEpochs(valid_idx, :);

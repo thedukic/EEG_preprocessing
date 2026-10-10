@@ -50,28 +50,25 @@ function myPaths = preproc_folders
 myPaths.mycodes     = 'C:\DATA\MATLAB\myCodes\preprocessing';
 
 % Root path containing raw EEG recordings
-myPaths.rootrawdata = 'E:\1_EEG_DATA';
+myPaths.rootrawdata = 'F:\1_EEG_DATA';
 
 % Root path where preprocessed files will be saved
-myPaths.rootpreproc = 'E:\3_PREPROCESSED_DATA';
+myPaths.rootpreproc = 'F:\3_PREPROCESSED_DATA';
 
 % Target experimental paradigm (char): 'MMN', 'SART', 'RS', or 'MT'
 myPaths.task        = 'RS';
 
 % Target cohort group(s) (cell array): {'ALS'}, {'CONTROL'}, {'AFM'}, {'PLS'}, or {'PMA'}
-myPaths.group       = {'AFM'};
+myPaths.group       = {'ALS', 'CONTROL'};
 
 % Utrecht datasets: Optional subgroup filter (char): '', 'AFM_C9ORF72', 'AFM_ARPP21', 'MND_C9ORF72', or 'MND_SOD1'
-myPaths.subgroup    = 'AFM_C9ORF72';
+myPaths.subgroup    = '';
 
 % Longitudinal visit sessions to process (numeric vector): 1:5 or a single visit such as 1
 myPaths.visit       = 1:5;
 
 % Utrecht datasets: Master clinical metadata file exported from R
-myPaths.table1      = 'C:\DATA\MATLAB\EEG\2_OTHER_DATA\FULL_CLINICAL_TABLE_2026-09-09.txt';
-
-
-
+myPaths.table1      = 'C:\DATA\MATLAB\EEG\2_OTHER_DATA\FULL_CLINICAL_TABLE_2026-10-09.txt';
 
 % =========================================================================
 % =========================================================================
@@ -128,7 +125,7 @@ if isempty(pathsFoldersTmp)
     pathsFoldersTmp{1} = fullfile(thisFolder, 'eeglab2026.1.0');
     pathsFoldersTmp{2} = fullfile(thisFolder, 'noisetools_29-Apr-2023');
     pathsFoldersTmp{3} = fullfile(thisFolder, 'zaplineplus_14-Apr-2023');
-    pathsFoldersTmp{4} = fullfile(thisFolder, 'gedai_05-Aug-2026');
+    pathsFoldersTmp{4} = fullfile(thisFolder, 'gedai_v1.8'); % 09/10/2026
     pathsFoldersTmp{5} = fullfile(thisFolder, 'restingiaf_20-Jan-2025');
     pathsFoldersTmp{6} = fullfile(thisFolder, 'brewermap_15-Sept-2026');
 end
@@ -138,7 +135,7 @@ fprintf('Adding external toolboxes:\n');
 fprintf('%s\n', pathsFoldersTmp{:});
 
 % Add subfolers from the "files" folder
-thisFolder      = pathsFolders{contains(pathsFolders,'files','IgnoreCase',true)};
+thisFolder      = pathsFolders{contains(pathsFolders, 'files', 'IgnoreCase', true)};
 listFolders     = dir(thisFolder);
 listFolders     = listFolders([listFolders.isdir]);
 pathsFoldersTmp = fullfile(thisFolder,{listFolders(3:end).name});
@@ -150,7 +147,7 @@ fprintf('%s\n', pathsFoldersTmp{:});
 % Check for duplicates to prevent overloading
 % restoredefaultpath % Maybe better not to use it altough it does the job
 % Check if there are functions with the same name
-check_duplicates_all(myPaths.mycodes, {'external', 'unused'});
+check_duplicates_all(myPaths.mycodes, {'external', 'unused', 'test'});
 check_duplicate('preproc_main.m');
 check_duplicate('run_subject_1.m');
 check_duplicate('run_subject_2.m');
@@ -198,8 +195,8 @@ if ~isempty(crashedJobs)
     end
 end
 
-% % 3. Spin up a fresh, clean parallel pool
-% parpool("Processes");
+% 3. Spin up a fresh, clean parallel pool
+parpool("Processes");
 
 end
 

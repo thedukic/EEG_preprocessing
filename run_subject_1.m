@@ -105,11 +105,10 @@ if ismember(upper(EEG(1).ALSUTRECHT.subject.task), {'RS', 'EO', 'EC'})
 end
 
 % Keep event info
-EEG = extract_eventinfo(EEG, cfg.trg);
+EEG = extract_eventinfo(EEG, cfg);
 
 % Filter highpass only
-% EEG = do_filtering_fir(EEG);
-EEG = do_filtering(EEG, 'highpass', cfg);
+EEG = do_filtering(EEG, 'highpass', 'eeg', cfg);
 
 % % Electrode correlations (needs more testing)
 % EEG = detect_swappedelectrodes(EEG, cfg);
@@ -124,7 +123,7 @@ EEG = do_reref(EEG, 'aRobust');
 save_raw_power(EEG, cfg);
 
 % -------------------------------------------------------------------------
-% Reduce spectral peaks
+% Reduce line noise
 % -------------------------------------------------------------------------
 % Remove line noise
 EEG = reduce_linenoise1(EEG, cfg);
@@ -155,7 +154,7 @@ EEG = merge_eeglabblocks(EEG);
 % end
 
 % -------------------------------------------------------------------------
-% Reduce artifacts
+% Early Burst & Sensor Artefact Reduction
 % -------------------------------------------------------------------------
 % STAR
 if cfg.star.do
@@ -179,18 +178,22 @@ end
 % end
 
 % -------------------------------------------------------------------------
-% Generate artifact templates
+% Bad Channel Rejection
 % -------------------------------------------------------------------------
-generate_ictemplateweights(EEG, EMG, EXT, cfg);
-
-% -------------------------------------------------------------------------
-% Remove bad EEG channels
-% -------------------------------------------------------------------------
-% Remove noisy electrodes
+% Detect and remove
 EEG = remove_noisyelectrodes(EEG, cfg);
 
-% Report bad/removed electrodes
+% Report
 report_badelectrodes(EEG, cfg);
+
+% -------------------------------------------------------------------------
+% Generate artifact templates
+% -------------------------------------------------------------------------
+% Reference
+EEG = do_reref(EEG, 'aRegular');
+
+% Make templates
+generate_ictemplateweights(EEG, EXT, cfg);
 
 % -------------------------------------------------------------------------
 % Deeper cleaning
@@ -207,19 +210,22 @@ report_badelectrodes(EEG, cfg);
 % else
 %     fprintf('\nASR cleaning: Skipped! Turned off by the user.\n');
 % end
-
-% Interpolate bad electrodes
-EEG = do_channelinterp(EEG, 'spherical');
-
-% Reference
-EEG = do_reref(EEG, 'aRegular');
+%
+% % Interpolate bad electrodes
+% EEG = do_channelinterp(EEG, 'spherical');
+%
+% % Reference
+% EEG = do_reref(EEG, 'aRegular');
 
 % ICA
 % EEG = do_relica(EEG, subject);
 EEG = do_ica(EEG, cfg);
 
+% Interpolate bad electrodes
+EEG = do_channelinterp(EEG, 'spherical');
+
 % Detect artifact ICs
-EEG = detect_badcomponents(EEG, EXT, EMG, cfg);
+EEG = detect_badcomponents_new(EEG, EXT, EMG, cfg);
 
 % Remove artifact ICs
 EEG = remove_badcomponents(EEG, cfg);

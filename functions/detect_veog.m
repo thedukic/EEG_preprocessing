@@ -1,5 +1,4 @@
-function [eyeBlinksMask, eyeBlinksEpochs, BlinkMaxLatency, eyeBlinkData, brainData, threshold] = detect_veog(DATA,cfg)
-
+function [eyeBlinksMask, eyeBlinksEpochs, BlinkMaxLatency, eyeBlinkData, brainData, threshold] = detect_veog(DATA, cfg)
 
 winBlink   = cfg.win;
 trIQR      = cfg.trIQR;
@@ -14,9 +13,10 @@ eyeBlinkData = DATA.data(chaneog, :);
 
 % Temporarily filter VEOG, 0.2-10 Hz
 [bl, al] = butter(2, 10/(DATA.srate/2), 'low');
-[bh, ah] = butter(2, 0.2/(DATA.srate/2), 'high');
+[bh, ah] = butter(2, 0.5/(DATA.srate/2), 'high');
 eyeBlinkData = do_filteringcore(bl, al, eyeBlinkData, DATA.event, DATA.srate);
 eyeBlinkData = do_filteringcore(bh, ah, eyeBlinkData, DATA.event, DATA.srate);
+eyeBlinkData = eyeBlinkData - mean(eyeBlinkData);
 
 brainData = []; % Placeholder to match function outputs
 

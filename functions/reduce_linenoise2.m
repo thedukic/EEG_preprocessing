@@ -152,7 +152,7 @@ for i_block = 1:num_block
         topo_data_z = z_peak(chaneeg)';
         % topo_data_z(z_peak(chaneeg)' <= threshold_z) = 0;
 
-        mytopoplot(topo_data_z, badelec{i_block}, [], th, [0 -log10(1e-6)]);
+        mytopoplot(topo_data_z, badelec{i_block}, [], th,  5 * [-1 1]);
         % max_z_lim = max([threshold_z * 2, max(z_peak(chaneeg))]);
         % topoplot(topo_data_z, DATA(i_block).chanlocs, 'maplimits', 5 * [-1 1], ...
         %     'headrad', 'rim', 'whitebk', 'on', 'style', 'map', 'electrodes', 'on', ...

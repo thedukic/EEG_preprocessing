@@ -9,9 +9,9 @@ fileName = [DATA.ALSUTRECHT.subject.id '_' DATA.ALSUTRECHT.subject.visit '_' DAT
 load(fullfile(DATA.ALSUTRECHT.subject.data, fileName), "wArtifacts");
 
 % Load group tempaltes
-load('wBlink.mat', 'Blinkweights');
+load('wBlink.mat',   'Blinkweights');
 load('wSaccade.mat', 'Saccadeweights');
-load('wHeart.mat', 'Heartweights');
+load('wHeart.mat',   'Heartweights');
 
 % Organise
 templates_ica.Blinkweights0    = Blinkweights(1:128);

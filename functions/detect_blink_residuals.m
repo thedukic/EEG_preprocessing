@@ -48,8 +48,8 @@ n_chans = length(ch_idx);
 
 % Resolve fronto-polar cluster (BioSemi 128 and 10-20 standards)
 labels = {DATA.chanlocs(ch_idx).labels};
-left_eye_chans  = {'C28', 'C29', 'C30', 'C31', 'C17', 'C18', 'FP1', 'AF7'};
-right_eye_chans = {'C8', 'C9', 'C15', 'C16', 'C17', 'C18', 'FP2', 'AF8'};
+left_eye_chans  = {'C28', 'C29', 'C30', 'C31', 'C17', 'C18'};
+right_eye_chans = {'C8', 'C9', 'C15', 'C16', 'C17', 'C18'};
 
 idx_left_cluster  = find(ismember(upper(labels), upper(left_eye_chans)));
 idx_right_cluster = find(ismember(upper(labels), upper(right_eye_chans)));

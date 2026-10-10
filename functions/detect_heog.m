@@ -26,9 +26,10 @@ saccadesData = DATA.data(chanheog,:);
 
 % Temporarily filter HEOG, 0.2-30 Hz
 [bl, al] = butter(2, 30/(DATA.srate/2), 'low');
-[bh, ah] = butter(2, 0.2/(DATA.srate/2), 'high');
+[bh, ah] = butter(2, 0.5/(DATA.srate/2), 'high');
 saccadesData = do_filteringcore(bl, al, saccadesData, DATA.event, DATA.srate);
 saccadesData = do_filteringcore(bh, ah, saccadesData, DATA.event, DATA.srate);
+saccadesData = saccadesData - mean(saccadesData);
 
 % -------------------------------------------------------------------------
 % HEOG Thresholding

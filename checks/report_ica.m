@@ -75,7 +75,7 @@ cnt = 0;
 for i_ic = 1:length(ICsforRemoval)
     cnt = cnt + 1;
     this_ic = ICsforRemoval(i_ic);
-    this_label = EEG.ALSUTRECHT.ica.ICLabel.classes{EEG.ALSUTRECHT.ica.final.report(this_ic)};
+    this_label = EEG.ALSUTRECHT.ica.final.classes{EEG.ALSUTRECHT.ica.final.report(this_ic)};
 
     if any(ICsMostLikelyComplex == this_ic)
         this_label = [this_label ' (cmplx)'];

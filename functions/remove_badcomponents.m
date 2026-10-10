@@ -26,7 +26,7 @@ ICsGenBad  = EEG.ALSUTRECHT.ica.final.genbad(:);
 % protect_rank_n = 25;   % Top 25 components are always evaluated regardless of PVAF
 
 floor_compvar  = cfg.ica.floor_compvar;
-protect_rank_n = cfg.ica.protect_rank_n; 
+protect_rank_n = cfg.ica.protect_rank_n;
 
 fprintf('\nEvaluating IC importance based on EEGLAB compvar PVAF...\n');
 fprintf('Threshold: vaf_compvar >= %.2f%% (Always evaluate top %d ICs)\n', floor_compvar, protect_rank_n);

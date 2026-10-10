@@ -7,10 +7,10 @@ fprintf('================================\n');
 
 % % Separate
 % [EEG, EMG, EXT] = separate_electrodetypes(DATA);
-% 
+%
 % % Filter
 % EEG = pop_eegfiltnew(EEG, 1, 0, 1650, 0, [], 0);
-% 
+%
 % % Merge
 % DATA = merge_electrodetypes(EEG, EMG, EXT);
 

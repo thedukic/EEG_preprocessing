@@ -10,7 +10,7 @@
 %
 %   Key operations:
 %     1. Environment and path initialisation via preproc_folders.
-%     2. Participant selection via preproc_participants. 
+%     2. Participant selection via preproc_participants.
 %     3. Batch execution via run_subjects.
 %     4. Structured error tracking and generation of failure logs.
 %
@@ -34,7 +34,7 @@
 % =========================================================================
 % 1. Batch process: group & visit
 % =========================================================================
-% Housekeeping 
+% Housekeeping
 close all hidden; fclose all; clear all; clc;
 
 % Initialise

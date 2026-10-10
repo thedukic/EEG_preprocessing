@@ -102,14 +102,14 @@ freq = (0:(n_fft/2)) * (fs / n_fft);
 % if ~isfield(cfg.emg, 'slope_freq_1') || isempty(cfg.emg.slope_freq_1)
 %     cfg.emg.slope_freq_1 = [20 45];
 % end
-% 
+%
 % if ~isfield(cfg.emg, 'slope_threshold_1') || isempty(cfg.emg.slope_threshold_1)
 %     cfg.emg.slope_threshold_1 = -0.50;
 % end
-% 
-% if ~isfield(cfg.emg, 'segment_ratio_threshold') || isempty(cfg.emg.segment_ratio_threshold)
-%     cfg.emg.segment_ratio_threshold = 1/3; % Contaminated if > 33% of sub-segments are bad
-% end
+
+if ~isfield(cfg.emg, 'segment_ratio_threshold') || isempty(cfg.emg.segment_ratio_threshold)
+    cfg.emg.segment_ratio_threshold = 1/3; % Contaminated if > 33% of sub-segments are bad
+end
 
 mask_freq = (freq >= cfg.emg.slope_freq_1(1)) & (freq <= cfg.emg.slope_freq_1(2));
 assert(sum(mask_freq) >= 3, 'Insufficient frequency points for regression in the selected band.');

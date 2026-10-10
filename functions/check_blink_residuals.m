@@ -20,7 +20,9 @@ if ~isfield(cfg, 'do_plot'),        cfg.do_plot        = true;   end
 % -------------------------------------------------------------------------
 cfg_tmp = cfg;
 cfg_tmp.do_plot = false;
-det = detect_blink_residuals(DATA, cfg_tmp);
+DATA = detect_blink_residuals(DATA, cfg_tmp);
+
+det = DATA.ALSUTRECHT.leftovers.blink_info;
 
 ch_idx             = det.ch_idx;
 n_chans            = length(ch_idx);

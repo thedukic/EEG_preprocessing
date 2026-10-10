@@ -1,13 +1,13 @@
 function data = do_filteringcore(b, a, data, eventStruct, srate)
 
 % Initialise
-assert(isstable(b,a));
+assert(isstable(b, a));
 min_len = 3 * (max(length(b), length(a)) - 1);
 
 data = double(data);
-FNYQ = srate/2;
+FNYQ = srate / 2;
 
-fprintf('Number of channels for filtering: %d\n', size(data,1));
+fprintf('Number of channels for filtering: %d\n', size(data, 1));
 
 if ~isempty(eventStruct)
     eventLabels = {eventStruct(:).type};

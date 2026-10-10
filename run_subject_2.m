@@ -72,7 +72,7 @@ EEG.ALSUTRECHT.procTimeTags = {myPaths.proctime; strrep(strrep(char(t0), ':', '-
 % Basic post-preprocessing
 % -------------------------------------------------------------------------
 % Filter lowpass (should be done on continuous data)
-EEG = do_filtering(EEG, 'lowpass', cfg);
+EEG = do_filtering(EEG, 'lowpass', 'eeg', cfg);
 
 % % Empirical frequency boundaries (only RS)
 % EEG = estimate_gedBounds(EEG);

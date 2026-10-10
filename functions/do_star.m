@@ -20,7 +20,7 @@ if strcmpi(type_data, 'eeg')
     Niter   = 2;    % Number of STAR iterations
     Nneigh  = 10;   % Number of neighouring channels
     Texc    = 3;    % Threshold for excentricity, higher -> looser
-    Ndeep   = 3;    % Maximum number of channels to fix at each sample
+    Ndeep   = 2;    % Maximum number of channels to fix at each sample
     Tpca    = 0.15; % Threshold for discarding weak PCs (percent of the max{PCs} of C of that neigh group of channels)
     Nsmooth = 64;   % Samples for smoothing applied on excentricity, too short -> too sensitive
 

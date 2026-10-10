@@ -1,43 +1,73 @@
-function generate_ictemplateweights(EEG, EMG, EXT, cfg)
+function generate_ictemplateweights(EEG, EXT, cfg)
 
 fprintf('\n================================\n');
 fprintf('Generating individualised ICA artifact templates\n');
 fprintf('================================\n');
 
 % -------------------------------------------------------------------------
+% 0. Ensure complete 128-channel montage via temporary interpolation
+% -------------------------------------------------------------------------
+% Work on a local copy so downstream pipeline stages (e.g. ICA) retain
+% their true physical channel rank.
+
+if EEG.nbchan < 128
+    fprintf('Detected missing channels (%d/128 present). Interpolating for template generation...\n', EEG.nbchan);
+    EEG = do_channelinterp(EEG, 'spherical');
+end
+
+% Rerefrence
+EEG = do_reref(EEG, 'aRegular');
+
+% -------------------------------------------------------------------------
 % Merge blocks
-DATA = merge_electrodetypes(EEG, EMG, EXT);
+% -------------------------------------------------------------------------
+DATA = merge_electrodetypes(EEG, EXT);
+
+cfg_tmp = cfg;
+cfg_tmp.flt.erp.hp = [1 4];
+cfg_tmp.flt.rs.hp  = [1 4];
+cfg_tmp.flt.mt.hp  = [1 4];
+
+DATA = do_filtering(DATA, 'highpass', {'eeg','ext'}, cfg_tmp);
 
 % -------------------------------------------------------------------------
 % Eye blinks
+% -------------------------------------------------------------------------
 fprintf('\n--------------------------------\n');
 fprintf('Detecting eye blinks\n');
 fprintf('--------------------------------\n');
 
-cfg_tmp.win     = 150;
-cfg_tmp.trIQR   = 3;
-cfg_tmp.do_plot = false;
+cfg_tmp.win          = 150;
+cfg_tmp.trIQR        = 3;
+cfg_tmp.do_plot      = true;
+cfg_tmp.plot_visible = cfg.figure.visible;
 [VEOGmask, VEOGepochs, VEOGmaxLatency, VEOGdata, VEOGEEGdata, treshold] = detect_veog(DATA, cfg_tmp);
 
+% -------------------------------------------------------------------------
 % Eye saccades
+% -------------------------------------------------------------------------
 fprintf('\n--------------------------------\n');
 fprintf('Detecting eye saccades\n');
 fprintf('--------------------------------\n');
 
-cfg_tmp.win     = 150;
-cfg_tmp.trIQR   = 1;
-cfg_tmp.do_plot = false;
+cfg_tmp.win          = 150;
+cfg_tmp.trIQR        = 1;
+cfg_tmp.do_plot      = true;
+cfg_tmp.plot_visible = cfg.figure.visible;
 [HEOGmask, HEOGepochs, HEOGmaxLatency, HEOGdata, HEOGEEGdata, treshold] = detect_heog(DATA, cfg_tmp);
 
+% -------------------------------------------------------------------------
 % Heart beats
+% -------------------------------------------------------------------------
 fprintf('\n--------------------------------\n');
 fprintf('Detecting heartbeats\n');
 fprintf('--------------------------------\n');
 
 if ~strcmpi(DATA.ALSUTRECHT.subject.ecg, 'none')
-    cfg_tmp.win     = 30;
-    cfg_tmp.do_plot = false;
-    [ECGmask, ECGepochs, ECGlatency, ECGdata, ECGEEGdata, pulsEstimate] = detect_ecg(DATA, cfg_tmp);
+    cfg_tmp.win          = 30;
+    cfg_tmp.do_plot      = false;
+    cfg_tmp.plot_visible = cfg.figure.visible;
+    [ECGmask, ECGepochs, ECGlatency, ECGdata, ECGEEGdata, pulsEstimate] = detect_ecg_new(DATA, cfg_tmp);
 else
     ECGmask   = NaN;
     ECGepochs = NaN;
@@ -161,7 +191,7 @@ end
 % Calculate safe sample sizes for plotting
 % -------------------------------------------------------------------------
 if has_VEOG, N_VEOG = size(VEOGepochs, 1); else, N_VEOG = 0; end
-if has_ECG,  N_ECG = size(ECGepochs, 1);   else, N_ECG = 0;  end
+if has_ECG,  N_ECG  = size(ECGepochs, 1);  else, N_ECG  = 0; end
 
 if iscell(HEOGepochs)
     if has_HEOG_L, N_HEOG1 = size(HEOGepochs{1}, 1); else, N_HEOG1 = 0; end
@@ -171,44 +201,49 @@ else
 end
 
 % -------------------------------------------------------------------------
+% Plotting
+% -------------------------------------------------------------------------
 fprintf('Plotting...\n');
 
 if cfg.figure.plot
     % Plot 1
     fh = figure('Visible', cfg.figure.visible);
     tiledlayout(3, 3, "TileSpacing", "compact", "Padding", "compact");
-    % 1
-    mytopoplot(A_VEOG(1:128),[],['avgVEOG: N = ' num2str(N_VEOG) ', R = ' num2str(R_VEOG1)],nexttile(1));
-    mytopoplot(A_HEOG_L(1:128) + A_HEOG_R(1:128),[],['avgHEOG: N = ' num2str(N_HEOG1+N_HEOG1) ', R = ' num2str(R_HEOG1_L) '/' num2str(R_HEOG1_R)],nexttile(2));
+
+    % Row 1: Average Topographies
+    mytopoplot(A_VEOG(1:128), [], ['avgVEOG: N = ' num2str(N_VEOG) ', R = ' num2str(R_VEOG1)], nexttile(1));
+    mytopoplot(A_HEOG_L(1:128) + A_HEOG_R(1:128), [], ['avgHEOG: N = ' num2str(N_HEOG1+N_HEOG2) ', R = ' num2str(R_HEOG1_L) '/' num2str(R_HEOG1_R)], nexttile(2));
     R_ECG1 = mean(R_ECG1);
-    mytopoplot(A_ECG(1:128),[],['avgECG: N = ' num2str(N_ECG) ', R = ' num2str(R_ECG1)],nexttile(3));
+    mytopoplot(A_ECG(1:128), [], ['avgECG: N = ' num2str(N_ECG) ', R = ' num2str(R_ECG1)], nexttile(3));
 
-    % 2
-    mytopoplot(R_VEOGEEG,[],['corrVEOG: N = ' num2str(N_VEOG) ', R = ' num2str(R_VEOG2)],nexttile(4)); colorbar;
-    mytopoplot(R_HEOGEEG_L+R_HEOGEEG_R,[],['corrHEOG: N = ' num2str(N_HEOG1+N_HEOG1) ', R = ' num2str(R_HEOG2_L) '/' num2str(R_HEOG2_R)],nexttile(5)); colorbar;
-    mytopoplot(R_ECGEEG,[],['corrECG: N = ' num2str(N_ECG) ', R = ' num2str(mean(R_ECG2))],nexttile(6)); colorbar;
+    % Row 2: Correlation Topographies
+    mytopoplot(R_VEOGEEG(1:128), [], ['corrVEOG: N = ' num2str(N_VEOG) ', R = ' num2str(R_VEOG2)], nexttile(4)); colorbar;
+    mytopoplot(R_HEOGEEG_L(1:128) + R_HEOGEEG_R(1:128), [], ['corrHEOG: N = ' num2str(N_HEOG1+N_HEOG2) ', R = ' num2str(R_HEOG2_L) '/' num2str(R_HEOG2_R)], nexttile(5)); colorbar;
+    mytopoplot(R_ECGEEG(1:128), [], ['corrECG: N = ' num2str(N_ECG) ', R = ' num2str(mean(R_ECG2))], nexttile(6)); colorbar;
 
-    % 3
-    mytopoplot(Blinkweights,[],'templateVEOG',nexttile(7));
-    mytopoplot(Saccadeweights,[],'templateHEOG',nexttile(8));
-    mytopoplot(mean(Heartweights,2),[],'templateECG',nexttile(9));
+    % Row 3: Standard Templates
+    mytopoplot(Blinkweights, [], 'templateVEOG', nexttile(7));
+    mytopoplot(Saccadeweights, [], 'templateHEOG', nexttile(8));
+    mytopoplot(mean(Heartweights, 2), [], 'templateECG', nexttile(9));
 
     % Save
     save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_ica_templates1'], [20 20]);
 
     % Plot 2
     if iscell(HEOGepochs)
-        fh = figure('Visible', cfg.figure.visible); tiledlayout(2, 2, "TileSpacing", "compact", "Padding", "compact");
-        mytopoplot(A_HEOG_L(1:128),[],['avgHEOG1: N = ' num2str(N_HEOG1) ', R = ' num2str(R_HEOG1_L)],nexttile); axis tight;
-        mytopoplot(A_HEOG_R(1:128),[],['avgHEOG2: N = ' num2str(N_HEOG2) ', R = ' num2str(R_HEOG1_R)],nexttile); axis tight;
-        mytopoplot(R_HEOGEEG_L,[],['corrHEOG1: N = ' num2str(N_HEOG1) ', R = ' num2str(R_HEOG2_L)],nexttile); axis tight;
-        mytopoplot(R_HEOGEEG_R,[],['corrHEOG2: N = ' num2str(N_HEOG2) ', R = ' num2str(R_HEOG2_L)],nexttile); axis tight;
-        plotX=20; plotY=20;
+        fh = figure('Visible', cfg.figure.visible);
+        tiledlayout(2, 2, "TileSpacing", "compact", "Padding", "compact");
+        mytopoplot(A_HEOG_L(1:128), [], ['avgHEOG1: N = ' num2str(N_HEOG1) ', R = ' num2str(R_HEOG1_L)], nexttile); axis tight;
+        mytopoplot(A_HEOG_R(1:128), [], ['avgHEOG2: N = ' num2str(N_HEOG2) ', R = ' num2str(R_HEOG1_R)], nexttile); axis tight;
+        mytopoplot(R_HEOGEEG_L(1:128), [], ['corrHEOG1: N = ' num2str(N_HEOG1) ', R = ' num2str(R_HEOG2_L)], nexttile); axis tight;
+        mytopoplot(R_HEOGEEG_R(1:128), [], ['corrHEOG2: N = ' num2str(N_HEOG2) ', R = ' num2str(R_HEOG2_R)], nexttile); axis tight;
+        plotX = 20; plotY = 20;
     else
-        fh = figure; tiledlayout(1, 2, "TileSpacing", "compact", "Padding", "compact");
-        mytopoplot(A_HEOG_L(1:128),[],['avgHEOG: N = ' num2str(N_HEOG) ', R = ' num2str(R_HEOG1)],nexttile); axis tight;
-        mytopoplot(A_HEOG_L(1:128),[],['corrHEOG: N = ' num2str(N_HEOG) ', R = ' num2str(R_HEOG2)],nexttile); axis tight;
-        plotX=20; plotY=10;
+        fh = figure('Visible', cfg.figure.visible);
+        tiledlayout(1, 2, "TileSpacing", "compact", "Padding", "compact");
+        mytopoplot(A_HEOG(1:128), [], ['avgHEOG: N = ' num2str(N_HEOG) ', R = ' num2str(R_HEOG1)], nexttile); axis tight;
+        mytopoplot(R_HEOGEEG(1:128), [], ['corrHEOG: N = ' num2str(N_HEOG) ', R = ' num2str(R_HEOG2)], nexttile); axis tight;
+        plotX = 20; plotY = 10;
     end
 
     % Save
@@ -220,16 +255,16 @@ end
 % -------------------------------------------------------------------------
 wArtifacts = [];
 
-wArtifacts.Blinkmask        = VEOGmask;
-wArtifacts.Heartmask        = ECGmask;
+wArtifacts.Blinkmask          = VEOGmask;
+wArtifacts.Heartmask          = ECGmask;
 if iscell(HEOGepochs)
-    wArtifacts.SaccademaskL = HEOGmask{1};
-    wArtifacts.SaccademaskR = HEOGmask{2};
+    wArtifacts.SaccademaskL   = HEOGmask{1};
+    wArtifacts.SaccademaskR   = HEOGmask{2};
     wArtifacts.SaccadeepochsL = HEOGepochs{1};
     wArtifacts.SaccadeepochsR = HEOGepochs{2};
 else
-    wArtifacts.SaccademaskL = HEOGmask;
-    wArtifacts.SaccademaskR = [];
+    wArtifacts.SaccademaskL   = HEOGmask;
+    wArtifacts.SaccademaskR   = [];
     wArtifacts.SaccadeepochsL = HEOGepochs;
     wArtifacts.SaccadeepochsR = [];
 end
@@ -266,7 +301,7 @@ fprintf('Done!\n');
 end
 
 % =========================================================================
-% Helper fuctions
+% Helper functions
 % =========================================================================
 
 function [C, A] = estimate_params(DATA, epochs)
@@ -274,51 +309,3 @@ y = DATA.data(:, epochs);
 C = y * y';
 A = mean(y, 2);
 end
-
-% function [DATA_tmp, ECGtype] = make_bipolar0(DATA_block)
-% DATA_tmp = DATA_block;
-%
-% eog_labels = {'VEOG', 'HEOG'};
-%
-% for i = 1:length(eog_labels)
-%     current_label = eog_labels{i};
-%     mask = find(contains({DATA_tmp.chanlocs.labels}, current_label));
-%
-%     if length(mask) == 2
-%         % fprintf('Found 2 %s electrodes. Creating bipolar channel...\n', current_label);
-%         % DATA_tmp.data(mask(1),:) = DATA_tmp.data(mask(1),:) - DATA_tmp.data(mask(2),:);
-%         % DATA_tmp.chanlocs(mask(1)).labels = current_label;
-%     elseif isscalar(mask)
-%         fprintf('%s appears to be already bipolarised (only 1 channel found).\n', current_label);
-%         DATA_tmp.chanlocs(mask(1)).labels = current_label;
-%     else
-%         % warning('Expected 1 or 2 %s electrodes, but found %d.', current_label, length(mask));
-%     end
-% end
-%
-% maskECG = find(contains({DATA_tmp.chanlocs.labels}, 'ECG'));
-%
-% if length(maskECG) == 2
-%     % fprintf('Found 2 ECG electrodes. Making one bipolar ECG channel.\n');
-%     % ECGtype = 'ECG';
-%     % DATA_tmp.data(maskECG(1),:) = DATA_tmp.data(maskECG(1),:) - DATA_tmp.data(maskECG(2),:);
-%     % DATA_tmp.chanlocs(maskECG(1)).labels = 'ECG';
-% elseif isscalar(maskECG)
-%     fprintf('ECG appears to be already bipolarised (only 1 channel found).\n');
-%     ECGtype = 'ECG';
-%     DATA_tmp.chanlocs(maskECG(1)).labels = 'ECG';
-% else
-%     % maskEMG = find(strcmp({DATA_tmp.chanlocs.type}, 'EMG'));
-%     %
-%     % if ~isempty(maskEMG)
-%     %     fprintf('No ECG recorded. Using average of %d EMG electrodes as ECG proxy.\n', length(maskEMG));
-%     %     ECGtype = 'EMG';
-%     %     target_idx = maskEMG(1);
-%     %     DATA_tmp.data(target_idx, :) = mean(DATA_tmp.data(maskEMG, :), 1);
-%     %     DATA_tmp.chanlocs(target_idx).labels = 'ECG';
-%     % else
-%     %     fprintf('No ECG or EMG electrodes found. QRS detection will be skipped.\n');
-%     %     ECGtype = 'None';
-%     % end
-% end
-% end

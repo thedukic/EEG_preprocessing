@@ -99,9 +99,21 @@ fprintf('--------------------------------\n');
 % Minimum number of blinks for stats below
 num_trial_min = 5;
 
-% Select only EEG
-chaneeg = strcmp({DATA.chanlocs.type}, 'EEG');
-dataeeg = DATA.data(chaneeg, :);
+% Select EEG
+chaneeg  = strcmp({DATA.chanlocs.type}, 'EEG');
+dataeeg  = DATA.data(chaneeg, :);
+
+% Select VEOG
+chanveog = strcmp({DATA.chanlocs.labels}, 'VEOG');
+dataeog  = DATA.data(chanveog, :);
+
+% Just for plotting
+[b, a] = butter(2, 0.75/(DATA.srate/2), 'high');
+dataeeg = do_filteringcore(b, a, dataeeg, DATA.event, DATA.srate);
+dataeeg = dataeeg - mean(dataeeg, 2);
+
+dataeog = do_filteringcore(b, a, dataeog, DATA.event, DATA.srate);
+dataeog = dataeog - mean(dataeog);
 
 % Define the broad anterior search zone using the C-bundle
 % mask_frontal = ismember({DATA.chanlocs(:).labels}, cfg.ica.blinkchans);
@@ -120,14 +132,17 @@ indx_frontal = find(mask_frontal);
 % Eye (Short window)
 % =========================================================================
 fprintf('\n#### Eye blink leftovers evaluation (Short window) ####\n');
+blink_duration = 200; % Yields a 300 ms total window (-150 to +150 ms)
 
-blink_duration = 150; % Yields a 300 ms total window (-150 to +150 ms)
-blink_iqr = 3;
-[~, eyeBlinksEpochs, BlinkMaxLatency, dataeog, ~, threshold] = detect_veog(DATA, blink_duration, blink_iqr, cfg.figure.visible);
+cfg_tmp.win          = blink_duration;
+cfg_tmp.trIQR        = 3;
+cfg_tmp.do_plot      = false;
+cfg_tmp.plot_visible = cfg.figure.visible;
+[~, eyeBlinksEpochs, BlinkMaxLatency, ~, ~, threshold] = detect_veog(DATA, cfg_tmp);
 
 if ~isempty(eyeBlinksEpochs)
-    multiBlink = detect_multiblinks(eyeBlinksEpochs, 0);
-    eyeBlinksEpochs(multiBlink, :) = [];
+    mask_multiblink = detect_multiblinks(eyeBlinksEpochs, 0);
+    eyeBlinksEpochs(mask_multiblink, :) = [];
     NTRL_1 = size(eyeBlinksEpochs, 1);
 else
     NTRL_1 = 0;
@@ -263,18 +278,22 @@ meanFrontalCorr_cont = mean(maxk(anterior_corr, 5));
 % Eye (Long window)
 % =========================================================================
 fprintf('\n#### Eye blink leftovers evaluation (Long window) ####\n');
+% Yields a 2000 ms total window (-1000 to +1000 ms)
+blink_duration = 1000;
 
-% Shorten window
-blink_duration = 1000; % Yields a 2000 ms total window (-1000 to +1000 ms)
-[~, eyeBlinksEpochs, ~, dataeog, ~, threshold] = detect_veog(DATA, blink_duration, blink_iqr, cfg.figure.visible);
+cfg_tmp.win          = blink_duration;
+cfg_tmp.trIQR        = 3;
+cfg_tmp.do_plot      = false;
+cfg_tmp.plot_visible = cfg.figure.visible;
+[~, eyeBlinksEpochs, ~, ~, ~, threshold] = detect_veog(DATA, cfg_tmp);
 
 if ~isempty(eyeBlinksEpochs)
-    multiBlink = detect_multiblinks(eyeBlinksEpochs, 0);
+    mask_multiblink = detect_multiblinks(eyeBlinksEpochs, 0);
 
     fprintf('Detected blinks: %d\n', size(eyeBlinksEpochs, 1));
-    fprintf('Multi-blinks rejected (overlapping within window): %d\n', sum(multiBlink));
+    fprintf('Multi-blinks rejected (overlapping within window): %d\n', sum(mask_multiblink));
 
-    eyeBlinksEpochs(multiBlink, :) = [];
+    eyeBlinksEpochs(mask_multiblink, :) = [];
     NTRL_2 = size(eyeBlinksEpochs, 1);
 else
     NTRL_2 = 0;
@@ -605,26 +624,60 @@ end
 % =========================================================================
 % Helper functions
 % =========================================================================
-function multiBlink = detect_multiblinks(eyeBlinksEpochs, overlap)
-eyeBlinksEpochs(:, 1) = eyeBlinksEpochs(:, 1) + overlap;
-eyeBlinksEpochs(:, 2) = eyeBlinksEpochs(:, 2) - overlap;
+% function multiBlink = detect_multiblinks(eyeBlinksEpochs, overlap)
+% eyeBlinksEpochs(:, 1) = eyeBlinksEpochs(:, 1) + overlap;
+% eyeBlinksEpochs(:, 2) = eyeBlinksEpochs(:, 2) - overlap;
+%
+% NTRL = size(eyeBlinksEpochs, 1);
+% multiBlink = false(NTRL, 1);
+%
+% starts = eyeBlinksEpochs(:, 1);
+% ends   = eyeBlinksEpochs(:, 2);
+%
+% for i = 1:NTRL
+%     overlaps = (starts(i) <= ends) & (ends(i) >= starts);
+%     overlaps(i) = false;
+%
+%     if any(overlaps)
+%         multiBlink(i) = true;
+%     end
+% end
+% end
+
+function multiBlink = detect_multiblinks(eyeBlinksEpochs, min_overlap)
+% DETECT_MULTIBLINKS
+% Returns a logical mask [N x 1] where:
+%   true  = epoch contains multiple blinks (overlaps with another blink window)
+%   false = clean, isolated single blink
+
+if nargin < 2 || isempty(min_overlap) || min_overlap <= 0
+    min_overlap = 1; % 1 sample = any shared sample counts as an overlap
+end
 
 NTRL = size(eyeBlinksEpochs, 1);
 multiBlink = false(NTRL, 1);
+
+if NTRL <= 1
+    return;
+end
 
 starts = eyeBlinksEpochs(:, 1);
 ends   = eyeBlinksEpochs(:, 2);
 
 for i = 1:NTRL
-    overlaps = (starts(i) <= ends) & (ends(i) >= starts);
-    overlaps(i) = false;
+    % Calculate pairwise shared samples between epoch i and all other epochs
+    inter_len = min(ends(i), ends) - max(starts(i), starts) + 1;
 
-    if any(overlaps)
+    % Mask out self-comparison so an epoch is never compared against itself
+    inter_len(i) = -Inf;
+
+    % TRUE if this epoch overlaps with at least one other blink window
+    if any(inter_len >= min_overlap)
         multiBlink(i) = true;
     end
 end
-end
 
+end
 function str = get_status_str(flag)
 % Helper function to generate clean PASS/FAIL status tags
 if isnan(flag)

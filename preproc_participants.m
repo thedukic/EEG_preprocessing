@@ -77,71 +77,123 @@ fprintf('Checking group (subgroup): %s (%s)\n', myPaths.group, myPaths.subgroup)
 
 % Select group
 if strcmpi(myPaths.subgroup, 'ALS')
-    Table1 = Table1(Table1.DIAGNOSIS == 'ALS' & Table1.SUBTYPE == 'ALS', :);
+    Table1_subsample = Table1(Table1.DIAGNOSIS == 'ALS' & Table1.SUBTYPE == 'ALS', :);
+    % Table1_subsample = Table1(Table1.DIAGNOSIS == 'ALS', :);
 
 elseif strcmpi(myPaths.subgroup, 'CONTROL')
-    Table1 = Table1(Table1.GROUP == 'CONTROL', :);
+    Table1_subsample = Table1(Table1.GROUP == 'CONTROL', :);
 
 elseif strcmpi(myPaths.subgroup, 'AFM_C9ORF72')
-    Table1 = Table1(Table1.GROUP == 'AFM' & Table1.GENEPED  == 'C9orf72' & Table1.C9ORF72 ~= 'NA', :);
+    Table1_subsample = Table1(Table1.GROUP == 'AFM' & Table1.GENEPED  == 'C9orf72' & Table1.C9ORF72 ~= 'NA', :);
 
 elseif strcmpi(myPaths.subgroup, 'AFM_ARPP21')
     % load("C:\DATA\MATLAB\myCodes\RS\files\subjects_ARPP21.mat", "subjects");
     % subjects = [{'ALS39019'}, subjects]; % ALS39019 was an fco
-    Table1 = Table1(Table1.GROUP == 'AFM' & Table1.GENEPED  == 'ARPP21', :);
+    Table1_subsample = Table1(Table1.GROUP == 'AFM' & Table1.GENEPED  == 'ARPP21', :);
 
 elseif strcmpi(myPaths.subgroup, 'MND_C9ORF72')
-    Table1 = Table1(Table1.GROUP == 'PATIENT' & (Table1.GENEPED  == 'C9orf72' | Table1.C9ORF72 == 'TRUE'), :);
+    Table1_subsample = Table1(Table1.GROUP == 'PATIENT' & (Table1.GENEPED  == 'C9orf72' | Table1.C9ORF72 == 'TRUE'), :);
 
 elseif strcmpi(myPaths.subgroup, 'MND_SOD1')
     load("C:\DATA\MATLAB\myCodes\preprocessing\files\lists\list_sod1_als.mat", "list_sod1_als");
-    Table1 = Table1(ismember(Table1.ID, list_sod1_als), :);
+    Table1_subsample = Table1(ismember(Table1.ID, list_sod1_als), :);
 
 else
     error('No participants selected.');
 end
 
 % Select visit
-Table1 = Table1(Table1.VISIT == myPaths.visit, :);
+Table1_subsample = Table1_subsample(Table1_subsample.VISIT == myPaths.visit, :);
 
-% =========================================================================
-list_table1 = cellstr(Table1.ID);
-list_notfound = find(~ismember(list_table1, subjects));
-
-if ~isempty(list_notfound)
-    for i = 1:length(list_notfound)
-        % Extract the date for the current iteration
-        visitDate = Table1.("DATE: VISIT")(list_notfound(i));
-
-        % Only display if the date is today or in the past
-        if visitDate <= datetime('today')
-            fprintf('Not found: %s (%s)\n', list_table1{list_notfound(i)}, visitDate);
-        end
-    end
-end
-
-% Extra found in the folder
-% Prevent spamming the user
-list_extrafound1 = ~ismember(subjects, list_table1);
-n_extra = sum(list_extrafound1);
-
-if n_extra > 0
-    list_extrafound2 = subjects(list_extrafound1);
-    fprintf('Found %d extra participant(s) in the given folder.\n', n_extra);
-
-    % Print first few as examples if the list is long
-    max_to_show = 5;
-    if n_extra <= max_to_show
-        fprintf('  IDs: %s\n', strjoin(list_extrafound2, ', '));
-    else
-        fprintf('  First %d IDs: %s (and %d more)\n', ...
-            max_to_show, strjoin(list_extrafound2(1:max_to_show), ', '), n_extra - max_to_show);
-    end
-end
+% Report
+[mask_missing, mask_extra] = report_table(Table1, Table1_subsample, subjects);
 
 % Remove the ones that are missing
 % Recorded data but not in the folder
-Table1(list_notfound, :) = [];
-subjects(list_extrafound1) = [];
+Table1_subsample(mask_missing, :) = [];
+subjects(mask_extra) = [];
+
+end
+
+function [mask_missing, mask_extra] = report_table(Table1, Table1_subsample, subjects)
+
+% Standardise IDs to string arrays
+all_ids_full      = string(Table1.ID);
+all_ids_subsample = string(Table1_subsample.ID);
+subjects_str      = string(subjects);
+
+% =========================================================================
+% 1. Missing subjects: In Subsample, passed visit date, but NOT in folder
+% =========================================================================
+is_past_or_today = Table1_subsample.("DATE: VISIT") <= datetime('today');
+mask_missing     = ~ismember(all_ids_subsample, subjects_str) & is_past_or_today;
+tbl_missing      = Table1_subsample(mask_missing, :);
+
+Table_Missing = table();
+if ~isempty(tbl_missing)
+    Table_Missing.STATUS          = repmat("MISSING", height(tbl_missing), 1);
+    Table_Missing.ID              = string(tbl_missing.ID);
+    Table_Missing.VISIT_DATE      = string(tbl_missing.("DATE: VISIT"));
+    Table_Missing.DIAGNOSIS_DATE  = string(tbl_missing.("DATE: DIAGNOSIS"));
+    Table_Missing.GROUP           = string(tbl_missing.GROUP);
+    Table_Missing.DIAGNOSIS       = string(tbl_missing.DIAGNOSIS);
+    Table_Missing.SUBTYPE         = string(tbl_missing.SUBTYPE);
+    Table_Missing.CONVERTER       = string(tbl_missing.CONVERTER);
+else
+    Table_Missing = table('Size', [0, 8], ...
+        'VariableTypes', repmat({'string'}, 1, 8), ...
+        'VariableNames', {'STATUS', 'ID', 'VISIT_DATE', 'DIAGNOSIS_DATE', 'GROUP', 'DIAGNOSIS', 'SUBTYPE', 'CONVERTER'});
+end
+
+% =========================================================================
+% 2. Extra subjects: In folder, but NOT in Subsample
+% =========================================================================
+mask_extra = ~ismember(subjects_str, all_ids_subsample);
+extra_ids  = subjects_str(mask_extra);
+n_extra    = numel(extra_ids);
+
+Table_Extra = table();
+if n_extra > 0
+    % Match extra folder IDs against the full master Table1
+    [is_in_full, loc_in_full] = ismember(extra_ids, all_ids_full);
+
+    % Initialise string arrays
+    v_visit_dates = repmat("NOT_IN_MASTER_TABLE1", n_extra, 1);
+    v_diag_dates  = repmat("NOT_IN_MASTER_TABLE1", n_extra, 1);
+    v_group       = repmat("NOT_IN_MASTER_TABLE1", n_extra, 1);
+    v_diag        = repmat("NOT_IN_MASTER_TABLE1", n_extra, 1);
+    v_subt        = repmat("NOT_IN_MASTER_TABLE1", n_extra, 1);
+    v_conv        = repmat("NOT_IN_MASTER_TABLE1", n_extra, 1);
+
+    % Fill in metadata for IDs found in master Table1
+    matched_idx = loc_in_full(is_in_full);
+    v_visit_dates(is_in_full) = string(Table1.("DATE: VISIT")(matched_idx));
+    v_diag_dates(is_in_full)  = string(Table1.("DATE: DIAGNOSIS")(matched_idx));
+    v_group(is_in_full)       = string(Table1.GROUP(matched_idx));
+    v_diag(is_in_full)        = string(Table1.DIAGNOSIS(matched_idx));
+    v_subt(is_in_full)        = string(Table1.SUBTYPE(matched_idx));
+    v_conv(is_in_full)        = string(Table1.CONVERTER(matched_idx));
+
+    Table_Extra.STATUS          = repmat("EXTRA", n_extra, 1);
+    Table_Extra.ID              = extra_ids(:);
+    Table_Extra.VISIT_DATE      = v_visit_dates;
+    Table_Extra.DIAGNOSIS_DATE  = v_diag_dates;
+    Table_Extra.GROUP           = v_group;
+    Table_Extra.DIAGNOSIS       = v_diag;
+    Table_Extra.SUBTYPE         = v_subt;
+    Table_Extra.CONVERTER       = v_conv;
+else
+    Table_Extra = table('Size', [0, 8], ...
+        'VariableTypes', repmat({'string'}, 1, 8), ...
+        'VariableNames', {'STATUS', 'ID', 'VISIT_DATE', 'DIAGNOSIS_DATE', 'GROUP', 'DIAGNOSIS', 'SUBTYPE', 'CONVERTER'});
+end
+
+% =========================================================================
+% 3. Combine and Display
+% =========================================================================
+SummaryTable = [Table_Missing; Table_Extra];
+
+disp('--- Missing and Extra Subjects Summary ---');
+disp(SummaryTable);
 
 end
