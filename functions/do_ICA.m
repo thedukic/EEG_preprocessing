@@ -63,53 +63,65 @@ end
 % 5. Execute Decomposition on 1.0 Hz Data
 % -------------------------------------------------------------------------
 if strcmpi(cfg.ica.type, 'AMICA')
-    if isfield(EEG, 'ALSUTRECHT') && isfield(EEG.ALSUTRECHT, 'subject') && isfield(EEG.ALSUTRECHT.subject, 'icadata')
-        outdir = EEG.ALSUTRECHT.subject.icadata;
-    else
-        outdir = fullfile(pwd, 'amica_output');
-    end
-    if ~exist(outdir, 'dir'), mkdir(outdir); end
-
-    fprintf('Running AMICA (outdir: %s)...\n', outdir);
-
-    runamica15(eeg_data_2d, 'num_chans', n_chan, 'outdir', outdir, ...
-        'pcakeep', num_ica, 'num_models', 1, 'numprocs', 1, 'max_threads', 10, ...
-        'do_reject', 1, 'numrej', 15, 'rejsig', 3, 'rejint', 1, 'max_iter', 1000);
-
-    modout        = loadmodout15(outdir);
-    icaweights    = modout.W;
-    icasphere     = modout.S(1:modout.num_pcs, :);
-    icawinv       = modout.A;
-    EEG.etc.amica = modout;
+    % if isfield(EEG, 'ALSUTRECHT') && isfield(EEG.ALSUTRECHT, 'subject') && isfield(EEG.ALSUTRECHT.subject, 'icadata')
+    %     outdir = EEG.ALSUTRECHT.subject.icadata;
+    % else
+    %     outdir = fullfile(pwd, 'amica_output');
+    % end
+    % if ~exist(outdir, 'dir'), mkdir(outdir); end
+    %
+    % fprintf('Running AMICA (outdir: %s)...\n', outdir);
+    %
+    % runamica15(eeg_data_2d, 'num_chans', n_chan, 'outdir', outdir, ...
+    %     'pcakeep', num_ica, 'num_models', 1, 'numprocs', 1, 'max_threads', 10, ...
+    %     'do_reject', 1, 'numrej', 15, 'rejsig', 3, 'rejint', 1, 'max_iter', 1000);
+    %
+    % modout        = loadmodout15(outdir);
+    % icaweights    = modout.W;
+    % icasphere     = modout.S(1:modout.num_pcs, :);
+    % icawinv       = modout.A;
+    % EEG.etc.amica = modout;
 else
     % Standard pop_runica on the 1.0 Hz training set
-    EEG_train = pop_runica(EEG_train, 'icatype', lower(cfg.ica.type), 'extended', 1, ...
-        'pca', num_ica, 'chanind', eeg_chan_idx, 'lrate', 1e-4, 'maxsteps', 2500);
+    % cfg.ica.extended = 1;
+    % cfg.ica.lrate     = 5e-5;
+    % cfg.ica.annealdeg = 60;
+    % cfg.ica.maxsteps = 2000;
+
+    EEG_train = pop_runica(EEG_train, 'icatype', lower(cfg.ica.type), 'pca', num_ica, 'chanind', eeg_chan_idx, ...
+        'extended', cfg.ica.extended,'lrate', cfg.ica.lrate, 'annealdeg', cfg.ica.annealdeg, 'maxsteps', cfg.ica.maxsteps);
 
     icaweights = EEG_train.icaweights;
     icasphere  = EEG_train.icasphere;
     icawinv    = EEG_train.icawinv;
 end
 
+% -------------------------------------------------------------------------
+% 6. Post-ICA Variance Tracking (Computed on the 1.0 Hz Training Data)
+% -------------------------------------------------------------------------
+% Calculate variance accounted for on the data used to train the spatial weights
+[vaf_compvar, var_global, var_peak_chan, peak_chan_idx] = calc_ic_variance_from_data(eeg_data_2d, icaweights, icasphere, icawinv);
+
+% Verify no negative variances exist
+assert(all(var_global >= 0), 'Negative global variance detected!');
+assert(all(vaf_compvar >= 0), 'Negative VAF detected!');
+
+% Check that global variance sums to 100%
+fprintf('Sum of global IC variance: %.2f%%\n', sum(var_global));
+
 % Clear the temporary 1.0 Hz dataset from memory
-clearvars EEG_train;
+clearvars EEG_train eeg_data_2d;
 
 % -------------------------------------------------------------------------
-% 6. Transfer Decomposition Matrices Back to Base EEG (0.1 Hz)
+% 7. Transfer Decomposition Matrices Back to Base EEG (0.1 Hz)
 % -------------------------------------------------------------------------
 EEG.icaweights  = icaweights;
 EEG.icasphere   = icasphere;
 EEG.icawinv     = icawinv;
 EEG.icachansind = eeg_chan_idx;
 
-% Validate structure and clear cached activations to conserve memory
 EEG = eeg_checkset(EEG, 'ica');
 EEG.icaact = [];
-
-% -------------------------------------------------------------------------
-% 7. Post-ICA Variance Tracking (Computed on the Preserved Base Data)
-% -------------------------------------------------------------------------
-[vaf_compvar, var_global, var_peak_chan, peak_chan_idx] = calc_ic_variance(EEG);
 
 % Cache decomposition details
 EEG.ALSUTRECHT.ica.icasphere       = EEG.icasphere;
@@ -270,6 +282,73 @@ end
 % =========================================================================
 % Helper: Dynamic Selection of Components
 % =========================================================================
+% function [num_ica, num_ica_max, k_achieved] = select_num_ics(EEG, num_ica_candidates)
+% % SELECT_NUM_ICS
+% % Dynamically selects the number of PCs for ICA based on the SCCN/Makoto heuristic:
+% %   Data Points Needed = 20 * (N^2)  -->  N <= sqrt(Data Points / 20)
+% %
+% % Handles scalar inputs (e.g., 80) or candidate vectors (e.g., [128 100 80 70 50]).
+% % Caps selection by the recommended maximum, data rank, and available scalp channels.
+% %
+% % Paradigm support at 256 Hz (k = 20):
+% %   MMN   3*7     ~ 21 min      -> Supports up to 127 ICs (Select: 100-128)
+% %   SART  3*5     ~ 15 min      -> Supports up to 107 ICs (Select: 100)
+% %   RS    2x3x2   ~ 12 min      -> Supports up to 96 ICs  (Select: 80-100)
+% %   MT    7+3(+7) ~ 10 (17) min -> Supports up to 88 (114) ICs (Select: 80-100)
+% %   DUB   EO      ~ 6 min       -> Supports up to 68 ICs  (Select: 64-70)
+% %
+% % Minimum EEG needed (at 256 Hz, k = 20):
+% %   128 elecs: 128^2 * 20 / 256 / 60 ~ 21.3 min (327,680 pts)
+% %   100 PCs:   100^2 * 20 / 256 / 60 ~ 13.0 min (200,000 pts)
+% %   80 PCs:     80^2 * 20 / 256 / 60 ~  8.3 min (128,000 pts)
+% %   70 PCs:     70^2 * 20 / 256 / 60 ~  6.4 min  (98,000 pts)
+% %   50 PCs:     50^2 * 20 / 256 / 60 ~  3.3 min  (50,000 pts)
+% %   32 PCs:     32^2 * 20 / 256 / 60 ~  1.3 min  (20,480 pts)
+% %
+% % Reference: Makeig & Onton (2011), Oxford Handbook of ERP Components.
+% % See also:  https://eeglab.ucsd.edu/wiki/Makoto's_preprocessing_pipeline
+%
+% % num_ica_candidates = [128, 100, 80, 70, 64, 50, 32];
+%
+% fprintf('Selecting #PCs for ICA (SCCN Heuristic k = 20)...\n');
+% fprintf('Requested max candidate: %d\n', max(num_ica_candidates));
+%
+% if isfield(EEG, 'pnts') && isfield(EEG, 'trials') && ~isempty(EEG.pnts) && ~isempty(EEG.trials)
+%     data_length = EEG.pnts * EEG.trials;
+% else
+%     data_length = size(EEG.data, 2) * size(EEG.data, 3);
+% end
+%
+% if isfield(EEG, 'ALSUTRECHT') && isfield(EEG.ALSUTRECHT, 'ica') && isfield(EEG.ALSUTRECHT.ica, 'icachansind')
+%     max_avail_chans = length(EEG.ALSUTRECHT.ica.icachansind);
+% elseif isfield(EEG, 'icachansind') && ~isempty(EEG.icachansind)
+%     max_avail_chans = length(EEG.icachansind);
+% else
+%     max_avail_chans = EEG.nbchan;
+% end
+%
+% if isfield(EEG, 'ref') && (strcmpi(EEG.ref, 'averef') || strcmpi(EEG.ref, 'average'))
+%     max_avail_chans = max_avail_chans - 1;
+% end
+%
+% num_ica_max = round(sqrt(data_length / 20));
+%
+% [~, b] = min(abs(num_ica_candidates - num_ica_max));
+% selected_n = num_ica_candidates(b);
+%
+% num_ica = min(selected_n, max_avail_chans);
+%
+% k_achieved = data_length / (num_ica^2);
+% dur_min    = (data_length / EEG.srate) / 60;
+%
+% fprintf('Recording Duration:              %.1f min (%d pts @ %d Hz)\n', dur_min, data_length, EEG.srate);
+% fprintf('Recommended max{#PCs} (k=20):    %d\n', num_ica_max);
+% fprintf('Selected #PCs for decomposition: %d (Actual k = %.1f)\n', num_ica, k_achieved);
+% end
+
+% =========================================================================
+% Helper: Dynamic Selection of Components
+% =========================================================================
 function [num_ica, num_ica_max, k_achieved] = select_num_ics(EEG, num_ica_candidates)
 % SELECT_NUM_ICS
 % Dynamically selects the number of PCs for ICA based on the SCCN/Makoto heuristic:
@@ -279,11 +358,11 @@ function [num_ica, num_ica_max, k_achieved] = select_num_ics(EEG, num_ica_candid
 % Caps selection by the recommended maximum, data rank, and available scalp channels.
 %
 % Paradigm support at 256 Hz (k = 20):
-%   MMN   3*7     ~ 21 min      -> Supports up to 127 ICs (Select: 100-128)
-%   SART  3*5     ~ 15 min      -> Supports up to 107 ICs (Select: 100)
-%   RS    2x3x2   ~ 12 min      -> Supports up to 96 ICs  (Select: 80-100)
+%   MMN   3*7      ~ 21 min      -> Supports up to 127 ICs (Select: 100-128)
+%   SART  3*5      ~ 15 min      -> Supports up to 107 ICs (Select: 100)
+%   RS    2x3x2    ~ 12 min      -> Supports up to 96 ICs  (Select: 80-100)
 %   MT    7+3(+7) ~ 10 (17) min -> Supports up to 88 (114) ICs (Select: 80-100)
-%   DUB   EO      ~ 6 min       -> Supports up to 68 ICs  (Select: 64-70)
+%   DUB   EO       ~ 6 min       -> Supports up to 68 ICs  (Select: 64-70)
 %
 % Minimum EEG needed (at 256 Hz, k = 20):
 %   128 elecs: 128^2 * 20 / 256 / 60 ~ 21.3 min (327,680 pts)
@@ -296,12 +375,11 @@ function [num_ica, num_ica_max, k_achieved] = select_num_ics(EEG, num_ica_candid
 % Reference: Makeig & Onton (2011), Oxford Handbook of ERP Components.
 % See also:  https://eeglab.ucsd.edu/wiki/Makoto's_preprocessing_pipeline
 
-if nargin < 2 || isempty(num_ica_candidates)
-    num_ica_candidates = [128, 100, 80, 70, 64, 50, 32];
-end
+% num_ica_candidates = [128, 100, 80, 70, 64, 50, 32];
 
-fprintf('Selecting #PCs for ICA (SCCN Heuristic k = 20)...\n');
-fprintf('Requested max candidate: %d\n', max(num_ica_candidates));
+k = 20;
+fprintf('Selecting #PCs for ICA (SCCN Heuristic k = %d)...\n', k);
+% fprintf('Requested max candidate: %d\n', max(num_ica_candidates));
 
 if isfield(EEG, 'pnts') && isfield(EEG, 'trials') && ~isempty(EEG.pnts) && ~isempty(EEG.trials)
     data_length = EEG.pnts * EEG.trials;
@@ -321,63 +399,99 @@ if isfield(EEG, 'ref') && (strcmpi(EEG.ref, 'averef') || strcmpi(EEG.ref, 'avera
     max_avail_chans = max_avail_chans - 1;
 end
 
-num_ica_max = round(sqrt(data_length / 20));
+% EEGLAB recommandation: 20 samples per component
+num_ica_max = round(sqrt(data_length / k));
 
+% Filter out candidates that exceed the available physical channels
+num_ica_candidates = num_ica_candidates(num_ica_candidates <= max_avail_chans);
+
+% Add full available rank as a candidate and sort descending
+num_ica_candidates = sort(unique([max_avail_chans, num_ica_candidates]), 'descend');
+fprintf('Requested max candidate: %d\n', max(num_ica_candidates));
+
+% Select candidate closest to the SCCN heuristic target
 [~, b] = min(abs(num_ica_candidates - num_ica_max));
 selected_n = num_ica_candidates(b);
-
 num_ica = min(selected_n, max_avail_chans);
 
 k_achieved = data_length / (num_ica^2);
 dur_min    = (data_length / EEG.srate) / 60;
 
 fprintf('Recording Duration:              %.1f min (%d pts @ %d Hz)\n', dur_min, data_length, EEG.srate);
-fprintf('Recommended max{#PCs} (k=20):    %d\n', num_ica_max);
+fprintf('Recommended max{#PCs} (k=%d):    %d\n', k, num_ica_max);
 fprintf('Selected #PCs for decomposition: %d (Actual k = %.1f)\n', num_ica, k_achieved);
-
 end
 
 % =========================================================================
 % Helper: Variance Tracking
 % =========================================================================
-function [vaf_compvar, var_global, var_peak_chan, peak_chan_idx] = calc_ic_variance(EEG)
+% function [vaf_compvar, var_global, var_peak_chan, peak_chan_idx] = calc_ic_variance(EEG)
+%
+% W_inv  = double(EEG.icawinv);
+% ch_idx = EEG.icachansind;
+% if isempty(ch_idx); ch_idx = 1:size(W_inv, 1); end
+%
+% data_2d = double(reshape(EEG.data(ch_idx, :, :), length(ch_idx), []));
+% icaact  = (EEG.icaweights * EEG.icasphere) * data_2d;
+%
+% num_ics = size(W_inv, 2);
+% var_act = var(icaact, 0, 2)';
+%
+% total_raw_var = sum(var(data_2d, 0, 2));
+% vaf_compvar   = zeros(num_ics, 1);
+%
+% for i = 1:num_ics
+%     diff_data = data_2d - (W_inv(:, i) * icaact(i, :));
+%     vaf_compvar(i) = 100 * (1 - (sum(var(diff_data, 0, 2)) / (total_raw_var + eps)));
+% end
+%
+% winv_sq           = W_inv.^2;
+% proj_var_per_chan = winv_sq .* repmat(var_act, size(W_inv, 1), 1);
+% total_ic_power    = sum(proj_var_per_chan, 1);
+% var_global        = 100 * (total_ic_power ./ (sum(total_ic_power) + eps));
+% var_global        = var_global(:);
+%
+% var_raw_chans = var(data_2d, 0, 2);
+% [~, peak_chan_idx] = max(abs(W_inv), [], 1);
+% var_peak_chan = zeros(num_ics, 1);
+%
+% for i = 1:num_ics
+%     c = peak_chan_idx(i);
+%     var_peak_chan(i) = 100 * (proj_var_per_chan(c, i) / (var_raw_chans(c) + eps));
+% end
+% end
 
-W_inv  = double(EEG.icawinv);
-ch_idx = EEG.icachansind;
-if isempty(ch_idx); ch_idx = 1:size(W_inv, 1); end
+function [vaf_compvar, var_global, var_peak_chan, peak_chan_idx] = ...
+    calc_ic_variance_from_data(data_2d, icaweights, icasphere, W_inv)
 
-data_2d = double(reshape(EEG.data(ch_idx, :, :), length(ch_idx), []));
+% Activations on the 1.0 Hz training data
+icaact = (icaweights * icasphere) * data_2d;
 
-if isempty(EEG.icaact)
-    icaact = (EEG.icaweights * EEG.icasphere) * data_2d;
-else
-    icaact = double(reshape(EEG.icaact, size(W_inv, 2), []));
-end
-
-num_ics = size(W_inv, 2);
-var_act = var(icaact, 0, 2)';
-
+num_ics       = size(W_inv, 2);
 total_raw_var = sum(var(data_2d, 0, 2));
 vaf_compvar   = zeros(num_ics, 1);
 
+% True Subtraction VAF on the data space where components are stationary
 for i = 1:num_ics
-    diff_data = data_2d - (W_inv(:, i) * icaact(i, :));
+    diff_data      = data_2d - (W_inv(:, i) * icaact(i, :));
     vaf_compvar(i) = 100 * (1 - (sum(var(diff_data, 0, 2)) / (total_raw_var + eps)));
 end
 
+% Projected power per component
+var_act           = var(icaact, 0, 2)';
 winv_sq           = W_inv.^2;
 proj_var_per_chan = winv_sq .* repmat(var_act, size(W_inv, 1), 1);
 total_ic_power    = sum(proj_var_per_chan, 1);
 var_global        = 100 * (total_ic_power ./ (sum(total_ic_power) + eps));
 var_global        = var_global(:);
 
-var_raw_chans = var(data_2d, 0, 2);
+% Peak channel percentage
+var_raw_chans      = var(data_2d, 0, 2);
 [~, peak_chan_idx] = max(abs(W_inv), [], 1);
-var_peak_chan = zeros(num_ics, 1);
+var_peak_chan      = zeros(num_ics, 1);
 
 for i = 1:num_ics
     c = peak_chan_idx(i);
     var_peak_chan(i) = 100 * (proj_var_per_chan(c, i) / (var_raw_chans(c) + eps));
 end
-
 end

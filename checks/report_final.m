@@ -12,27 +12,27 @@ reports_dir = fullfile(myPaths.preproc, 'reports');
 if exist(reports_dir, 'dir') ~= 7, mkdir(reports_dir); end
 
 % Preallocate metric arrays
-NSUB = length(subjects);
-valid_subjects   = false(NSUB, 1);
-N_trials_start   = NaN(NSUB, 1);
-N_trials_removed = NaN(NSUB, 1);
-N_interp_chan    = NaN(NSUB, 1);
-N_interp_trl     = NaN(NSUB, 1);
-P_emg_left       = NaN(NSUB, 1);
-V_eog_left       = NaN(NSUB, 1);
-V_shift          = NaN(128, NSUB);
-gamma_cv         = NaN(NSUB, 1);
-auto_status      = NaN(NSUB, 1);
-ica_removed      = NaN(NSUB, 1);
-cluster_sizes    = NaN(NSUB, 1);
-chan_offsets     = NaN(NSUB, 1);
-cov_matrices     = NaN(128, 128, NSUB);
-power_diff       = NaN;
+num_subject = length(subjects);
+valid_subjects   = false(num_subject, 1);
+N_trials_start   = NaN(num_subject, 1);
+N_trials_removed = NaN(num_subject, 1);
+N_interp_chan    = NaN(num_subject, 1);
+N_interp_trl     = NaN(num_subject, 1);
+P_emg_left       = NaN(num_subject, 1);
+V_eog_left       = NaN(num_subject, 1);
+V_shift          = NaN(128, num_subject);
+gamma_cv         = NaN(num_subject, 1);
+auto_status      = NaN(num_subject, 1);
+ica_removed      = NaN(num_subject, 1);
+cluster_sizes    = NaN(num_subject, 1);
+chan_offsets     = NaN(num_subject, 1);
+cov_matrices     = NaN(128, 128, num_subject);
+power_diff       = NaN(128, 5, num_subject);
 
-fprintf('Loading QA metrics for %d datasets... ', NSUB);
-for i_subj = 1:NSUB
+fprintf('Loading QA metrics for %d datasets... ', num_subject);
+for i_subject = 1:num_subject
     i_file = 1;
-    subject  = preproc_folders_subject(subjects{i_subj}, myPaths);
+    subject  = preproc_folders_subject(subjects{i_subject}, myPaths);
     qa_name  = fullfile(subject.qa, subject.qametrics{i_file});
 
     if exist(qa_name, 'file')
@@ -40,53 +40,51 @@ for i_subj = 1:NSUB
         qa_data = report_issues(qa_data);
 
         % Retained and Removed Trial Counts
-        N_trials_start(i_subj)   = qa_data.issues_to_check.NumberTrials1;
-        N_trials_removed(i_subj) = qa_data.issues_to_check.NumberTrials1 - qa_data.issues_to_check.NumberTrials3;
+        N_trials_start(i_subject)   = qa_data.issues_to_check.NumberTrials1;
+        N_trials_removed(i_subject) = qa_data.issues_to_check.NumberTrials1 - qa_data.issues_to_check.NumberTrials3;
 
         % Bad channels and cluster sizes
         bad_chans = qa_data.badchaninfo.badElectrodes;
-        N_interp_chan(i_subj) = length(bad_chans) / 128;
+        N_interp_chan(i_subject) = length(bad_chans) / 128;
         if ~isempty(bad_chans)
             [~, cluster_sizes_tmp] = find_elec_clusters(bad_chans);
-            cluster_sizes(i_subj) = max(cluster_sizes_tmp);
+            cluster_sizes(i_subject) = max(cluster_sizes_tmp);
         else
-            cluster_sizes(i_subj) = 0;
+            cluster_sizes(i_subject) = 0;
         end
 
         % Interpolated trials
         if ~isempty(qa_data.epochRejections.interpEpochs)
             total_trials  = qa_data.issues_to_check.NumberTrials1;
             interp_epochs = qa_data.epochRejections.interpEpochs;
-            N_interp_trl(i_subj) = interp_epochs / total_trials;
+            N_interp_trl(i_subject) = interp_epochs / total_trials;
         else
-            N_interp_trl(i_subj) = 0;
+            N_interp_trl(i_subject) = 0;
         end
 
         % Median voltage shift
-        V_shift(:, i_subj) = qa_data.epochRejections.MedianvoltageshiftwithinepochFinal(1:128);
+        V_shift(:, i_subject) = qa_data.epochRejections.MedianvoltageshiftwithinepochFinal(1:128);
 
         % Gamma spread
-        if isfield(qa_data, 'psd_gamma_cv')
-            gamma_cv(i_subj) = qa_data.psd_gamma_cv;
-        end
+        % gamma_cv(i_subj) = qa_data.psd_gamma_cv;
 
         % Automagic status
         status_str = lower(strtrim(qa_data.automagicmetrics.status));
         switch status_str
-            case 'good', auto_status(i_subj) = 0;
-            case 'ok',   auto_status(i_subj) = 0.5;
-            case 'bad',  auto_status(i_subj) = 1;
-            otherwise,   auto_status(i_subj) = NaN;
+            case 'good', auto_status(i_subject) = 0;
+            case 'ok',   auto_status(i_subject) = 0.5;
+            case 'bad',  auto_status(i_subject) = 1;
+            otherwise,   auto_status(i_subject) = NaN;
         end
 
         % Residual artifacts
-        P_emg_left(i_subj)         = qa_data.leftovers.muscle2;
-        V_eog_left(i_subj)         = qa_data.leftovers.blink_stats.peak_post_fp;
-        ica_removed(i_subj)        = sum(qa_data.ica.final.removed);
-        chan_offsets(i_subj)       = mean(abs(qa_data.badchaninfo.offsets.offsets_mV(1:128, :)), 'all');
-        cov_matrices(:, :, i_subj) = qa_data.channelcov.cov_hf(1:128, 1:128);
-        power_diff(:, :, i_subj)   = qa_data.power_diff;
-        valid_subjects(i_subj)     = true;
+        P_emg_left(i_subject)         = qa_data.leftovers.muscle2;
+        V_eog_left(i_subject)         = qa_data.leftovers.blink_stats.peak_post_fp;
+        ica_removed(i_subject)        = sum(qa_data.ica.final.removed);
+        chan_offsets(i_subject)       = mean(abs(qa_data.badchaninfo.offsets.offsets_mV(1:128, :)), 'all');
+        cov_matrices(:, :, i_subject) = qa_data.channelcov.cov_hf(1:128, 1:128);
+        power_diff(:, :, i_subject)   = qa_data.power_diff;
+        valid_subjects(i_subject)     = true;
     end
 end
 fprintf('Done!\n');

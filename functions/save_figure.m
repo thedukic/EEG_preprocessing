@@ -1,29 +1,39 @@
-function save_figure(fh, save_dir, file_name, plot_dims)
-% SAVE_FIGURE Exports a figure using the modern graphics pipeline and closes it.
+function save_figure(fh, plot_dir, plot_name, plot_dims, plot_res)
+% SAVE_FIGURE Exports figure at specified DPI and closes it.
 %
 % Inputs:
 %   fh        : Figure handle
-%   save_dir  : Directory path to save the file
-%   file_name : Name of the file (without extension)
+%   save_dir  : Output directory path
+%   file_name : Output filename (without extension)
 %   plot_dims : [width, height] in centimetres (optional)
+%   res_dpi   : Output resolution in DPI (optional, default: 200)
 
-% Ensure background is white
-fh.Color = 'w';
-
-% Apply target physical dimensions before exporting
-if nargin >= 4 && ~isempty(plot_dims)
-    fh.Units = 'centimeters';
-    fh.Position(3:4) = plot_dims;
+if nargin < 5 || isempty(plot_res)
+    plot_res = 200;
 end
 
-% Force MATLAB to render the tiled layout geometries (now using CPU only)
+if ~exist(plot_dir, 'dir')
+    mkdir(plot_dir);
+end
+
+% Set canvas properties
+fh.Color = 'w';
+
+% Adjust physical dimensions if explicitly passed
+if nargin >= 4 && ~isempty(plot_dims)
+    fh.Units = 'centimeters';
+    fh.Position(3) = plot_dims(1); % Width  (43.5 cm)
+    fh.Position(4) = plot_dims(2); % Height (15.0 cm)
+end
+
+% Ensure layout engines finish rendering
 drawnow;
 
-% Construct path and export safely
-full_path = fullfile(save_dir, [file_name '.tif']);
-exportgraphics(fh, full_path, 'Resolution', 200);
+% Export to TIFF
+full_path = fullfile(plot_dir, [plot_name '.tif']);
+exportgraphics(fh, full_path, 'Resolution', plot_res);
 
-% Destroy the figure to prevent memory leaks
+% Delete figure handle to release memory
 delete(fh);
 
 end

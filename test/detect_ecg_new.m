@@ -60,16 +60,14 @@ n_samples = length(heartData);
 % % Suppresses slow baseline drift (<6 Hz), cortical alpha, and high-frequency EMG (>18 Hz)
 % [b_bp, a_bp] = butter(3, [6, 18] / (fs / 2), 'bandpass');
 % ecg_filt = filtfilt(b_bp, a_bp, heartData);
-is_approximated = isfield(DATA, 'ALSUTRECHT') && ...
-    isfield(DATA.ALSUTRECHT, 'subject') && ...
-    isfield(DATA.ALSUTRECHT.subject, 'ecg') && ...
-    contains(lower(DATA.ALSUTRECHT.subject.ecg), 'approx');
+is_approximated = contains(lower(DATA.ALSUTRECHT.subject.ecg), 'approx');
 
 if is_approximated
     % Shift above occipital alpha (10 Hz) and below muscle beta
     [b_bp, a_bp] = butter(2, [14, 28] / (fs / 2), 'bandpass');
 else
     % Standard thoracic lead: wider cardiac power band
+    % Removes the T and P waves, ;eaves the QRS
     [b_bp, a_bp] = butter(2, [6, 18] / (fs / 2), 'bandpass');
 end
 
@@ -131,7 +129,7 @@ if length(peak_locs) >= 4
                 g_start = peak_locs(i_gap) + round(0.25 * fs);
                 g_end   = peak_locs(i_gap + 1) - round(0.25 * fs);
 
-                if g_end > g_start
+                if (g_end > g_start) && (g_end - g_start) > min_dist_samples
                     [~, gap_pks] = findpeaks(y_norm(g_start:g_end), ...
                         'MinPeakHeight', 0.45, ...
                         'MinPeakDistance', min_dist_samples);

@@ -164,9 +164,26 @@ EEG.ALSUTRECHT.ica.corr.veog.bics = find(evidence.corr_veog);
 EEG.ALSUTRECHT.ica.corr.heog.corr = corr_heog;
 EEG.ALSUTRECHT.ica.corr.heog.bics = find(evidence.corr_heog);
 
+% Correlation-based artifact summary
+corr_results = { ...
+    'ECG',  EEG.ALSUTRECHT.ica.corr.ecg.bics; ...
+    'VEOG', EEG.ALSUTRECHT.ica.corr.veog.bics; ...
+    'HEOG', EEG.ALSUTRECHT.ica.corr.heog.bics};
+
+fprintf('\nCorrelation Artifact Summary:\n');
+for k = 1:size(corr_results, 1)
+    label = corr_results{k, 1};
+    bics  = corr_results{k, 2};
+    if isempty(bics)
+        fprintf('  %-5s: None detected\n', label);
+    else
+        fprintf('  %-5s: IC %s\n', label, strtrim(sprintf('%d ', bics)));
+    end
+end
+
 % Plotting: External Channel Correlations Heatmap
 if cfg.figure.plot
-    fh = figure('Color', 'w', 'Position', [100, 100, 900, 360], 'Visible', cfg.figure.visible);
+    fh = figure('Color', 'w', 'Visible', cfg.figure.visible);
     t = tiledlayout(1, 1, 'TileSpacing', 'tight', 'Padding', 'compact');
     ax1 = nexttile(t);
 
@@ -235,7 +252,7 @@ EEG.ALSUTRECHT.subject.heartrate   = pulse_estimate;
 
 % Plotting: CTPS Diagnostics
 if cfg.figure.plot && any(~isnan(pK))
-    fh = figure('Color', 'w', 'Position', [100, 100, 900, 520], 'Visible', cfg.figure.visible);
+    fh = figure('Color', 'w', 'Visible', cfg.figure.visible);
     t = tiledlayout(2, 1, 'TileSpacing', 'tight', 'Padding', 'compact');
 
     % Top: pK Significance
@@ -375,15 +392,21 @@ for i_ic = 1:num_ica
     slope_muscle(i_ic, :) = [p_broad(1), p_high(1)];
 end
 
-bad_ic = find(slope_muscle(:, 1) > options.muscleSlopeThreshold1 | slope_muscle(:, 2) > options.muscleSlopeThreshold2);
+mask_bad_1 = slope_muscle(:, 1) > options.muscleSlopeThreshold1;
+mask_bad_2 = slope_muscle(:, 2) > options.muscleSlopeThreshold2;
+bad_ic     = find(mask_bad_1 | mask_bad_2);
 evidence.emg_slope(bad_ic) = true;
 
 EEG.ALSUTRECHT.ica.muscle.slope.slope = slope_muscle;
 EEG.ALSUTRECHT.ica.muscle.slope.bics  = bad_ic(:);
 
+% Report
+print_bad_ics(bad_ic, num_ica);
+
+% Plotting: Dual-Window EMG Slope Verification
 % Plotting: Dual-Window EMG Slope Verification
 if cfg.figure.plot
-    fh = figure('Color', 'w', 'Position', [100, 100, 900, 520], 'Visible', cfg.figure.visible);
+    fh = figure('Color', 'w', 'Visible', cfg.figure.visible);
     t = tiledlayout(2, 1, 'TileSpacing', 'tight', 'Padding', 'compact');
 
     % Broad Window Slope
@@ -400,10 +423,12 @@ if cfg.figure.plot
     hold(ax1, 'off');
     grid(ax1, 'on');
     set(ax1, 'Box', 'off', 'FontName', 'Helvetica', 'FontSize', 10, 'GridAlpha', 0.4);
-    ylabel(ax1, 'Slope (Broad)', 'FontSize', 11, 'FontWeight', 'bold');
-    title(ax1, sprintf('EMG Dual-Band Spectral Slopes (Broad: %d-%d Hz, High: %d-%d Hz)', ...
-        options.muscleFreq1(1), options.muscleFreq1(2), options.muscleFreq2(1), options.muscleFreq2(2)), ...
-        'FontSize', 12, 'FontWeight', 'bold');
+
+    % Exact frequency range extracted into y-axis label
+    ylabel(ax1, sprintf('Slope: Broad (%g-%g Hz)', options.muscleFreq1(1), options.muscleFreq1(2)), ...
+        'FontSize', 11, 'FontWeight', 'bold');
+
+    title(ax1, 'EMG Dual-Band Spectral Slopes', 'FontSize', 12, 'FontWeight', 'bold');
     xlim(ax1, [0.5, num_ica + 0.5]);
     xticks(ax1, 1:num_ica);
 
@@ -422,7 +447,11 @@ if cfg.figure.plot
     grid(ax2, 'on');
     set(ax2, 'Box', 'off', 'FontName', 'Helvetica', 'FontSize', 10, 'GridAlpha', 0.4);
     xlabel(ax2, 'Independent Components (ICs)', 'FontSize', 11, 'FontWeight', 'bold');
-    ylabel(ax2, 'Slope (High)', 'FontSize', 11, 'FontWeight', 'bold');
+
+    % Exact frequency range extracted into y-axis label
+    ylabel(ax2, sprintf('Slope: High (%g-%g Hz)', options.muscleFreq2(1), options.muscleFreq2(2)), ...
+        'FontSize', 11, 'FontWeight', 'bold');
+
     xlim(ax2, [0.5, num_ica + 0.5]);
     xticks(ax2, 1:num_ica);
 
@@ -480,12 +509,14 @@ evidence.spatial(bad_ic) = true;
 EEG.ALSUTRECHT.ica.channel.spatial_smoothness.focal = spatial_smoothness;
 EEG.ALSUTRECHT.ica.channel.spatial_smoothness.bics  = bad_ic(:);
 
+% Report
+print_bad_ics(bad_ic, num_ica);
+
 % -------------------------------------------------------------------------
 % Diagnostic Figure: Metric Bar Plot with Threshold
 % -------------------------------------------------------------------------
-do_plot = ~isfield(cfg, 'do_plot') || cfg.do_plot;
-if do_plot
-    fh = figure('Color', 'w', 'Position', [150 150 950 360], 'Name', 'IC Spatial Characteristics');
+if cfg.figure.plot
+    fh = figure('Color', 'w', 'Visible', cfg.figure.visible);
     ax = axes(fh); hold(ax, 'on');
 
     ic_idx = 1:num_ica;
@@ -624,42 +655,31 @@ end
 % Dynamic Layout Configuration
 % -------------------------------------------------------------------------
 if n_flagged == 0
-    % Compact single-row figure with 2 diagnostic panels side-by-side
-    fig_width  = 1000;
-    fig_height = 440;
-    fh = figure('Color', 'w', 'Position', [100, 100, fig_width, fig_height], 'Visible', cfg.figure.visible);
-
-    t_top = tiledlayout(1, 2, 'TileSpacing', 'loose', 'Padding', 'compact');
-    ax_spec = nexttile(t_top);
-    ax_meas = nexttile(t_top);
+    fh = figure('Color', 'w', 'Visible', cfg.figure.visible);
+    t_layout = tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+    ax_spec = nexttile(t_layout);
+    ax_meas = nexttile(t_layout);
 
     plotX = 26;
-    plotY = 12;
+    plotY = 11;
 else
-    max_cols_single_row = 8;
-    if n_flagged <= max_cols_single_row
-        n_cols      = n_flagged;
-        n_topo_rows = 1;
-    else
-        n_cols      = 6;
-        n_topo_rows = ceil(n_flagged / n_cols);
-    end
+    % Set layout columns: at least 2 so the upper panels can always split side-by-side
+    n_cols      = max(2, min(6, n_flagged));
+    n_topo_rows = ceil(n_flagged / n_cols);
 
-    fig_width  = max(1000, 210 * n_cols + 100);
-    fig_height = 500 + (210 * n_topo_rows);
-    fh = figure('Color', 'w', 'Position', [100, 100, fig_width, fig_height], 'Visible', cfg.figure.visible);
+    fh = figure('Color', 'w', 'Visible', cfg.figure.visible);
 
-    % Master 2-row layout: Row 1 = Diagnostics; Row 2 = Topoplots
-    t_main = tiledlayout(2, 1, 'TileSpacing', 'loose', 'Padding', 'compact');
+    total_grid_rows = 2 + n_topo_rows;
+    t_main = tiledlayout(total_grid_rows, n_cols, 'TileSpacing', 'tight', 'Padding', 'tight');
 
-    % Row 1 Sub-layout: 2 side-by-side diagnostic plots
-    t_top = tiledlayout(t_main, 1, 2, 'TileSpacing', 'compact', 'Padding', 'tight');
-    t_top.Layout.Tile = 1;
-    ax_spec = nexttile(t_top);
-    ax_meas = nexttile(t_top);
+    % Split columns evenly (now guaranteed >= 1 column each)
+    col_split = floor(n_cols / 2);
+    ax_spec   = nexttile(t_main, 1, [2, col_split]);
+    ax_meas   = nexttile(t_main, col_split + 1, [2, n_cols - col_split]);
 
-    plotX = max(26, 3.8 * n_cols + 4);
-    plotY = 10 + (4.5 * n_topo_rows);
+    % Width stays fixed and readable (28 cm); height scales cleanly by ~4.5 cm per topo row
+    plotX = 25;
+    plotY = 12 + (4.5 * n_topo_rows);
 end
 
 % -------------------------------------------------------------------------
@@ -755,23 +775,28 @@ subtitle(ax_meas, sprintf('Flagged if prop > %.2f & slope > %.2f', threshold_pow
 
 legend(ax_meas, 'Location', 'northwest', 'Box', 'off', 'FontSize', 8);
 hold(ax_meas, 'off');
+
 % -------------------------------------------------------------------------
-% Panel 3: Topoplots of Flagged Components (Full Bottom Width)
+% Panel 3: Topoplots of Flagged Components
 % -------------------------------------------------------------------------
 if n_flagged > 0
-    t_bot = tiledlayout(t_main, n_topo_rows, n_cols, 'TileSpacing', 'compact', 'Padding', 'tight');
-    t_bot.Layout.Tile = 2;
+    first_topo_tile = (2 * n_cols) + 1;
 
     for i = 1:n_flagged
-        ax_topo = nexttile(t_bot);
-        ic_idx     = bad_ic(i);
+        ax_topo = nexttile(t_main, first_topo_tile + (i - 1));
+        ic_idx  = bad_ic(i);
         pc_weights = winv(:, ic_idx);
         cmax       = max(abs(pc_weights));
         if cmax == 0, cmax = 1; end
 
-        title_str = sprintf('IC%d\n(%.2f, %.2f)', ic_idx, neg_prop(ic_idx), slope(ic_idx));
-        mytopoplot(pc_weights, [], '', ax_topo, [-cmax, cmax]);
-        title(ax_topo, title_str, 'Color', colours(i, :), 'FontWeight', 'bold', 'FontSize', 8);
+        title_str = sprintf('IC%d (%.2f, %.2f)', ic_idx, neg_prop(ic_idx), slope(ic_idx));
+
+        mytopoplot(pc_weights, [], title_str, ax_topo, [-cmax, cmax]);
+        axis(ax_topo, 'square');
+        set(ax_topo, 'LooseInset', [0.01 0.01 0.01 0.02]);
+
+        t_obj = get(ax_topo, 'Title');
+        set(t_obj, 'Color', colours(i, :), 'FontWeight', 'bold', 'FontSize', 9.5);
     end
 end
 
@@ -1756,7 +1781,7 @@ else
     false_is_heog = false(1, length(bad_ic));
 end
 
-false_is_brain = is_likely_brain(bad_ic, ICLabel, 0.60);
+false_is_brain = is_likely_brain(bad_ic, ICLabel, 0.85);
 false_all = false_is_blink(:) | false_is_heog(:) | false_is_brain(:);
 bad_ic(false_all) = [];
 
@@ -1881,4 +1906,94 @@ switch lower(metric)
 end
 
 [max_sim, best_variant_idx] = max(sim_matrix, [], 1);
+end
+
+function print_bad_ics(bad_ics, total_ics)
+% PRINT_BAD_ICS Formats and displays rejected Independent Components.
+% Accepts either a numeric vector of IC indices or a logical mask.
+% Optional total_ics provides percentage context if supplied.
+
+if islogical(bad_ics)
+    if nargin < 2 || isempty(total_ics)
+        total_ics = length(bad_ics);
+    end
+    bad_indices = find(bad_ics);
+elseif isnumeric(bad_ics)
+    bad_indices = unique(bad_ics(:)');
+    bad_indices = bad_indices(~isnan(bad_indices) & bad_indices > 0);
+    if nargin < 2
+        total_ics = [];
+    end
+else
+    error('Input must be a numeric vector of indices or a logical mask.');
+end
+
+n_bad = length(bad_indices);
+
+% fprintf('\n----------------------------------------\n');
+% fprintf('Artifact IC Rejection Summary\n');
+% fprintf('----------------------------------------\n');
+%
+% if n_bad == 0
+%     fprintf('No artifact ICs identified for rejection.\n');
+%     fprintf('----------------------------------------\n');
+%     return;
+% end
+%
+% if ~isempty(total_ics) && total_ics > 0
+%     pct_bad = (n_bad / total_ics) * 100;
+%     fprintf('Flagged ICs: %d / %d (%.1f%%)\n', n_bad, total_ics, pct_bad);
+% else
+%     fprintf('Flagged ICs: %d\n', n_bad);
+% end
+%
+% % Format into compact ranges (e.g., "1, 3-5, 8, 12-14")
+% formatted_str = format_ranges(bad_indices);
+% fprintf('Components : %s\n', formatted_str);
+% fprintf('----------------------------------------\n');
+
+fprintf('\nArtifact IC Rejection Summary\n');
+if n_bad == 0
+    fprintf('No artifact ICs identified for rejection.\n');
+    return;
+end
+
+if ~isempty(total_ics) && total_ics > 0
+    pct_bad = (n_bad / total_ics) * 100;
+    fprintf('Flagged ICs: %d / %d (%.1f%%)\n', n_bad, total_ics, pct_bad);
+else
+    fprintf('Flagged ICs: %d\n', n_bad);
+end
+
+% Format into compact ranges (e.g., "1, 3-5, 8, 12-14")
+formatted_str = format_ranges(bad_indices);
+fprintf('Components : %s\n', formatted_str);
+
+end
+
+% =========================================================================
+% Helper: Formats consecutive integers into range strings
+% =========================================================================
+function str = format_ranges(indices)
+indices = sort(indices);
+diffs   = diff(indices);
+breaks  = find(diffs > 1);
+
+start_idx = [1, breaks + 1];
+end_idx   = [breaks, length(indices)];
+
+range_cells = cell(length(start_idx), 1);
+for i = 1:length(start_idx)
+    s = indices(start_idx(i));
+    e = indices(end_idx(i));
+    if s == e
+        range_cells{i} = sprintf('%d', s);
+    elseif e == s + 1
+        range_cells{i} = sprintf('%d, %d', s, e);
+    else
+        range_cells{i} = sprintf('%d-%d', s, e);
+    end
+end
+
+str = strjoin(range_cells, ', ');
 end

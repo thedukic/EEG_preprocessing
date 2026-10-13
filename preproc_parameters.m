@@ -175,10 +175,29 @@ cfg.flt.emg.lp = [];
 % cfg.emg.asr_z_low = -3.5;
 % cfg.emg.asr_z_high = 7.0;
 
-cfg.emg.slope_time        = 0.50;
-cfg.emg.slope_freq_1      = [7 75]; % [7 45] / [7 75]
-cfg.emg.slope_threshold_1 = 0;
-cfg.emg.slope_freq_2      = [40 70];
+% RELAX: 7-75 Hz
+% MuscleSlopeThreshold: (-0.31 = data from paralysed participants showed no
+% independent components with a slope value more positive than this (so
+% excluding slopes above this threshold means only excluding data that we
+% know must be influenced by EMG). Using -0.31 as the threshold means
+% possibly leaving low level EMG data in, and only eliminating the data we
+% know is definitely EMG)
+% (-0.59 is where the histograms between paralysed ICs and EMG ICs cross,
+% so above this value contains a very small amount of the brain data,
+% and over 50% of the EMG data. Above this point, data is more likely to be
+% EMG than brain)
+% (-0.72 is the maximum of the histogram of the paralysed IC data, so
+% excluding more positive values than this will exclude most of the EMG
+% data, but also some brain data).
+%
+% MNE: 7-45 Hz & slope 0
+% https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7590828
+% https://mne.tools/stable/generated/mne.preprocessing.ICA.html
+
+cfg.emg.slope_time        = 0.50; % more than 50% of time: 0.50
+cfg.emg.slope_freq_1      = [7 75];
+cfg.emg.slope_threshold_1 = -0.5;
+cfg.emg.slope_freq_2      = [40 75];
 cfg.emg.slope_threshold_2 = -0.2;
 cfg.emg.slope_freq_excl   = 50;
 
@@ -209,13 +228,6 @@ cfg.channel.ransacOff                   = true;
 % cfg.channel.iter.rejmax = 0.1;
 
 % RELAX: Muscle activity
-% If 7-45 Hz, -> use emgSlopeThreshold = 0
-% If 7-70 Hz, -> Less stringent = -0.31, Middle Stringency = -0.59, More stringent = -0.72
-% https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7590828
-% https://mne.tools/stable/generated/mne.preprocessing.ICA.html
-% cfg.channel.emgSlopeFreq           = [7 45];
-% cfg.channel.emgSlopeThreshold      = 0;
-% cfg.channel.emgSlopeTime           = 0.50;
 cfg.channel.prop_badchan_max = 0.10;   % 10% (~128/10)of total can be deleted using this EMG detection only
 
 % =========================================================================
@@ -225,17 +237,23 @@ cfg.channel.prop_badchan_max = 0.10;   % 10% (~128/10)of total can be deleted us
 cfg.star.do = true;
 
 % GEDAI
-cfg.gedai.do = true;
+cfg.gedai.do                       = true;
+cfg.gedai.artifact_threshold_type  = 'auto';
+cfg.gedai.epoch_size_in_cycles     = 12;
+cfg.gedai.lowcut_frequency         = 0.5;
+cfg.gedai.do_parallel              = true;
+cfg.gedai.do_visualise             = false;
+cfg.gedai.smoothing_window_seconds = Inf; % default
 
-% CCA
-cfg.cca.do = false;
-
-% MWF
-cfg.mwf.do = false;
-
-% ASR
-cfg.asr.do = false;
-% cfg.asr.std = 20; % recommandation: 20-30
+% % CCA
+% cfg.cca.do = false;
+%
+% % MWF
+% cfg.mwf.do = false;
+%
+% % ASR
+% cfg.asr.do = false;
+% % cfg.asr.std = 20; % recommandation: 20-30
 
 % =========================================================================
 % ICA
@@ -251,8 +269,14 @@ else
 end
 
 % PCA reduction prior to ICA
-% cfg.ica.num_ica = [70 50]; %  (old setting)
 cfg.ica.num_ica = [100 80 50];
+
+% ICA settings
+% https://eeglab.ucsd.edu/wiki/Makoto%27s_useful_EEGLAB_code#How_to_obtain_practically_reproducible_ICA_results_(09/26/2022_added,_05/08/2024_updated)
+cfg.ica.extended  = 1;
+cfg.ica.lrate     = 1e-4; % 1e-5 -> 2000 steps or more
+cfg.ica.annealdeg = 60;   % dont change
+cfg.ica.maxsteps  = 2000;
 
 % % ICLabel (old)
 % cfg.ica.iclabel = [ ...
@@ -289,12 +313,12 @@ cfg.ica.iclabel.muscle_thresh.rs  = 0.65; % Resting-State
 % cfg.ica.blinkchans = {'C29','C17','C16'};
 cfg.ica.blinkchans = cfg.roi.blink;
 
+% Do not bother removing components that are of low relevance / power
+cfg.ica.floor_compvar  = 0.5;
+cfg.ica.protect_rank_n = 25;
+
 % Muscle ICs
 cfg.ica.emg = true;
-% cfg.ica.emgSlopeFreq1      = [7 45];
-% cfg.ica.emgSlopeThreshold1 = 0;
-% cfg.ica.emgSlopeFreq2      = [40 70];
-% cfg.ica.emgSlopeThreshold2 = -0.2;
 
 % % Cutoff: ICs will be filtered out above this freq (i.e., keeps low freqs)
 % % https://www.biorxiv.org/content/10.1101/2024.06.06.597688v1.full.pdf
@@ -303,12 +327,8 @@ cfg.ica.emg = true;
 % Channel ICs
 cfg.ica.channel = true;
 
-% Generally bad components [without a precise label]
+% Generally bad ICs [without a precise label]
 cfg.ica.bad = true;
-
-% Do not bother removing components that are of low relevance / power
-cfg.ica.floor_compvar  = 0.5;
-cfg.ica.protect_rank_n = 25;
 
 % =========================================================================
 % Event Triggers and Epoch Settings

@@ -16,8 +16,9 @@
 %
 % TODO:
 %   1. Offsets not correct for dataset collected with fs > 256 Hz.
-%   2. PCA before ICA not needed for SART/MMN?
-%   3. Iterative DSS on eye blink leftovers
+%   2. Iterative DSS on eye blink leftovers
+%   3.
+%   4.
 
 % ALS Centre, University Medical Centre Utrecht
 % Author: S. Dukic,  2026
