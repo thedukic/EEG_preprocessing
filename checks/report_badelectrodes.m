@@ -10,20 +10,24 @@ fprintf(EEG.ALSUTRECHT.subject.fid,'Bad  electrodes\n');
 fprintf(EEG.ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
 
 % Offsets
-str = strjoin(EEG.ALSUTRECHT.badchaninfo.offsets.electrodes,', ');
+str = strjoin(EEG.ALSUTRECHT.bad_channel.offsets.electrodes,', ');
 fprintf(EEG.ALSUTRECHT.subject.fid, 'High offset electrodes: %s\n', str);
 
 % Flat
-str = strjoin(EEG.ALSUTRECHT.badchaninfo.flat.electrodes,', ');
+str = strjoin(EEG.ALSUTRECHT.bad_channel.flat.electrodes,', ');
 fprintf(EEG.ALSUTRECHT.subject.fid, 'Flat electrodes: %s\n', str);
 
 % PREP
-str = strjoin(EEG.ALSUTRECHT.badchaninfo.prep.electrodes,', ');
+str = strjoin(EEG.ALSUTRECHT.bad_channel.prep.electrodes,', ');
 fprintf(EEG.ALSUTRECHT.subject.fid, 'PREP electrodes: %s\n', str);
 
-% EMG
-str = strjoin(EEG.ALSUTRECHT.badchaninfo.slope.electrodes,', ');
-fprintf(EEG.ALSUTRECHT.subject.fid, 'Shallow slope electrodes: %s\n', str);
+% NEAR
+str = strjoin(EEG.ALSUTRECHT.bad_channel.near.electrodes,', ');
+fprintf(EEG.ALSUTRECHT.subject.fid, 'NEAR electrodes: %s\n', str);
+
+% % EMG
+% str = strjoin(EEG.ALSUTRECHT.bad_channel.slope.electrodes,', ');
+% fprintf(EEG.ALSUTRECHT.subject.fid, 'Shallow slope electrodes: %s\n', str);
 
 % -------------------------------------------------------------------------
 % Plot
@@ -49,7 +53,7 @@ primary_marker   = {'.', [0.7 0.7 0.7], 6, 1};
 secondary_marker = {'o', 'k', 6, 2};
 
 % --- 1. Offset ---
-mask = double(ismember(channel_labels, EEG.ALSUTRECHT.badchaninfo.offsets.electrodes));
+mask = double(ismember(channel_labels, EEG.ALSUTRECHT.bad_channel.offsets.electrodes));
 bad_indices = find(mask); % Extract the channel indices for emarker2
 
 nexttile;
@@ -59,7 +63,7 @@ topoplot_new(bg_data, channel_locs, 'maplimits', [0 1], 'headrad', 'rim', ...
 title(['Offset, N = ' num2str(sum(mask))]); axis tight;
 
 % --- 2. Flat ---
-mask = double(ismember(channel_labels, EEG.ALSUTRECHT.badchaninfo.flat.electrodes));
+mask = double(ismember(channel_labels, EEG.ALSUTRECHT.bad_channel.flat.electrodes));
 bad_indices = find(mask);
 
 nexttile;
@@ -69,7 +73,7 @@ topoplot_new(bg_data, channel_locs, 'maplimits', [0 1], 'headrad', 'rim', ...
 title(['Flat, N = ' num2str(sum(mask))]); axis tight;
 
 % --- 3. PREP ---
-mask = double(ismember(channel_labels, EEG.ALSUTRECHT.badchaninfo.prep.electrodes));
+mask = double(ismember(channel_labels, EEG.ALSUTRECHT.bad_channel.prep.electrodes));
 bad_indices = find(mask);
 
 nexttile;
@@ -78,18 +82,28 @@ topoplot_new(bg_data, channel_locs, 'maplimits', [0 1], 'headrad', 'rim', ...
     'emarker', primary_marker, 'emarker2', {bad_indices, secondary_marker{:}});
 title(['PREP, N = ' num2str(sum(mask))]); axis tight;
 
-% --- 4. EMG Slope ---
-mask = double(ismember(channel_labels, EEG.ALSUTRECHT.badchaninfo.slope.electrodes));
+% % --- 4. EMG Slope ---
+% mask = double(ismember(channel_labels, EEG.ALSUTRECHT.bad_channel.slope.electrodes));
+% bad_indices = find(mask);
+%
+% nexttile;
+% topoplot_new(bg_data, channel_locs, 'maplimits', [0 1], 'headrad', 'rim', ...
+%     'colormap', myCmap, 'whitebk', 'on', 'electrodes', 'on', 'style', 'map', 'shading', 'flat', ...
+%     'emarker', primary_marker, 'emarker2', {bad_indices, secondary_marker{:}});
+% title(['Slope, N = ' num2str(sum(mask))]); axis tight;
+
+% --- 4. NEAR ---
+mask = double(ismember(channel_labels, EEG.ALSUTRECHT.bad_channel.near.electrodes));
 bad_indices = find(mask);
 
 nexttile;
 topoplot_new(bg_data, channel_locs, 'maplimits', [0 1], 'headrad', 'rim', ...
     'colormap', myCmap, 'whitebk', 'on', 'electrodes', 'on', 'style', 'map', 'shading', 'flat', ...
     'emarker', primary_marker, 'emarker2', {bad_indices, secondary_marker{:}});
-title(['Slope, N = ' num2str(sum(mask))]); axis tight;
+title(['NEAR, N = ' num2str(sum(mask))]); axis tight;
 
 % Save
-save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_detected_badelectrodes'], [24 7]);
+save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_bad_electrodes'], [24 7]);
 
 fprintf('Done!\n');
 

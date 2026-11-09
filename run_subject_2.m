@@ -112,8 +112,8 @@ for i_file = 1:length(EEGcell)
 
     % EMG leftovers 1
     fprintf('\nChecking EMG leftovers...\n');
-    [~, mask_emg_matrix] = detect_emg(EEG, cfg);
-    emg_leftover = mean(mask_emg_matrix, 'all');
+    [~, emg_leftover] = detect_emg(EEG, cfg);
+    emg_leftover = mean(emg_leftover, 'all');
     fprintf('EMG leftovers: %1.2f\n', emg_leftover);
 
     % EMG leftovers 2
@@ -129,8 +129,7 @@ for i_file = 1:length(EEGcell)
     EEG = estimate_channelcov(EEG);
 
     % Automagic metrics
-    bad_chans = length(EEG.ALSUTRECHT.badchaninfo.badElectrodes);
-    quality = report_automagic(EEG, bad_chans, 'ThresholdOHA', 30, 'ThresholdStd', 15);
+    quality = report_automagic(EEG, length(EEG.ALSUTRECHT.bad_channel.electrodes), 'ThresholdOHA', 30, 'ThresholdStd', 15);
 
     fprintf('\nAutomagic quality metrics:\n');
     fprintf('RBC (Bad Channels):   %.2f%%\n', quality.RBC * 100);

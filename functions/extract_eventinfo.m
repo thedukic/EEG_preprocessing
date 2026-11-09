@@ -8,8 +8,8 @@ fprintf('Extracting %s event information\n', task);
 fprintf('================================\n');
 
 % Keep event info
-num_block = length(EEG);
-eventinfo = cell(num_block, 4);
+num_block    = length(EEG);
+eventinfo    = cell(num_block, 4);
 block_length = NaN(num_block, 1);
 
 switch task

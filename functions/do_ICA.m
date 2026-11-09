@@ -16,14 +16,15 @@ eeg_chan_idx = find(strcmpi({EEG.chanlocs.type}, 'EEG'));
 % -------------------------------------------------------------------------
 % 2. Create Temporary 1.0 Hz Dataset for ICA Training
 % -------------------------------------------------------------------------
-fprintf('Preparing temporary 1.0 Hz filtered dataset for ICA training...\n');
+% cfg_tmp = cfg;
+% cfg_tmp.flt.erp.hp = [1 4];
+% cfg_tmp.flt.rs.hp  = [1 4];
+% cfg_tmp.flt.mt.hp  = [1 4];
+% fprintf('Preparing temporary 1.0 Hz filtered dataset for ICA training...\n');
+% EEG_train = do_filtering(EEG, 'highpass', 'eeg', cfg_tmp);
 
-cfg_tmp = cfg;
-cfg_tmp.flt.erp.hp = [1 4];
-cfg_tmp.flt.rs.hp  = [1 4];
-cfg_tmp.flt.mt.hp  = [1 4];
-
-EEG_train = do_filtering(EEG, 'highpass', 'eeg', cfg_tmp);
+% cut_off = 1; % Hz
+EEG_train = do_filtering_method(EEG, cfg.ica.cut_off, cfg);
 
 eeg_data_2d = double(reshape(EEG_train.data(eeg_chan_idx, :, :), length(eeg_chan_idx), []));
 [n_chan, n_pnts] = size(eeg_data_2d);

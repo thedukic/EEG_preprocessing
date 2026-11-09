@@ -10,8 +10,8 @@ fprintf('Detecting EMG in EEG data...\n');
 
 % 1. Extract EEG channels
 chaneeg = strcmp({EEG.chanlocs.type}, 'EEG');
-num_channels_eeg = sum(chaneeg);
-assert(num_channels_eeg > 0, 'No EEG channels found with type == ''EEG''.');
+num_channel_eeg = sum(chaneeg);
+assert(num_channel_eeg > 0, 'No EEG channels found with type == ''EEG''.');
 
 fs = EEG.srate;
 
@@ -38,11 +38,11 @@ if ndims(EEG.data) == 3
         dataeeg = double(EEG.data(chaneeg, 1:valid_pnts, :));
 
         % Reshape: [Channels x SegmentPoints x Segments x Trials]
-        dataeeg = reshape(dataeeg, num_channels_eeg, seg_pts, num_segments, N);
+        dataeeg = reshape(dataeeg, num_channel_eeg, seg_pts, num_segments, N);
 
         % Flatten to [Channels x SegmentPoints x (Segments * Trials)]
         NTRL_processed = num_segments * N;
-        dataeeg = reshape(dataeeg, num_channels_eeg, seg_pts, NTRL_processed);
+        dataeeg = reshape(dataeeg, num_channel_eeg, seg_pts, NTRL_processed);
         NPTS = seg_pts;
     else
         % Trial is shorter than seg_pts: evaluate the whole epoch as 1 segment
@@ -58,7 +58,7 @@ else
 
     NPTS = seg_pts;
     N = floor(size(data_raw, 2) / NPTS);
-    dataeeg = reshape(data_raw(:, 1:(N * NPTS)), num_channels_eeg, NPTS, N);
+    dataeeg = reshape(data_raw(:, 1:(N * NPTS)), num_channel_eeg, NPTS, N);
 
     num_segments = 1;
     NTRL_processed = N;
@@ -122,14 +122,14 @@ X = [logfoi, ones(length(logfoi), 1)];
 P = X \ logpow;
 
 slopes_vector = P(1, :);
-slopesChannelsxProcessed = reshape(slopes_vector, num_channels_eeg, NTRL_processed);
+slopesChannelsxProcessed = reshape(slopes_vector, num_channel_eeg, NTRL_processed);
 
 % -------------------------------------------------------------------------
 % 6. Aggregate Sub-Segments Back to Original Trial Dimensions
 % -------------------------------------------------------------------------
 if num_segments > 1
     % Reshape back to [Channels x SubSegments x Original Trials]
-    slopes = reshape(slopesChannelsxProcessed, num_channels_eeg, num_segments, N);
+    slopes = reshape(slopesChannelsxProcessed, num_channel_eeg, num_segments, N);
 
     % Identify which sub-segments exceed the slope threshold
     segment_contam = slopes > cfg.emg.slope_threshold_1;

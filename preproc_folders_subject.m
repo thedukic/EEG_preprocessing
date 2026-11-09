@@ -27,4 +27,7 @@ subject.filename_clean_2{2} = [subject.filename '_cleandata_c.mat'];
 subject.qametrics{1}        = [subject.filename '_qametrics_b.mat'];
 subject.qametrics{2}        = [subject.filename '_qametrics_c.mat'];
 
+% Table 1 path
+subject.table1 = myPaths.table1;
+
 end

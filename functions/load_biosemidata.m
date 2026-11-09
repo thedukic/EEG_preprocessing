@@ -5,11 +5,12 @@ fprintf('Loading data\n');
 fprintf('================================\n');
 
 % 1. Find files
-subject.datablocks = list_datasets(subject.rawdata, subject.task);
+task = subject.task;
+subject.datablocks = list_datasets(subject.rawdata, task);
 
 % 2. Load data
 if ~isempty(subject.datablocks)
-    if strcmpi(subject.task, 'MT')
+    if strcmpi(task, 'MT')
         % Motor tasks
         DATA = pop_biosig(subject.datablocks, 'channels', 1:168);
         assert(DATA(1).nbchan == 168, 'Unexpected number of channels');
@@ -65,64 +66,85 @@ if ~isempty(subject.datablocks)
         fprintf('Done!\n');
     end
 
-    % Ensure that data is with fs = 512 Hz
-    % Consider doing  the resampling (to 256 Hz) here
-    fprintf('\nChecking the sampling rate in each block...\n');
-    srate_all = [DATA(:).srate] > 512;
-    idx_resample = find(srate_all);
-    if ~isempty(idx_resample)
-        % % Temporarily disable EEGLAB parallel processing
-        % pop_editoptions('option_parallel', 0);
-
-        % Loop through only the datasets that require downsampling
-        for i = 1:length(idx_resample)
-            idx = idx_resample(i);
-            fprintf('Downsampling dataset %d of %d (from %d Hz to 512 Hz)...\n', i, length(idx_resample), DATA(idx).srate);
-            DATA(idx) = pop_resample(DATA(idx), 512);
-        end
-
-        % % Re-enable parallel processing for subsequent steps
-        % pop_editoptions('option_parallel', 1);
-    end
-    % Assert
-    assert(all([DATA(:).srate] == 512));
-    fprintf('Done!\n');
-
-    % Cut intruder blocks from other tasks
-    fprintf('\nChecking for task crosstalk (1 block = 2 tasks)...\n');
-    [DATA, subject.datablocks_trimmed] = trim_crosstask_data(DATA, subject, cfg);
+    % Add channel info
+DATA = add_info(DATA);
 
     % Attach experimental configuration and metadata
     for i_block = 1:num_blocks
         DATA(i_block).ALSUTRECHT.subject = subject;
         DATA(i_block).ALSUTRECHT.cfg     = cfg;
     end
+
+    % Make a folder for this participant
+    if exist(DATA(1).ALSUTRECHT.subject.preproc, 'dir') ~= 7
+        mkdir(DATA(1).ALSUTRECHT.subject.preproc);
+        mkdir(DATA(1).ALSUTRECHT.subject.data);
+        mkdir(DATA(1).ALSUTRECHT.subject.figures);
+        mkdir(DATA(1).ALSUTRECHT.subject.qa);
+    else
+        fprintf('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
+        warning('The folder already exists!\nThe old and the new files might be mixed:\n%s', DATA(1).ALSUTRECHT.subject.preproc);
+        fprintf('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
+    end
+
+    % Electrode offsets (while data is as raw as possible)
+    DATA = estimate_electrodeoffsets(DATA, cfg);
+
+    % Ensure that data is with fs = 512 Hz
+    DATA = ensure_srate(DATA);
+
+    % Cut intruder blocks from other tasks
+    fprintf('\nChecking for task crosstalk (1 block = 2 tasks)...\n');
+    DATA = trim_crosstask_data(DATA, cfg);
+
 else
-    warning([subject.id ' is missing ' subject.task ' data. Skipping...']);
+    warning([subject.id ' is missing ' task ' data. Skipping...']);
     DATA = [];
 end
-
 end
 
 
-function [DATA, flags_trimmed] = trim_crosstask_data(DATA, subject, cfg)
+function DATA = ensure_srate(DATA)
+% Ensure that data is with fs = 512 Hz
+% Consider doing  the resampling (to 256 Hz) here
+fprintf('\nChecking the sampling rate in each block...\n');
+srate_all = [DATA(:).srate] > 512;
+idx_resample = find(srate_all);
+if ~isempty(idx_resample)
+    % % Temporarily disable EEGLAB parallel processing
+    % pop_editoptions('option_parallel', 0);
+
+    % Loop through only the datasets that require downsampling
+    for i = 1:length(idx_resample)
+        idx = idx_resample(i);
+        fprintf('Downsampling dataset %d of %d (from %d Hz to 512 Hz)...\n', i, length(idx_resample), DATA(idx).srate);
+        DATA(idx) = pop_resample(DATA(idx), 512);
+    end
+
+    % % Re-enable parallel processing for subsequent steps
+    % pop_editoptions('option_parallel', 1);
+end
+% Assert
+assert(all([DATA(:).srate] == 512));
+fprintf('Done!\n');
+end
+
+
+function DATA = trim_crosstask_data(DATA, cfg)
 % TRIM_CROSSTASK_DATA Crops combined recording files containing multiple tasks.
 %
 % Syntax:
-%   [DATA, flags_trimmed] = trim_crosstask_data(DATA, subject, cfg)
+%   DATA = trim_crosstask_data(DATA, cfg)
 %
 % Logic:
 %   - If target events are at the START: crop from sample 1 to the first 255 after target events.
 %   - If target events are at the END: crop from the last 255 before target events to the end of the file.
 
-num_blocks = length(DATA);
-flags_trimmed = false(1, num_blocks);
+num_block = length(DATA);
+flags_trimmed = false(1, num_block);
 
-if ~isfield(cfg, 'trg') || ~isstruct(cfg.trg)
-    return;
-end
-
-curr_task = lower(regexprep(subject.task, '\d+$', ''));
+task = DATA(1).ALSUTRECHT.subject.task;
+curr_task = lower(regexprep(task, '\d+$', ''));
 trg_fields = fieldnames(cfg.trg);
 
 % -------------------------------------------------------------------------
@@ -150,7 +172,7 @@ for i_f = 1:length(trg_fields)
 end
 
 if isempty(all_intruder_trgs) || isempty(target_trgs)
-    fprintf('[Cross-Task Trim] %s: Good! Not needed.\n', subject.task);
+    fprintf('[Cross-Task Trim] %s: Good! Not needed.\n', task);
     return;
 end
 
@@ -159,8 +181,8 @@ end
 % -------------------------------------------------------------------------
 margin_sec_255 = 0.5; % 0.5 s buffer relative to trigger 255
 
-for i_block = 1:num_blocks
-    block_str = sprintf('%s%d', subject.task, i_block);
+for i_block = 1:num_block
+    block_str = sprintf('%s%d', task, i_block);
 
     if isempty(DATA(i_block).event) || ~isfield(DATA(i_block).event, 'type')
         fprintf('[Cross-Task Trim] %s: Good! Not needed.\n', block_str);
@@ -267,9 +289,12 @@ for i_block = 1:num_blocks
 
         remaining_intruders = intersect(post_ev_types, all_intruder_trgs);
         assert(isempty(remaining_intruders), ...
-            '[Cross-Task Trim] Block %d (%s) still contains intruder triggers after trimming: %s', ...
-            i_block, block_str, mat2str(remaining_intruders));
+            '[Cross-Task Trim] Block %d (%s) still contains intruder triggers after trimming: %s', i_block, block_str, mat2str(remaining_intruders));
     end
+end
+
+for i_block = 1:num_block
+    DATA(i_block).ALSUTRECHT.subject.datablocks_trimmed = flags_trimmed;
 end
 
 end

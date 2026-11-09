@@ -32,7 +32,7 @@ fprintf('Temporarily filtering the EEG electrodes for better detection of flat e
 EEG_TMP = filter_signal(EEG, [20 8], [1 8], 1:num_channel, 'eeglab');
 
 % Typically
-elec_high_offset_indx = EEG(1).ALSUTRECHT.badchaninfo.offsets.electrodes_indx;
+elec_high_offset_indx = EEG(1).ALSUTRECHT.bad_channel.offsets.electrodes_indx;
 elec_high_offset = false(128, 1);
 if ~isempty(elec_high_offset_indx)
     elec_high_offset_indx_tmp = elec_high_offset_indx;
@@ -101,7 +101,7 @@ end
 elec_flat_indx   = unique(cat(2, elec_flat_indx{:}));
 elec_flat_labels = unique(cat(2, elec_flat_labels{:}));
 if ~isempty(elec_flat_labels)
-    % EEG = pop_select(EEG, 'nochannel', badElectrodes);
+    % EEG = pop_select(EEG, 'nochannel', elec_flat_indx);
     % fprintf('The flat electrodes (N = %d) are removed from all data blocks (N = %d).\n', length(elec_flat_1), num_block);
 
     for i_block = 1:num_block
@@ -115,11 +115,11 @@ end
 
 % Log info
 for i_block = 1:num_block
-    EEG(i_block).ALSUTRECHT.badchaninfo.flat.electrodes = elec_flat_labels;
+    EEG(i_block).ALSUTRECHT.bad_channel.flat.electrodes = elec_flat_labels;
     if flag_discrep
-        EEG(i_block).ALSUTRECHT.badchaninfo.flat.discrepancy = true;
+        EEG(i_block).ALSUTRECHT.bad_channel.flat.discrepancy = true;
     else
-        EEG(i_block).ALSUTRECHT.badchaninfo.flat.discrepancy = false;
+        EEG(i_block).ALSUTRECHT.bad_channel.flat.discrepancy = false;
     end
 end
 

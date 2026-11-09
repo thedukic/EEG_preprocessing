@@ -7,10 +7,8 @@ function cfg = preproc_parameters
 % Script for defining global preprocessing parameters across experimental
 % paradigms (Resting-State, MMN, SART, and Motor Task).
 %
-% -------------------------------------------------------------------------
-% IMPORTANT NOTICE
-% -------------------------------------------------------------------------
-% Parameter modifications alter cohort-level reproducibility. Any changes
+% IMPORTANT NOTICE:
+% Parameter modifications alter reproducibility. Any changes
 % must be discussed and agreed upon with the rest of the team first.
 % =========================================================================
 
@@ -18,7 +16,8 @@ function cfg = preproc_parameters
 % =========================================================================
 % BIOSEMI 128 (ABCD) REGION OF INTEREST (ROI) CONFIGURATIONS
 % =========================================================================
-
+%
+% -------------------------------------------------------------------------
 % 1. Cognitive ERP Hubs
 % -------------------------------------------------------------------------
 % MMN: Frontocentral negativity (Centred around Fz / FCz)
@@ -43,7 +42,7 @@ cfg.roi.sart_p300 = { ...
     'A32', 'A31'            % Right centroparietal
     };
 
-
+% -------------------------------------------------------------------------
 % 2. Spectral & Sensorimotor Hubs
 % -------------------------------------------------------------------------
 % Resting-State: Occipital Alpha Hub (Centred around Oz)
@@ -80,6 +79,7 @@ cfg.roi.motor_right = { ...
 % Combined bilateral mask for Motor task validation
 cfg.roi.motor_all = [cfg.roi.motor_left, cfg.roi.motor_right];
 
+% -------------------------------------------------------------------------
 % 3. Artifact Validation & Template Masks
 % -------------------------------------------------------------------------
 % Vertical EOG / Blink ROI (Anterior Pole surrounding Fpz / C17)
@@ -117,7 +117,6 @@ cfg.roi.blink_anti = { ...
     'A11', 'A14', 'A24', 'A27', 'B8'        % Posterior border 2
     };
 
-
 % =========================================================================
 % IIR Butterworth Filter Configuration
 % =========================================================================
@@ -126,7 +125,6 @@ cfg.roi.blink_anti = { ...
 % Format : [cutoff_hz, effective_order]
 % hp     : High-pass
 % lp     : Low-pass ([] denotes open / unconstrained)
-
 % -------------------------------------------------------------------------
 % 1. Cognitive ERP / ERSP (MMN / SART)
 % -------------------------------------------------------------------------
@@ -170,6 +168,12 @@ cfg.flt.emg.lp = [];
 % cfg.flt.ext.lp = [60, 8];
 
 % =========================================================================
+% Line noise removal
+% =========================================================================
+cfg.line.method = 'Zaplineplus';
+cfg.line.freq   = 50;
+
+% =========================================================================
 % Bad channel/data detection
 % =========================================================================
 % cfg.emg.asr_z_low = -3.5;
@@ -204,54 +208,78 @@ cfg.emg.slope_freq_excl   = 50;
 % =========================================================================
 % Bad channel/data detection
 % =========================================================================
-% Flat electrode duration
-cfg.channel.flatDuration = 4;    % default: 4 [s]
+% 1. Flat electrode duration
+cfg.channel.flatDuration = 4; % EEGLAB uses a similar approach with a default of 4 s
 
-% PREP: Settings
-% badTimeThreshold = 0.01 (PREP default) is overly aggressive: it declares a channel
-% bad if it drops below threshold for just 1% of time (7 s in a 12 min run), causing
-% healthy channels with brief swallows/muscle bursts to be over-interpolated.
+% 2. PREP
+% https://vislab.github.io/EEG-Clean-Tools/
+% badTimeThreshold = 0.01 (PREP default) is overly aggressive:
+% it declares a channel bad if it drops below threshold for just 1% of time (7 s in a 12 min run),
+% causing healthy channels with brief swallows/muscle bursts to be over-interpolated.
 %
 % R = 0.40 is appropriate for high-density caps due to dense electrode spacing (~2 cm).
 % If peripheral/temporal rim channels are falsely flagged due to one-sided neighbour interpolation, drop to 0.35.
-cfg.channel.robustDeviationThreshold    = 5;    % default: 5
-cfg.channel.highFrequencyNoiseThreshold = 5;    % default: 5
-cfg.channel.correlationThreshold        = 0.40; % default: 0.4; higher values -> more stringent
-cfg.channel.badTimeThreshold            = 0.05; % default: 0.01
+cfg.channel.prep.ransacOff                   = true; % Ransac corelation (nondeterministic)
+cfg.channel.prep.robustDeviationThreshold    = 5;    % default: 5
+cfg.channel.prep.highFrequencyNoiseThreshold = 5;    % default: 5
+cfg.channel.prep.correlationThreshold        = 0.40; % default: 0.4; higher values -> more stringent
+cfg.channel.prep.badTimeThreshold            = 0.05; % default: 0.01 higher values -> less stringent
 
-% PREP: RANSAC (computationally heavy and nondeterministic)
-cfg.channel.ransacOff                   = true;
-% cfg.channel.ransacCorrelationThreshold  = 0.75; % default: 0.8
-% cfg.channel.ransacUnbrokenTime          = 0.5;  % default: 0.4
-% cfg.channel.iter.num    = 10;
-% cfg.channel.iter.frc    = 0.8;
-% cfg.channel.iter.rejmax = 0.1;
+% 3. NEAR
+% https://github.com/vpKumaravel/NEAR
+% https://www.mdpi.com/1424-8220/22/19/7314
+% a) flat channels
+cfg.channel.near.isFlat  = 1; % flag variable to enable or disable Flat-lines detection method (default: 1)
+cfg.channel.near.flatWin = 5; % tolerance level in s (default: 5)
 
-% RELAX: Muscle activity
-cfg.channel.prop_badchan_max = 0.10;   % 10% (~128/10)of total can be deleted using this EMG detection only
+% b) LOF (density-based)
+cfg.channel.near.isLOF       = 1;            % flag variable to enable or disable LOF method (default: 1)
+cfg.channel.near.dist_metric = 'seuclidean'; % Distance metric to compute k-distance; other option: 'euclidean' (refer to the manuscript for details)
+cfg.channel.near.thresh_lof  = 2.5;          % Threshold cut-off for outlier detection on LOF scores (threshold should be at least 1.5 {Breunig† et al., 2000})
+cfg.channel.near.isAdapt     = 10;           % The threshold will be incremented by a factor of 1 if the given threshold detects more than xx of total channels (eg., 10); if this variable left empty [], no adaptive thresholding is enabled.
+
+% c) Periodogram (frequency based) - Optional
+cfg.channel.near.isPeriodogram = 0;      % flag variable to enable or disable periodogram method (default: 0)
+cfg.channel.near.frange        = [1 20]; % Frequency Range in Hz
+cfg.channel.near.winsize       = 1;      % window length in s
+cfg.channel.near.winov         = 0.66;   % 66% overlap factor
+cfg.channel.near.pthresh       = 4.5;    % Threshold Factor to predict outliers on the computed energy
+
+% % 4. RELAX (muscle activity)
+% cfg.channel.prop_badchan_max = 0.10;   % 10% (~128/10) of total can be deleted using this EMG detection only
 
 % =========================================================================
 % Cleaning methods
 % =========================================================================
-% STAR
-cfg.star.do = true;
+% STAR: Sparse Time Artefact Removal
+cfg.star.do      = true;
+cfg.star.cut_off = 0.5; % Hz
 
-% GEDAI
+% GEDAI: Generalized Eigenvalue De-Artifacting Instrument
 cfg.gedai.do                       = true;
+cfg.gedai.cut_off                  = 0.5; % Hz
 cfg.gedai.artifact_threshold_type  = 'auto';
 cfg.gedai.epoch_size_in_cycles     = 12;
 cfg.gedai.lowcut_frequency         = 0.5;
 cfg.gedai.do_parallel              = true;
 cfg.gedai.do_visualise             = false;
-cfg.gedai.smoothing_window_seconds = Inf; % default
+cfg.gedai.smoothing_window_seconds = Inf;
 
-% % CCA
+% GBF: Geometric Basis Functions
+cfg.gbf.do            = true;
+cfg.gbf.num_modes     = 50;
+cfg.gbf.target_ratio  = 5;
+cfg.gbf.burst_thresh  = 5;
+cfg.gbf.time_smooth   = 60;      % ms
+cfg.gbf.freq_trans    = [15 40]; % Hz
+
+% % CCA: Canonical Correlation Analysis
 % cfg.cca.do = false;
 %
-% % MWF
+% % MWF: Multi-channel Wiener Filter
 % cfg.mwf.do = false;
 %
-% % ASR
+% % ASR: Artifact Subspace Reconstruction
 % cfg.asr.do = false;
 % % cfg.asr.std = 20; % recommandation: 20-30
 
@@ -270,11 +298,12 @@ end
 
 % PCA reduction prior to ICA
 cfg.ica.num_ica = [100 80 50];
+cfg.ica.cut_off = 1; % Hz
 
 % ICA settings
 % https://eeglab.ucsd.edu/wiki/Makoto%27s_useful_EEGLAB_code#How_to_obtain_practically_reproducible_ICA_results_(09/26/2022_added,_05/08/2024_updated)
 cfg.ica.extended  = 1;
-cfg.ica.lrate     = 1e-4; % 1e-5 -> 2000 steps or more
+cfg.ica.lrate     = 1e-4; % 1e-5 -> >2000 steps
 cfg.ica.annealdeg = 60;   % dont change
 cfg.ica.maxsteps  = 2000;
 
@@ -314,8 +343,8 @@ cfg.ica.iclabel.muscle_thresh.rs  = 0.65; % Resting-State
 cfg.ica.blinkchans = cfg.roi.blink;
 
 % Do not bother removing components that are of low relevance / power
-cfg.ica.floor_compvar  = 0.5;
-cfg.ica.protect_rank_n = 25;
+cfg.ica.floor_compvar  = 1;
+cfg.ica.protect_rank_n = 20;
 
 % Muscle ICs
 cfg.ica.emg = true;

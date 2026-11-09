@@ -19,7 +19,11 @@ is_eeg = all(lower(string({EEG.chanlocs.type})) == "eeg");
 
 % Extract and reshape data to 2D (Channels x Time)
 if is_eeg
-    X = double(reshape(EEG.data, EEG.nbchan, []));
+    % Filter for training
+    cut_off = 1.5;
+    DATA_TRAIN = do_filtering_method(EEG, cut_off, cfg);
+
+    X = double(reshape(DATA_TRAIN.data, DATA_TRAIN.nbchan, []));
 else
     [X, clean_idx, bad_idx, quality_table, clean_epochs] = prepare_clean_emg_cca_data(EEG);
 end
@@ -134,8 +138,9 @@ if is_eeg
     % Simple
     % -------------------------------------------------------------------------
     % Define automated thresholds
-    autocorr_threshold = 0.5; % Components with rho below this are flagged
-    ratio_threshold    = 0.5; % Components with a ratio above this are flagged
+    autocorr_threshold_1 = 0.6; % Components with rho below this are flagged
+    autocorr_threshold_2 = 0.8; % Components with rho below this are flagged
+    % ratio_threshold    = 0.5; % Components with a ratio above this are flagged
 
     % % Find components that fail BOTH criteria (low autocorrelation AND high spectral ratio)
     % bad_components = find((rho < autocorr_threshold) & (spectral_ratio > ratio_threshold));
@@ -193,33 +198,33 @@ if is_eeg
     fprintf('Method B (Knee Point): %d components to remove (from comp %d onwards).\n', ...
         length(bad_idx_knee), knee_idx);
 
-    % -------------------------------------------------------------------------
-    % Visualisation: Diagnostic Gap & Knee Curve
-    % -------------------------------------------------------------------------
-    fh = figure('Color', 'w', 'Position', [200, 200, 700, 450]);
-    plot(1:n_chan, rho_norm, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Normalised \rho'); hold on;
-    plot(1:n_chan, ratio_norm, 'r-', 'LineWidth', 1.5, 'DisplayName', 'Normalised Spectral Ratio');
-    plot(1:n_chan, gap_smooth, 'k--', 'LineWidth', 2, 'DisplayName', 'Smoothed Gap (\Delta)');
-
-    % Highlight the knee
-    xline(knee_idx, 'g-', sprintf('Knee Point (Comp %d)', knee_idx), ...
-        'LineWidth', 1.5, 'LabelVerticalAlignment', 'bottom', 'HandleVisibility', 'off');
-
-    if ~isnan(min_bad_idx_gap)
-        xline(min_bad_idx_gap, 'g-', sprintf('Gap point (Comp %d)', min_bad_idx_gap), ...
-            'LineWidth', 1.5, 'LabelVerticalAlignment', 'bottom', 'HandleVisibility', 'off');
-    end
-
-    yline(0, 'Color', [0.5 0.5 0.5], 'LineStyle', ':', 'HandleVisibility', 'off');
-
-    xlabel('CCA Component Index');
-    ylabel('Normalised Value [0, 1]');
-    title('CCA Transition & Knee-Point Detection');
-    legend('Location', 'southwest');
-    grid on; box off;
-
-    % Save
-    save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_cca_1'], [15 15/1.6]);
+    % % -------------------------------------------------------------------------
+    % % Visualisation: Diagnostic Gap & Knee Curve
+    % % -------------------------------------------------------------------------
+    % fh = figure('Color', 'w', 'Position', [200, 200, 700, 450]);
+    % plot(1:n_chan, rho_norm, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Normalised \rho'); hold on;
+    % plot(1:n_chan, ratio_norm, 'r-', 'LineWidth', 1.5, 'DisplayName', 'Normalised Spectral Ratio');
+    % plot(1:n_chan, gap_smooth, 'k--', 'LineWidth', 2, 'DisplayName', 'Smoothed Gap (\Delta)');
+    %
+    % % Highlight the knee
+    % xline(knee_idx, 'g-', sprintf('Knee Point (Comp %d)', knee_idx), ...
+    %     'LineWidth', 1.5, 'LabelVerticalAlignment', 'bottom', 'HandleVisibility', 'off');
+    %
+    % if ~isnan(min_bad_idx_gap)
+    %     xline(min_bad_idx_gap, 'g-', sprintf('Gap point (Comp %d)', min_bad_idx_gap), ...
+    %         'LineWidth', 1.5, 'LabelVerticalAlignment', 'bottom', 'HandleVisibility', 'off');
+    % end
+    %
+    % yline(0, 'Color', [0.5 0.5 0.5], 'LineStyle', ':', 'HandleVisibility', 'off');
+    %
+    % xlabel('CCA Component Index');
+    % ylabel('Normalised Value [0, 1]');
+    % title('CCA Transition & Knee-Point Detection');
+    % legend('Location', 'southwest');
+    % grid on; box off;
+    %
+    % % Save
+    % save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_cca_1'], [15 15/1.6]);
 
     % -------------------------------------------------------------------------
     % Power spectra properties
@@ -257,37 +262,39 @@ if is_eeg
     % is_slow_drift = (drift_ratio > 10) & (spat_kurt > 8);
 
     % bad_kurt = find(is_focal_pop | is_slow_drift);
-    bad_kurt = find(is_focal_pop);
+    bad_components_2 = find(is_focal_pop);
 
-    fprintf('Identified %d low-frequency wobble/drift component(s) at the head.\n', length(bad_kurt));
+    fprintf('Identified %d low-frequency wobble/drift component(s) at the head.\n', length(bad_components_2));
 
     % -------------------------------------------------------------------------
     % Do it
     % -------------------------------------------------------------------------
     % EMG CCA are not auto-correlated
-    bad_components = bad_idx_knee;
-    mask_bad_def   = rho(bad_components) < autocorr_threshold;
-    bad_components = bad_components(mask_bad_def);
+    bad_components_1 = bad_idx_knee;
+    mask_bad         = rho(bad_components_1) < autocorr_threshold_1;
+    bad_components_1 = bad_components_1(mask_bad);
 
     % Slow drifts that are not removed by lowpass filtering are auto-correlated
     % mask_bad_def   = rho(bad_kurt) > autocorr_threshold;
     % bad_kurt       = bad_kurt(mask_bad_def);
     % bad_kurt = bad_kurt(bad_kurt <= knee_idx);
-    bad_kurt = bad_kurt(rho(bad_kurt) > 0.8);
+    mask_bad         = rho(bad_components_2) > autocorr_threshold_2;
+    bad_components_2 = bad_components_2(mask_bad);
 
-    bad_components = unique([bad_components(:); bad_kurt(:)]);
+    % bad_components_1 = unique([bad_components_1(:); bad_components_2(:)]);
+    bad_components_1 = bad_components_1(:);
 
-    fprintf('Automatically identified %d muscle components for removal.\n', length(bad_components));
+    fprintf('Automatically identified %d muscle components for removal.\n', length(bad_components_1));
 
     % Zero out the identified muscle components
-    if ~isempty(bad_components)
+    if ~isempty(bad_components_1)
         S_clean = S;
-        S_clean(bad_components, :) = 0;
+        S_clean(bad_components_1, :) = 0;
 
         % Reconstruct the EEG data
-        EEG_old = EEG;
-        A_clean = pinv(W');
-        X_clean = A_clean * S_clean;
+        EEG_old  = EEG;
+        A_clean  = pinv(W');
+        X_clean  = A_clean * S_clean;
         EEG.data = reshape(X_clean, size(EEG.data));
     else
         fprintf('CCA removal will not be done.\n');
@@ -298,40 +305,42 @@ if is_eeg
     % Visualisations
     % =========================================================================
     % -------------------------------------------------------------------------
-    % Visualise 1
+    % Visualise 1: Power Change QA
     % -------------------------------------------------------------------------
-    % Check pwoer change
-    check_power_cleaning(EEG_old, EEG, [], 'cca', cfg);
+    check_power_cleaning(EEG_old, DATA_TRAIN, [], 'cca', cfg);
 
     % -------------------------------------------------------------------------
-    % Visualise 2
+    % Visualise 2: Population Metrics & Thresholds (2 Subplots)
     % -------------------------------------------------------------------------
-    num_plot = 5; % Number of tail components to plot in rows 2 & 3
-    num_plot = min(num_plot, n_chan);
+    fh1 = figure('Color', 'w', 'Position', [100, 100, 1000, 450], 'Name', 'CCA Metrics & Thresholds');
+    t1 = tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
 
-    fh = figure('Color', 'w', 'Position', [100, 100, max(900, num_plot * 260), 900], 'Name', 'CCA Metrics & Artefact QA');
-    t = tiledlayout(3, num_plot, 'TileSpacing', 'compact', 'Padding', 'compact');
+    % --- Panel 1: Gap & Knee Curve (Decision Boundary) ---
+    nexttile;
+    plot(1:n_chan, rho_norm, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Normalised \rho'); hold on;
+    plot(1:n_chan, ratio_norm, 'r-', 'LineWidth', 1.5, 'DisplayName', 'Normalised Ratio');
+    plot(1:n_chan, gap_smooth, 'k--', 'LineWidth', 2, 'DisplayName', 'Smoothed Gap (\Delta)');
 
-    % --- Top-Left Panel: Dual-Axis Component Plot ---
-    % Spans the left half of the top row
-    nexttile(1, [1 floor(num_plot/2) + (mod(num_plot,2) ~= 0)]);
-    yyaxis left
-    plot(1:n_chan, rho, '-o', 'Color', [0.2 0.4 0.7], 'LineWidth', 1.5, 'MarkerSize', 4);
-    ylabel('Autocorrelation (\rho)');
-    ylim([0 1.05]);
+    % Highlight the detected knee
+    xline(knee_idx, 'g-', sprintf('Knee Point (Comp %d)', knee_idx), ...
+        'LineWidth', 1.5, 'LabelVerticalAlignment', 'bottom', 'HandleVisibility', 'off');
 
-    yyaxis right
-    plot(1:n_chan, spectral_ratio, '-s', 'Color', [0.85 0.33 0.1], 'LineWidth', 1.5, 'MarkerSize', 4);
-    ylabel('Spectral Ratio (20-100Hz / 1-15Hz)');
+    if exist('min_bad_idx_gap', 'var') && ~isnan(min_bad_idx_gap)
+        xline(min_bad_idx_gap, 'm-', sprintf('Gap Zero (Comp %d)', min_bad_idx_gap), ...
+            'LineWidth', 1.5, 'LabelVerticalAlignment', 'top', 'HandleVisibility', 'off');
+    end
 
-    title('Autocorrelation & Spectral Ratio per Component', 'FontWeight', 'bold');
-    xlabel('CCA Component (Sorted by \rho)');
+    yline(0, 'Color', [0.5 0.5 0.5], 'LineStyle', ':', 'HandleVisibility', 'off');
+
+    xlabel('CCA Component Index');
+    ylabel('Normalised Value [0, 1]');
+    title('CCA Transition & Knee-Point Detection', 'FontWeight', 'bold');
+    legend('Location', 'southwest');
     xlim([1 n_chan]);
-    grid on;
+    grid on; box off;
 
-    % --- Top-Right Panel: Scatter Plot (rho vs Spectral Ratio) ---
-    % Spans the remaining columns of the top row
-    nexttile(floor(num_plot/2) + 1 + (mod(num_plot,2) ~= 0), [1 ceil(num_plot/2) - (mod(num_plot,2) ~= 0)]);
+    % --- Panel 2: Scatter Plot (\rho vs Spectral Ratio) ---
+    nexttile;
     scatter(rho, spectral_ratio, 35, 1:n_chan, 'filled');
     colormap(gca, 'parula');
     cb = colorbar;
@@ -341,65 +350,82 @@ if is_eeg
     title('Covariation: \rho vs Spectral Ratio', 'FontWeight', 'bold');
     grid on;
 
-    % Highlight the lowest components in the scatter plot
+    % Highlight the components that were actually flagged for removal
     hold on;
-    scatter(rho(end-num_plot+1:end), spectral_ratio(end-num_plot+1:end), 70, 'r', 'LineWidth', 1.5);
-
-    % --- Row 2: Time Courses of the Tail Components ---
-    time_vec = (0:(min(n_pnts, 5000)-1)) / EEG.srate;
-
-    for i = 0:(num_plot - 1)
-        comp_idx = n_chan - i;
-        nexttile(num_plot + i + 1, [1 1]);
-        plot(time_vec, S(comp_idx, 1:length(time_vec)), 'k');
-        title({sprintf('Comp %d', comp_idx), ...
-            sprintf('\\rho=%.2f, Ratio=%.2f', rho(comp_idx), spectral_ratio(comp_idx))}, ...
-            'FontSize',8);
-        xlabel('Time (s)');
-        pbaspect([1.618 1 1]); box off;
+    if exist('bad_components_1', 'var') && ~isempty(bad_components_1)
+        scatter(rho(bad_components_1), spectral_ratio(bad_components_1), 70, 'r', 'LineWidth', 1.5);
     end
 
-    % --- Row 3: Field Distributions (Topographies) ---
-    for i = 0:(num_plot - 1)
-        comp_idx = n_chan - i;
-        % nexttile(2*num_plot + i + 1, [1 1]);
-        % topoplot(A(:, comp_idx), EEG.chanlocs, 'electrodes', 'on');
-        % title(sprintf('Map %d', comp_idx));
-        mytopoplot(A(:, comp_idx), [], sprintf('Map %d', comp_idx), nexttile(2*num_plot + i + 1, [1 1]));
-    end
-
-    % Save
-    save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_cca_2'], [30 16]);
+    % Save Figure 2
+    save_figure(fh1, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_cca_metrics'], [20 9]);
 
     % -------------------------------------------------------------------------
-    % Visualise 3
+    % Visualise 3: Removed Components QA (Topoplots & PSD)
     % -------------------------------------------------------------------------
-    num_remove = length(bad_components);
-    bad_components = flip(bad_components);
+    num_remove = length(bad_components_1);
 
     if num_remove == 0
         fprintf('No bad CCA components identified to plot.\n');
     else
-        % Fixed 8-column layout (or fewer if total components < 8)
-        n_cols = min(8, num_remove);
-        n_rows = ceil(num_remove / n_cols);
+        % Ensure we plot the "worst" components first (lowest rho)
+        comps_to_plot = flip(sort(bad_components_1));
 
-        % Create figure
-        fh = figure('Color', 'w');
-        tiledlayout(n_rows, n_cols, 'TileSpacing', 'compact', 'Padding', 'compact');
+        freq_max  = 100;
+        freq_mask = freq < freq_max;
+        freq_plot = freq(freq_mask);
 
-        % Plot all topographies dynamically
-        for i = 1:num_remove
-            comp_idx = bad_components(i);
-            mytopoplot(A(:, comp_idx), [], sprintf('Map %d', comp_idx), nexttile);
+        % Limit to maximum 8 components to keep the layout readable
+        max_plot = min(20, num_remove);
+        comps_to_plot = comps_to_plot(1:max_plot);
+
+        fh2 = figure('Color', 'w', 'Position', [150, 150, max(900, max_plot * 260), 600], 'Name', 'Removed Components QA');
+        t2 = tiledlayout(2, max_plot, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+        % Top Row: Topographies
+        for i = 1:max_plot
+            comp_idx = comps_to_plot(i);
+            % Use exact tile indices to enforce top-row placement
+            mytopoplot(A(:, comp_idx), [], sprintf('Map %d', comp_idx), nexttile(i));
         end
 
-        % Dynamically scale saved figure dimensions (width x height) based on row/column count
-        fig_width  = max(12, n_cols * 3.5);
-        fig_height = max(6,  n_rows * 3.5);
+        % Bottom Row: PSDs
+        for i = 1:max_plot
+            comp_idx = comps_to_plot(i);
+            % Use exact tile indices to enforce bottom-row placement
+            nexttile(max_plot + i);
 
-        % Save
-        save_figure(fh, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_cca_overview'], [fig_width, fig_height]);
+            % Plot the PSD in decibels
+            data_plot = 10 * log10(psd_S(comp_idx, :));
+
+            data_plot = data_plot(freq_mask);
+            plot(freq_plot, data_plot, 'k', 'LineWidth', 1.2);
+            hold on;
+
+            % Shade the low-frequency band (3-15 Hz)
+            patch([3 15 15 3], [min(ylim) min(ylim) max(ylim) max(ylim)], ...
+                [0.2 0.4 0.7], 'FaceAlpha', 0.1, 'EdgeColor', 'none', 'HandleVisibility', 'off');
+
+            % Shade the high-frequency band (30-100 Hz)
+            patch([30 min(freq_max, fs/2) min(freq_max, fs/2) 30], [min(ylim) min(ylim) max(ylim) max(ylim)], ...
+                [0.85 0.33 0.1], 'FaceAlpha', 0.1, 'EdgeColor', 'none', 'HandleVisibility', 'off');
+
+            title({sprintf('\\rho=%.2f, R=%.2f', rho(comp_idx), spectral_ratio(comp_idx))}, 'FontSize', 8);
+            xlabel('Frequency (Hz)');
+            ylabel('Power (dB/Hz)');
+            xlim([0 min(freq_max, fs/2)]);
+
+            % Scale y-axis dynamically but ensure it covers the data
+            y_lims = ylim;
+            ylim([y_lims(1) max(-10, y_lims(2))]);
+
+            grid on;
+            pbaspect([1.618 1 1]);
+            box off;
+        end
+
+        % Save Figure 3 dynamically scaled by number of columns
+        fig_width  = max(30, max_plot * 3.5);
+        save_figure(fh2, EEG.ALSUTRECHT.subject.figures, [EEG.ALSUTRECHT.subject.id '_cca_removed'], [fig_width, 7]);
     end
 
 elseif ~is_eeg
@@ -436,64 +462,64 @@ end
 % % % Outputs:
 % % %   slope_discrepancy : Vector (num_channels x 1) of internal consistency differences
 % % %   neg_integral      : Vector (num_channels x 1) of the total negative residual area
-% % 
+% %
 % % % Ensure column vector for frequencies
 % % freqs = freqs(:);
 % % num_channels = size(powspctrm, 1);
-% % 
+% %
 % % log_freqs = log10(freqs);
 % % log_power_spectra = log10(powspctrm);
-% % 
+% %
 % % % --- FREQUENCY MASKING ---
 % % interest_idx1 = freqs >= interest_range(1) & freqs <= interest_range(2);
 % % interest_idx2 = freqs < censor_range(1)    | freqs > censor_range(2);
 % % interest_idx3 = freqs < 49 | freqs > 51;
 % % interest_idx4 = freqs < 99 | freqs > 101;
 % % interest_idx  = interest_idx1 & interest_idx2 & interest_idx3 & interest_idx4;
-% % 
+% %
 % % freqs_interest = freqs(interest_idx);
 % % log_freqs_select = log_freqs(interest_idx);
 % % log_power_select = log_power_spectra(:, interest_idx);
-% % 
+% %
 % % % Identify the low/high frequency 'islands' within the filtered data
 % % idx_low  = find(freqs_interest <= censor_range(1));
 % % idx_high = find(freqs_interest >= censor_range(2));
-% % 
+% %
 % % % Fallback if data is entirely outside the censored range
 % % if isempty(idx_low) && ~isempty(idx_high)
 % %     idx_low  = find(freqs_interest <= freqs_interest(15));
 % %     idx_high = find(freqs_interest >= freqs_interest(end-15));
 % % end
-% % 
+% %
 % % % --- ALLOCATION & MODEL FITTING ---
 % % slope_low = NaN(num_channels, 1);
 % % slope_discrepancy = NaN(num_channels, 1);
 % % ap_fit = NaN(num_channels, length(freqs));
-% % 
+% %
 % % for i_channel = 1:num_channels
 % %     power_channel = log_power_select(i_channel, :);
-% % 
+% %
 % %     % Global fit to calculate the aperiodic baseline
 % %     mdl = fitlm(log_freqs_select, power_channel(:));
 % %     intercept = mdl.Coefficients.Estimate(1);
 % %     slope     = mdl.Coefficients.Estimate(2);
-% % 
+% %
 % %     ap_fit_log = intercept + (slope * log_freqs');
 % %     ap_fit(i_channel, :) = 10.^ap_fit_log;
-% % 
+% %
 % %     % Sub-segment fits for internal consistency
 % %     mdl_low  = fitlm(log_freqs_select(idx_low), power_channel(idx_low));
 % %     mdl_high = fitlm(log_freqs_select(idx_high), power_channel(idx_high));
-% % 
+% %
 % %     slope_low(i_channel, 1) = mdl_low.Coefficients.Estimate(2);
 % %     slope_discrepancy(i_channel, 1) = abs(mdl_low.Coefficients.Estimate(2) - mdl_high.Coefficients.Estimate(2));
 % % end
-% % 
+% %
 % % % --- NEGATIVE RESIDUAL ESTIMATION ---
 % % periodic_estimate = log_power_spectra - log10(ap_fit);
 % % periodic_estimate = periodic_estimate(:, interest_idx1);
 % % neg_mask          = periodic_estimate < 0;
-% % 
+% %
 % % % Area of 'impossible' power per channel
 % % neg_integral = sum(abs(periodic_estimate .* neg_mask), 2);
 % % end

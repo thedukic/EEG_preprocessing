@@ -18,10 +18,10 @@ N_trials_start   = NaN(num_subject, 1);
 N_trials_removed = NaN(num_subject, 1);
 N_interp_chan    = NaN(num_subject, 1);
 N_interp_trl     = NaN(num_subject, 1);
+P_extreme        = NaN(num_subject, 1);
 P_emg_left       = NaN(num_subject, 1);
 V_eog_left       = NaN(num_subject, 1);
 V_shift          = NaN(128, num_subject);
-gamma_cv         = NaN(num_subject, 1);
 auto_status      = NaN(num_subject, 1);
 ica_removed      = NaN(num_subject, 1);
 cluster_sizes    = NaN(num_subject, 1);
@@ -44,7 +44,7 @@ for i_subject = 1:num_subject
         N_trials_removed(i_subject) = qa_data.issues_to_check.NumberTrials1 - qa_data.issues_to_check.NumberTrials3;
 
         % Bad channels and cluster sizes
-        bad_chans = qa_data.badchaninfo.badElectrodes;
+        bad_chans = qa_data.bad_channel.electrodes;
         N_interp_chan(i_subject) = length(bad_chans) / 128;
         if ~isempty(bad_chans)
             [~, cluster_sizes_tmp] = find_elec_clusters(bad_chans);
@@ -65,9 +65,6 @@ for i_subject = 1:num_subject
         % Median voltage shift
         V_shift(:, i_subject) = qa_data.epochRejections.MedianvoltageshiftwithinepochFinal(1:128);
 
-        % Gamma spread
-        % gamma_cv(i_subj) = qa_data.psd_gamma_cv;
-
         % Automagic status
         status_str = lower(strtrim(qa_data.automagicmetrics.status));
         switch status_str
@@ -78,10 +75,11 @@ for i_subject = 1:num_subject
         end
 
         % Residual artifacts
+        P_extreme(i_subject)          = qa_data.bad_segments.perc_bad;
         P_emg_left(i_subject)         = qa_data.leftovers.muscle2;
         V_eog_left(i_subject)         = qa_data.leftovers.blink_stats.peak_post_fp;
         ica_removed(i_subject)        = sum(qa_data.ica.final.removed);
-        chan_offsets(i_subject)       = mean(abs(qa_data.badchaninfo.offsets.offsets_mV(1:128, :)), 'all');
+        chan_offsets(i_subject)       = mean(abs(qa_data.bad_channel.offsets.offsets_mV(1:128, :)), 'all');
         cov_matrices(:, :, i_subject) = qa_data.channelcov.cov_hf(1:128, 1:128);
         power_diff(:, :, i_subject)   = qa_data.power_diff;
         valid_subjects(i_subject)     = true;
@@ -97,6 +95,7 @@ N_trials_left    = N_trials_start - N_trials_removed;
 N_interp_chan    = N_interp_chan(valid_subjects);
 N_interp_trl     = N_interp_trl(valid_subjects);
 P_emg_left       = P_emg_left(valid_subjects);
+P_extreme        = P_extreme(valid_subjects);
 V_eog_left       = V_eog_left(valid_subjects);
 V_shift          = V_shift(:, valid_subjects);
 auto_status      = auto_status(valid_subjects);
@@ -128,6 +127,7 @@ flag_trials_low  = flag_lower_outlier(N_trials_left, 30);
 flag_trials      = flag_trials_lost | flag_trials_low;
 flag_interp_chan = flag_upper_outlier(N_interp_chan, 0.10);
 flag_cluster     = flag_upper_outlier(cluster_sizes, 3);
+flag_extreme     = flag_upper_outlier(P_extreme, 0.05);
 flag_emg         = flag_upper_outlier(P_emg_left);
 flag_eog         = flag_upper_outlier(V_eog_left);
 flag_offset      = flag_upper_outlier(chan_offsets);
@@ -138,9 +138,9 @@ end
 flag_auto        = (auto_status == 1);
 
 Flag_Matrix = [flag_trials, flag_interp_chan, flag_cluster, ...
-    flag_emg, flag_eog, flag_offset, flag_cov, flag_auto];
+    flag_extreme, flag_emg, flag_eog, flag_offset, flag_cov, flag_auto];
 heatmap_labels = {'Trials Lost', 'Interp Chans', 'Elec Cluster', ...
-    'Leftover EMG', 'Leftover EOG', ...
+    'Extreme Data', 'Leftover EMG', 'Leftover EOG', ...
     'Mean Offset', 'Covariance Dev', 'Automagic Bad'};
 
 if valid_trl
@@ -162,12 +162,12 @@ t1 = tiledlayout(1, 4, 'TileSpacing', 'compact');
 
 nexttile([1 3]);
 h = heatmap(heatmap_labels, subjects_sorted, double(Flag_Matrix_Sorted));
-h.Title       = 'Objective Outlier Matrix (Cohort Distributions & Covariance)';
-h.Colormap    = [0.93 0.93 0.95; 0.85 0.15 0.15]; % Grey = Clear, Red = Outlier
-h.ColorLimits = [0 1];
+h.Title           = 'Objective Outlier Matrix (Cohort Distributions & Covariance)';
+h.Colormap        = [0.93 0.93 0.95; 0.85 0.15 0.15]; % Grey = Clear, Red = Outlier
+h.ColorLimits     = [0 1];
 h.ColorbarVisible = 'off';
-h.XLabel      = 'Evaluated Quality Domains';
-h.YLabel      = 'Participants (Most Deviant to Cleanest)';
+h.XLabel          = 'Evaluated Quality Domains';
+h.YLabel          = 'Participants (Most Deviant to Cleanest)';
 
 nexttile;
 b = barh(Total_Flags_Sorted, 'FaceColor', 'flat', 'EdgeColor', 'none');
@@ -193,13 +193,13 @@ set(fh1, 'PaperPositionMode', 'Manual', 'PaperUnits', 'Centimeters', ...
 print(fh1, fullfile(reports_dir, ['Dashboard_DefectMatrix_' myPaths.group]), '-dtiff', '-r300');
 
 % -------------------------------------------------------------------------
-% Visualisation 2: Distribution Swarmcharts
+% Visualisation 2: Distribution Swarmcharts (4 Columns)
 % -------------------------------------------------------------------------
 metrics = [{N_trials_left, N_trials_removed}, ...
-    {N_interp_chan, P_emg_left, V_eog_left, V_shift_med, cluster_sizes, ica_removed, chan_offsets}];
-titles  = [{'Number of Trials (Left)', 'Number of Trials (Removed)'}, ...
-    {'Interpolated Channels (%)', 'Leftover EMG (%)', 'Leftover EOG Peak (uV)', 'Median Voltage Shift (uV)', ...
-    'Max Bad Elec Cluster Size', 'Number of ICs Removed', 'Mean Channel Offset (mV)'}];
+    {N_interp_chan, P_extreme, P_emg_left, V_eog_left, V_shift_med, cluster_sizes, ica_removed, chan_offsets}];
+titles  = [{'Trials Left', 'Trials Removed'}, ...
+    {'Interpolated Channels (%)', 'Extreme Data (%)', 'Leftover EMG (%)', 'Leftover EOG Peak (uV)', ...
+    'Median Voltage Shift (uV)', 'Max{Bad Channel Cluster}', 'ICs Removed', 'Mean Channel Offset (mV)'}];
 
 if valid_trl
     metrics = [metrics(1:3), {N_interp_trl}, metrics(4:end)];
@@ -207,9 +207,9 @@ if valid_trl
 end
 
 num_metrics = length(metrics);
-Ncol = 3;
+Ncol = 4;
 Nrow = ceil(num_metrics / Ncol);
-fh2 = figure('Name', 'Cohort Distributions', 'Color', 'w', 'Position', [150, 150, Ncol*400, Nrow*320]);
+fh2 = figure('Name', 'Cohort Distributions', 'Color', 'w', 'Position', [150, 150, Ncol*320, Nrow*260]);
 t2 = tiledlayout(Nrow, Ncol, 'TileSpacing', 'loose', 'Padding', 'compact');
 
 for i_metric = 1:num_metrics
@@ -265,7 +265,7 @@ for i_metric = 1:num_metrics
     q = prctile(data, [25 50 75]);
     line([q(2) q(2)], [0.7 1.3], 'Color', [0.8 0.2 0.2], 'LineWidth', 2.5);
     line([q(1) q(3)], [y_base y_base], 'Color', 'k', 'LineWidth', 1.5);
-    title(titles{i_metric}, 'FontSize', 12, 'FontWeight', 'bold');
+    title(titles{i_metric}, 'FontSize', 11, 'FontWeight', 'bold');
 
     x_pad = max(std(data) * 0.2, 1e-3);
     xlim([min(data) - x_pad, max(data) + x_pad]);
@@ -273,7 +273,7 @@ for i_metric = 1:num_metrics
     grid on; ax = gca; ax.GridAlpha = 0.1;
 end
 
-plotX = Ncol * 17; plotY = max(15, Nrow * 10);
+plotX = Ncol * 10; plotY = max(12, Nrow * 8);
 set(fh2, 'PaperPositionMode', 'Manual', 'PaperUnits', 'Centimeters', ...
     'PaperPosition', [0 0 plotX plotY], 'PaperSize', [plotX plotY]);
 print(fh2, fullfile(reports_dir, ['Dashboard_Distributions_' myPaths.group]), '-dtiff', '-r300');

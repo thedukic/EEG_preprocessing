@@ -37,7 +37,7 @@ myPathsOut.subjects = select_relevant(myPathsOut.subjects, myPathsOut);
 % -------------------------------------------------------------------------
 % Method C: Manually select
 % -------------------------------------------------------------------------
-% myPathsOut.subjects = {'ALS12345'};
+% % myPathsOut.subjects = {'ALS39637', 'ALS40208', 'ALS40391', 'ALS40999'};
 % load(fullfile(myPaths.mycodes, 'files', 'list_c9_als.mat'), 'list_als'); myPathsOut.subjects = list_als;
 
 % #########################################################################

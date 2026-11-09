@@ -29,13 +29,6 @@ pulsEstimate = NaN;
 
 if nargin < 2, cfg = struct(); end
 
-% Support backwards compatibility if numeric window is passed directly
-if isnumeric(cfg)
-    tmp_win = cfg;
-    cfg = struct();
-    cfg.win = tmp_win;
-end
-
 % Parse options with robust fallbacks
 if isscalar(cfg.win)
     cfg.win = [-abs(cfg.win), abs(cfg.win)];
@@ -57,9 +50,6 @@ heartData = double(DATA.data(channel_ecg, :));
 n_samples = length(heartData);
 
 %% 2. Dedicated QRS Filtering (6 to 18 Hz)
-% % Suppresses slow baseline drift (<6 Hz), cortical alpha, and high-frequency EMG (>18 Hz)
-% [b_bp, a_bp] = butter(3, [6, 18] / (fs / 2), 'bandpass');
-% ecg_filt = filtfilt(b_bp, a_bp, heartData);
 is_approximated = contains(lower(DATA.ALSUTRECHT.subject.ecg), 'approx');
 
 if is_approximated
@@ -67,16 +57,21 @@ if is_approximated
     [b_bp, a_bp] = butter(2, [14, 28] / (fs / 2), 'bandpass');
 else
     % Standard thoracic lead: wider cardiac power band
-    % Removes the T and P waves, ;eaves the QRS
+    % Removes the T and P waves, leaves the QRS
     [b_bp, a_bp] = butter(2, [6, 18] / (fs / 2), 'bandpass');
 end
 
-ecg_filt = filtfilt(b_bp, a_bp, heartData);
+ecg_filt = do_filteringcore(b_bp, a_bp, heartData, DATA.event, DATA.srate);
 ecg_filt = ecg_filt - mean(ecg_filt);
 
 % Just for plotting
-[b, a] = butter(2, 0.3/(DATA.srate/2), 'high');
-heartData = do_filteringcore(b, a, heartData, DATA.event, DATA.srate);
+% [bl, al] = butter(2, 30/(DATA.srate/2), 'low');
+% [bh, ah] = butter(2, 0.3/(DATA.srate/2), 'high');
+% heartData = do_filteringcore(bl, al, heartData, DATA.event, DATA.srate);
+% heartData = do_filteringcore(bh, ah, heartData, DATA.event, DATA.srate);
+
+[b_bp, a_bp] = butter(2, [0.3, 30] / (fs / 2), 'bandpass');
+heartData = do_filteringcore(b_bp, a_bp, heartData, DATA.event, DATA.srate);
 heartData = heartData - mean(heartData);
 
 %% 3. Energy Envelope (Derivative + Moving Average Integration)

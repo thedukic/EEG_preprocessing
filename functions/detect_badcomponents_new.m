@@ -621,9 +621,10 @@ end
 
 bad_ic_1 = neg_prop > threshold_power_prop;
 bad_ic_2 = slope    > threshold_power_slope_1;
-bad_ic_3 = slope    < threshold_power_slope_2;
+% bad_ic_3 = slope    < threshold_power_slope_2;
 
-bad_ic   = (bad_ic_1(:) & bad_ic_2(:)) | bad_ic_3(:);
+% bad_ic   = (bad_ic_1(:) & bad_ic_2(:)) | bad_ic_3(:);
+bad_ic   = bad_ic_1(:) & bad_ic_2(:);
 bad_ic   = find(bad_ic);
 evidence.spectral_bad(bad_ic) = true;
 
@@ -1178,13 +1179,71 @@ EEG.ALSUTRECHT.ica.final.report(ICsMostLikely_Complex) = 7;
 
 end
 
+% function EEG = compute_vaf_report(EEG, evidence, cfg)
+% % COMPUTE_VAF_REPORT Computes individual and group variance accounted for (VAF),
+% % logs results to EEG.ALSUTRECHT.ica.final.var, and renders the combined ICA
+% % evidence and classification dashboard figure.
+%
+% num_ica = size(EEG.icaact, 1);
+% num_ica_relevant = min(20, num_ica);
+% fprintf('\nVariance Accounted For (VAF) report for first %d ICs...\n', num_ica_relevant);
+%
+% % Extract continuous 2D channel data
+% if isfield(EEG, 'icachansind') && ~isempty(EEG.icachansind)
+%     ch_idx = EEG.icachansind;
+% elseif isfield(EEG.ALSUTRECHT.ica, 'icachansind')
+%     ch_idx = EEG.ALSUTRECHT.ica.icachansind;
+% else
+%     ch_idx = 1:size(EEG.data, 1);
+% end
+%
+% ch_data = reshape(EEG.data(ch_idx, :, :), length(ch_idx), []);
+% icaact  = reshape(EEG.icaact, num_ica, []);
+%
+% % Single IC VAF across the first K components
+% vaf_per_ic = zeros(1, num_ica_relevant);
+% for i_ic = 1:num_ica_relevant
+%     vaf_per_ic(i_ic) = get_vaf(ch_data, icaact, EEG.icawinv, i_ic);
+% end
+%
+% % Cumulative VAF for relevant components
+% mask_relevant = false(num_ica, 1);
+% mask_relevant(1:num_ica_relevant) = true;
+% var_relevant = get_vaf(ch_data, icaact, EEG.icawinv, find(mask_relevant));
+% fprintf('Within the first %d ICs (scalp variance accounted for = %.2f%%):\n', num_ica_relevant, var_relevant);
+%
+% % Class breakdown within relevant window
+% cat_labels = {'brain', 'muscle', 'eye', 'heart', 'line', 'channel', 'other'};
+% report_rel = EEG.ALSUTRECHT.ica.final.report(1:num_ica_relevant);
+% I = EEG.ALSUTRECHT.ica.final.report(:)';
+%
+% for i_cat = 1:length(cat_labels)
+%     pct_comp = mean(report_rel == i_cat) * 100;
+%     vaf_val  = get_vaf(ch_data, icaact, EEG.icawinv, find(I == i_cat));
+%     EEG.ALSUTRECHT.ica.final.var.(cat_labels{i_cat}) = vaf_val;
+%     fprintf('%-10s components: %2.0f%% (scalp variance accounted for = %.2f%%)\n', cat_labels{i_cat}, round(pct_comp), vaf_val);
+% end
+%
+% % General bad components
+% vaf_bad = get_vaf(ch_data, icaact, EEG.icawinv, find(EEG.ALSUTRECHT.ica.final.genbad(:)'));
+% EEG.ALSUTRECHT.ica.final.var.genbad = vaf_bad;
+% pct_bad_rel = mean(EEG.ALSUTRECHT.ica.final.genbad(1:num_ica_relevant)) * 100;
+% fprintf('%-10s components: %2.0f%% (scalp variance accounted for = %.2f%%)\n', 'bad', round(pct_bad_rel), vaf_bad);
+%
+% % Render Unified ICA Evidence Dashboard
+% if cfg.figure.plot
+%     render_ica_summary_dashboard(EEG, evidence, num_ica_relevant, vaf_per_ic, cfg);
+% end
+%
+% end
+
 function EEG = compute_vaf_report(EEG, evidence, cfg)
 % COMPUTE_VAF_REPORT Computes individual and group variance accounted for (VAF),
 % logs results to EEG.ALSUTRECHT.ica.final.var, and renders the combined ICA
 % evidence and classification dashboard figure.
 
 num_ica = size(EEG.icaact, 1);
-num_ica_relevant = min(25, num_ica);
+num_ica_relevant = min(20, num_ica);
 fprintf('\nVariance Accounted For (VAF) report for first %d ICs...\n', num_ica_relevant);
 
 % Extract continuous 2D channel data
@@ -1199,7 +1258,7 @@ end
 ch_data = reshape(EEG.data(ch_idx, :, :), length(ch_idx), []);
 icaact  = reshape(EEG.icaact, num_ica, []);
 
-% Single IC VAF across the first K components
+% Single IC VAF across the first K components (individual pvaf)
 vaf_per_ic = zeros(1, num_ica_relevant);
 for i_ic = 1:num_ica_relevant
     vaf_per_ic(i_ic) = get_vaf(ch_data, icaact, EEG.icawinv, i_ic);
@@ -1211,23 +1270,53 @@ mask_relevant(1:num_ica_relevant) = true;
 var_relevant = get_vaf(ch_data, icaact, EEG.icawinv, find(mask_relevant));
 fprintf('Within the first %d ICs (scalp variance accounted for = %.2f%%):\n', num_ica_relevant, var_relevant);
 
+% -------------------------------------------------------------------------
+% Compute back-projected energy per component to avoid negative cross-terms
+% Energy: P_i = sum_channels sum_time (A(:, i) * s_i(t)).^2
+% -------------------------------------------------------------------------
+ic_power = zeros(1, num_ica);
+for i_ic = 1:num_ica
+    comp_proj = EEG.icawinv(:, i_ic) * icaact(i_ic, :);
+    ic_power(i_ic) = sum(comp_proj(:).^2);
+end
+
+% Total back-projected energy within the relevant window
+total_win_power = sum(ic_power(1:num_ica_relevant));
+
 % Class breakdown within relevant window
 cat_labels = {'brain', 'muscle', 'eye', 'heart', 'line', 'channel', 'other'};
 report_rel = EEG.ALSUTRECHT.ica.final.report(1:num_ica_relevant);
-I = EEG.ALSUTRECHT.ica.final.report(:)';
 
 for i_cat = 1:length(cat_labels)
-    pct_comp = mean(report_rel == i_cat) * 100;
-    vaf_val  = get_vaf(ch_data, icaact, EEG.icawinv, find(I == i_cat));
+    cat_mask_rel = (report_rel == i_cat);
+    pct_comp     = mean(cat_mask_rel) * 100;
+
+    if total_win_power > 0 && any(cat_mask_rel)
+        vaf_val = (sum(ic_power(cat_mask_rel)) / total_win_power) * 100;
+    else
+        vaf_val = 0;
+    end
+
     EEG.ALSUTRECHT.ica.final.var.(cat_labels{i_cat}) = vaf_val;
-    fprintf('%-10s components: %2.0f%% (scalp variance accounted for = %.2f%%)\n', cat_labels{i_cat}, round(pct_comp), vaf_val);
+    fprintf('%-10s components: %2.0f%% (model energy share = %5.2f%%)\n', ...
+        cat_labels{i_cat}, round(pct_comp), vaf_val);
 end
 
-% General bad components
-vaf_bad = get_vaf(ch_data, icaact, EEG.icawinv, find(EEG.ALSUTRECHT.ica.final.genbad(:)'));
+% -------------------------------------------------------------------------
+% General bad components: Scalp variance reduction when removing bad ICs
+% -------------------------------------------------------------------------
+bad_idx = find(EEG.ALSUTRECHT.ica.final.genbad(:)');
+if ~isempty(bad_idx)
+    vaf_bad = get_vaf(ch_data, icaact, EEG.icawinv, bad_idx);
+    vaf_bad = max(0, vaf_bad);
+else
+    vaf_bad = 0;
+end
+
 EEG.ALSUTRECHT.ica.final.var.genbad = vaf_bad;
 pct_bad_rel = mean(EEG.ALSUTRECHT.ica.final.genbad(1:num_ica_relevant)) * 100;
-fprintf('%-10s components: %2.0f%% (scalp variance accounted for = %.2f%%)\n', 'bad', round(pct_bad_rel), vaf_bad);
+fprintf('%-10s components: %2.0f%% (scalp variance accounted for = %.2f%%)\n', ...
+    'bad', round(pct_bad_rel), vaf_bad);
 
 % Render Unified ICA Evidence Dashboard
 if cfg.figure.plot
@@ -1377,15 +1466,7 @@ if isempty(comp_idx)
     vaf = 0;
     return;
 end
-
-if exist('compvar', 'file') == 2
-    [~, vaf] = compvar(ch_data, icaact, icawinv, comp_idx);
-else
-    tot_var  = sum(var(ch_data, 0, 2));
-    proj     = icawinv(:, comp_idx) * icaact(comp_idx, :);
-    resid_var = sum(var(ch_data - proj, 0, 2));
-    vaf      = max(0, (1 - (resid_var / tot_var)) * 100);
-end
+[~, vaf] = compvar(ch_data, icaact, icawinv, comp_idx);
 end
 
 function bad_ic = is_false_veog(bad_ic, ICs, templates_ica, ICLabel)

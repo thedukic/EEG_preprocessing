@@ -15,10 +15,9 @@
 %     4. Structured error tracking and generation of failure logs.
 %
 % TODO:
-%   1. Offsets not correct for dataset collected with fs > 256 Hz.
-%   2. Iterative DSS on eye blink leftovers
+%   1. plot EO and EC as separate conditions
+%   2.
 %   3.
-%   4.
 
 % ALS Centre, University Medical Centre Utrecht
 % Author: S. Dukic,  2026
@@ -51,7 +50,7 @@ for i_group = 1:length(myPaths.group)
         % Select participants
         myPathsTmp = preproc_participants(i_group, i_visit, myPaths);
 
-        % Run
+        % Run pipeline
         [errorLog, listFailed{i_group, i_visit}] = run_subjects(myPathsTmp, errorLog);
     end
 end

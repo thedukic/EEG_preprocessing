@@ -1,7 +1,7 @@
 function EEG = add_info(EEG)
 
 fprintf('\n================================\n');
-fprintf('Adding participant / channel info\n');
+fprintf('Adding channel info\n');
 fprintf('================================\n');
 
 % Load standard 128-channel BioSemi montage
@@ -26,15 +26,14 @@ function EEG = fix_chanlocs(EEG, chanlocs, labels_ext, labels_emg)
 % to standardised anatomical labels and channel types.
 
 num_blocks   = length(EEG);
-num_eeg_chan = length(chanlocs); % Typically 128
+num_channel_eeg = length(chanlocs); % Typically 128
+num_channel_total = EEG(1).nbchan;
 
 for i_block = 1:num_blocks
-    total_chan = EEG(i_block).nbchan;
-
     % ---------------------------------------------------------------------
     % 1. Map 128 Scalp EEG Channels
     % ---------------------------------------------------------------------
-    for i_channel = 1:num_eeg_chan
+    for i_channel = 1:num_channel_eeg
         % Validate label alignment if labels already exist
         if ~isempty(EEG(i_block).chanlocs(i_channel).labels) && ...
                 ~strncmpi(EEG(i_block).chanlocs(i_channel).labels, 'EXG', 3)
@@ -61,9 +60,9 @@ for i_block = 1:num_blocks
     % ---------------------------------------------------------------------
     % 2. Map External Channels (129:136) -> EOG / ECG / Mastoids
     % ---------------------------------------------------------------------
-    if total_chan >= 136
+    if num_channel_total >= 136
         cnt_ext = 0;
-        for i_channel = (num_eeg_chan + 1):min(total_chan, num_eeg_chan + 8)
+        for i_channel = (num_channel_eeg + 1):min(num_channel_total, num_channel_eeg + 8)
             cnt_ext = cnt_ext + 1;
 
             % Assign standard name if channel has a generic hardware label
@@ -88,8 +87,8 @@ for i_block = 1:num_blocks
     % ---------------------------------------------------------------------
     % 3. Map EMG Channels (137:148) -> 6 Muscle Pairs (12 Leads)
     % ---------------------------------------------------------------------
-    if total_chan > 136
-        num_leads = total_chan - 136;
+    if num_channel_total > 136
+        num_leads = num_channel_total - 136;
         num_pairs = num_leads / 2;
         assert(length(labels_emg) == num_pairs);
 

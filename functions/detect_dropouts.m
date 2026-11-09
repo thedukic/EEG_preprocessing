@@ -9,19 +9,19 @@ fprintf('================================\n');
 
 fprintf('Temporarily filtering the EEG electrodes for better detection of CMS out of range.\n');
 eegchan = strcmp({EEG(1).chanlocs.type}, 'EEG');
-NCHN = sum(eegchan);
+num_channel = sum(eegchan);
 
 % Remove slow drifts
 EEGTMP = filter_signal(EEG, [], [1 2], 1:length(eegchan), 'eeglab');
 % vis_artifacts(EEGTMP(2),EEGTMP(2));
 % EEGTMP = EEG;
 
-NBLK = length(EEG);
-flagDropout = false(NBLK, 1);
-jumpsBadAll = cell(NBLK, 1);
+num_block = length(EEG);
+flagDropout = false(num_block, 1);
+jumpsBadAll = cell(num_block, 1);
 
-for i_block = 1:NBLK
-    tmpData1 = EEGTMP(i_block).data(1:NCHN,:);
+for i_block = 1:num_block
+    tmpData1 = EEGTMP(i_block).data(1:num_channel,:);
     smoothFactor = round(2*EEG(i_block).srate);
     % figure; histogram(tmp(:));
 
@@ -36,8 +36,8 @@ for i_block = 1:NBLK
 
     % This accounts for long dropouts, which leads to the threshold being 0!
     % dataDiffMedian = median(dataDiff,2);
-    dataDiffMedian = NaN(NCHN, 1);
-    for i_channel = 1:NCHN
+    dataDiffMedian = NaN(num_channel, 1);
+    for i_channel = 1:num_channel
         tmpData2 = dataDiff(i_channel, :);
         dataDiffMedian(i_channel) = median(tmpData2(tmpData2 ~= 0));
     end
@@ -49,7 +49,7 @@ for i_block = 1:NBLK
     % figure; plot(maskBadZero);
 
     % The same as above, solves the problem of long dropouts, when trashold becomes 128
-    maskBadZeroTmp = maskBadZero(maskBadZero < NCHN);
+    maskBadZeroTmp = maskBadZero(maskBadZero < num_channel);
 
     % threshold
     ZIQR = iqr(maskBadZeroTmp);
@@ -117,12 +117,12 @@ end
 
 % =====================================================================
 % Log
-NDropouts = cellfun(@(x) size(x, 1), jumpsBadAll);
+num_drop = cellfun(@(x) size(x, 1), jumpsBadAll);
 
-for i_block = 1:NBLK
-    EEG(i_block).ALSUTRECHT.cmsDropouts.flagDropout = flagDropout;
-    EEG(i_block).ALSUTRECHT.cmsDropouts.jumpsBadAll = jumpsBadAll;
-    EEG(i_block).ALSUTRECHT.cmsDropouts.NDropouts   = NDropouts;
+for i_block = 1:num_block
+    EEG(i_block).ALSUTRECHT.cms_dropouts.flagDropout = flagDropout;
+    EEG(i_block).ALSUTRECHT.cms_dropouts.jumpsBadAll = jumpsBadAll;
+    EEG(i_block).ALSUTRECHT.cms_dropouts.num_drop    = num_drop;
 end
 
 fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'\n---------------------------------------------------------\n');
@@ -131,18 +131,18 @@ fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'-----------------------------------
 
 if any(flagDropout)
     fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'Drop out detected:    Yes\n');
-    fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'Number of detections: %d\n', sum(NDropouts));
+    fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'Number of detections: %d\n', sum(num_drop));
 else
     fprintf(EEG(i_block).ALSUTRECHT.subject.fid,'Drop out detected: No\n');
 end
 
 % Report visually
-report_badsegments(EEG, jumpsBadAll, 'cmsdropouts', cfg.figure.visible);
+report_badsegments(EEG, jumpsBadAll, 'cms_dropouts', cfg.figure.visible);
 
 % Remove the chunks
 if any(flagDropout)
     fprintf('Removing the drop-outs now...\n');
-    for i_block = 1:NBLK
+    for i_block = 1:num_block
         if ~isempty(jumpsBadAll{i_block})
             EEG(i_block) = eeg_eegrej(EEG(i_block), jumpsBadAll{i_block});
             % EEG(i) = pop_select(EEG(i), 'rmpoint', jumpsBadAll{i});

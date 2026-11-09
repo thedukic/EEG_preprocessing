@@ -41,7 +41,7 @@ num_subjects = length(myPaths.subjects);
 list_failed = [];
 
 if num_subjects > 0
-    for i_subj = 1:num_subjects
+    for i_subj = 60 %1:num_subjects
         % Header
         fprintf('\n');
         disp('==================================================================');
@@ -100,10 +100,10 @@ if num_subjects > 0
     % Check if any runs failed
     list_failed = check_runs(myPaths);
 
-    % Report (you want a whole cohort)
-    if num_subjects > 1
-        report_final(myPaths, myPaths.subjects);
-    end
+    % % Report (you want a whole cohort)
+    % if num_subjects > 1
+    %     report_final(myPaths, myPaths.subjects);
+    % end
 else
     warning('No participants selected: %s T%d', myPaths.group, myPaths.visit);
 end

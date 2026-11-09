@@ -22,10 +22,10 @@ fprintf('Estimating electrode offsets\n');
 fprintf('================================\n');
 
 num_block = length(EEG);
-num_channels = EEG(1).nbchan;
+num_channel_all = EEG(1).nbchan;
 
 % Preallocate outputs for performance
-offsets_mV = NaN(num_channels, num_block);
+offsets_mV = NaN(num_channel_all, num_block);
 bad_electrodes = cell(1, num_block);
 
 for i_block = 1:num_block
@@ -43,15 +43,19 @@ for i_block = 1:num_block
 end
 
 % Display summary
-fprintf('Calculated offsets for %d channels across %d blocks.\n', num_channels, num_block);
+fprintf('Calculated offsets for %d channels across %d blocks.\n', num_channel_all, num_block);
 fprintf('Average absolute electrode offset: %1.1f mV\n', mean(abs(offsets_mV), "all"));
+
+% EEG channels
+channel_mask = strcmp({EEG(1).chanlocs.type}, 'EEG');
+channel_labels = {EEG(1).chanlocs(channel_mask).labels};
+num_channel = length(channel_labels);
+fprintf('Number of all channels detected: %d\n', num_channel_all);
+fprintf('Number of EEG channels detected: %d\n', num_channel);
 
 % Find unique bad channels across all blocks for the summary warning
 bad_electrodes_all_indx = unique(cat(1, bad_electrodes{:}));
-bad_electrodes_all_indx = bad_electrodes_all_indx(bad_electrodes_all_indx <= 128);
-
-channel_mask = strcmp({EEG(1).chanlocs.type}, 'EEG');
-channel_labels = {EEG(1).chanlocs(channel_mask).labels};
+bad_electrodes_all_indx = bad_electrodes_all_indx(bad_electrodes_all_indx <= num_channel);
 bad_electrodes_all_label = channel_labels(bad_electrodes_all_indx);
 
 if ~isempty(bad_electrodes_all_label)
@@ -73,10 +77,10 @@ end
 
 % Log
 for i_block = 1:num_block
-    EEG(i_block).ALSUTRECHT.badchaninfo.offsets.offsets_mV       = offsets_mV;
-    EEG(i_block).ALSUTRECHT.badchaninfo.offsets.electrodes_all   = bad_electrodes;
-    EEG(i_block).ALSUTRECHT.badchaninfo.offsets.electrodes       = bad_electrodes_all_label;
-    EEG(i_block).ALSUTRECHT.badchaninfo.offsets.electrodes_indx  = bad_electrodes_all_indx;
+    EEG(i_block).ALSUTRECHT.bad_channel.offsets.offsets_mV       = offsets_mV;
+    EEG(i_block).ALSUTRECHT.bad_channel.offsets.electrodes_all   = bad_electrodes;
+    EEG(i_block).ALSUTRECHT.bad_channel.offsets.electrodes       = bad_electrodes_all_label;
+    EEG(i_block).ALSUTRECHT.bad_channel.offsets.electrodes_indx  = bad_electrodes_all_indx;
 end
 
 % -------------------------------------------------------------------------
@@ -89,10 +93,10 @@ tl = tiledlayout(2, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
 % =========================================================================
 % --- DATA PREPARATION & BAD ELECTRODE DETECTION ---
 % =========================================================================
-mask_plot = false(128, 1);
+mask_plot = false(num_channel, 1);
 if ~isempty(bad_electrodes_all_indx)
     bad_electrodes_tmp = bad_electrodes_all_indx;
-    bad_electrodes_tmp = bad_electrodes_tmp(bad_electrodes_tmp <= 128);
+    bad_electrodes_tmp = bad_electrodes_tmp(bad_electrodes_tmp <= num_channel);
     mask_plot(bad_electrodes_tmp) = true;
 end
 
@@ -102,7 +106,7 @@ end
 ax1 = nexttile(tl);
 
 % Clean up NaNs just in case to prevent topoplot crashes
-data_plot = mean(offsets_mV(1:128, :), 2);
+data_plot = mean(offsets_mV(1:num_channel, :), 2);
 data_plot(isnan(data_plot)) = 0;
 data_plot = abs(data_plot);
 
@@ -116,7 +120,7 @@ ax2 = nexttile(tl);
 hold(ax2, 'on');
 
 % Plot good channels in a subtle grey, bad channels in a distinct orange/red
-for ch = 1:128
+for ch = 1:num_channel
     if mask_plot(ch)
         plot(ax2, offsets_mV(ch, :), 'Color', [0.85 0.33 0.10 0.7], 'LineWidth', 1.5, 'HandleVisibility', 'off');
     else
@@ -140,7 +144,7 @@ ylabel(ax2, 'DC Offset (mV)');
 title(ax2, 'Offset Trajectory Across Blocks');
 
 if any(mask_plot)
-    max_plot = max(abs(offsets_mV(1:128, :)), [], "all");
+    max_plot = max(abs(offsets_mV(1:num_channel, :)), [], "all");
     max_plot = min(max_plot, 60);
 else
     max_plot = threshold_mV;
@@ -154,7 +158,7 @@ ylim(max_plot * [-1 1] + [-5 5]);
 ax4 = nexttile(tl);
 
 % Calculate total absolute drift (final block minus first block)
-drift_per_channel = offsets_mV(1:128, end) - offsets_mV(1:128, 1);
+drift_per_channel = offsets_mV(1:num_channel, end) - offsets_mV(1:num_channel, 1);
 drift_per_channel_abs = abs(drift_per_channel);
 [sorted_drift, sorted_idx] = sort(drift_per_channel_abs, 'descend');
 
@@ -170,8 +174,10 @@ colorbar(ax4);
 ax3 = nexttile(tl);
 
 % Plot the top 10 worst drifting channels
-bar(ax3, sorted_drift(1:10), 'FaceColor', [0.15 0.55 0.82], 'EdgeColor', 'none');
+drift_plot = sorted_drift(1:10);
+bar(ax3, drift_plot, 'FaceColor', [0.15 0.55 0.82], 'EdgeColor', 'none');
 % set(ax3, 'XTickLabel', sorted_idx(1:10));
+ylim([0 1.1 * max(drift_plot)]);
 
 % Extract the channel labels for the top 10 sorted indices
 chan_labels = {EEG(1).chanlocs(sorted_idx(1:10)).labels};

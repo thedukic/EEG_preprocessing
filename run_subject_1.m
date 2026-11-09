@@ -6,26 +6,11 @@ function run_subject_1(myPaths, id)
 %
 % Description:
 %   Executes the first stage of the automated EEG preprocessing pipeline on
-%   continuous 128-channel BioSemi ActiveTwo recordings.
-%
-%   Key processing steps:
-%     1. Data import (.bdf) and event trigger alignment.
-%     2. Hardware checks: CMS/DRL dropout detection and DC offset estimation.
-%     3. Resampling (256 Hz), high-pass FIR filtering, and robust referencing.
-%     4. Two-stage spectral line-noise suppression (50 Hz and harmonics).
-%     5. External electrode derivation (bipolar VEOG, HEOG, ECG / earlobe PCA).
-%     6. Spatial filtering (STAR, GEDAI) and artefact template generation.
-%     7. Bad channel detection, spherical spline interpolation, and regular rereferencing.
-%     8. ICA decomposition (CUDAICA / RUNICA) with subspace rank preservation.
-%     9. Automated classification and rejection of ocular, cardiac, and myogenic ICs.
-%    10. Export of interim preprocessed dataset and participant QA report.
+%   continuous EEG BioSemi ActiveTwo recordings.
 %
 % Inputs:
-%   myPaths - Structure containing directory configurations:
-%               .mycodes     : Path to pipeline source code
-%               .rootrawdata : Directory containing raw BDF files
-%               .rootpreproc : Output root directory for preprocessed data
-%   id      - String or character array specifying participant ID (e.g., 'SUBJ001')
+%   myPaths - Structure containing directory configurations
+%   id      - String or character array specifying participant ID
 %
 % Outputs:
 %   None (processed dataset, figures, and QA logs are written directly to disk).
@@ -58,18 +43,6 @@ else
     clearvars subject
 end
 
-% Make a folder for this participant
-if exist(EEG(1).ALSUTRECHT.subject.preproc, 'dir') ~= 7
-    mkdir(EEG(1).ALSUTRECHT.subject.preproc);
-    mkdir(EEG(1).ALSUTRECHT.subject.data);
-    mkdir(EEG(1).ALSUTRECHT.subject.figures);
-    mkdir(EEG(1).ALSUTRECHT.subject.qa);
-else
-    fprintf('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
-    warning('The folder already exists!\nThe old and the new files might be mixed:\n%s', EEG(1).ALSUTRECHT.subject.preproc);
-    fprintf('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
-end
-
 % Open a report
 EEG = report_proc(EEG, myPaths, 'open');
 
@@ -79,25 +52,21 @@ EEG = do_manualfix(EEG);
 % Fix events
 EEG = fix_events(EEG);
 
-% Add subject/channel info
-EEG = add_info(EEG);
-
-% Estimate electrode offsets
-EEG = estimate_electrodeoffsets(EEG, cfg);
-
 % Remove CMS drop-outs
 EEG = detect_dropouts(EEG, cfg);
+
+% Remove extremely bad segments
+% [EEG, flag_exclude] = remove_extremeperiods2(EEG);
+[EEG, flag_exclude] = detect_extremes(EEG);
+
+% Check if it is worth continuing
+if flag_exclude, warning('%s has very noisy data. Skipping...', subject.id); return; end
 
 % Resample
 EEG = do_resampling(EEG, 256);
 
 % Detect flat channels
 EEG = remove_flatelectrodes(EEG, cfg);
-
-% % Remove extremely bad epochs
-% [EEG, flag_exclude] = remove_extremeperiods2(EEG);
-% % Check if it is worth continuing
-% if flag_exclude, warning('%s has very noisy data. Skipping...', subject.id); return; end
 
 % Mark where each RS block starts/ends
 if ismember(upper(EEG(1).ALSUTRECHT.subject.task), {'RS', 'EO', 'EC'})
@@ -154,7 +123,7 @@ EEG = merge_eeglabblocks(EEG);
 % end
 
 % -------------------------------------------------------------------------
-% Early Burst & Sensor Artefact Reduction
+% Sparse artefact reduction
 % -------------------------------------------------------------------------
 % STAR
 if cfg.star.do
@@ -170,11 +139,18 @@ else
     fprintf('\nGEDAI cleaning: Skipped! Turned off by the user.\n');
 end
 
-% % CCA
-% if cfg.cca.do
-%     EEG = do_cca(EEG, cfg);
+% % ASR
+% if cfg.asr.do
+%     EEG = do_asr(EEG,cfg);
 % else
-%     fprintf('\CCA cleaning: Skipped! Turned off by the user.\n');
+%     fprintf('\nASR cleaning: Skipped! Turned off by the user.\n');
+% end
+
+% % MWF
+% if cfg.mwf.do
+%     EEG = do_mwf(EEG,EXT,cfg);
+% else
+%     fprintf('\nMWF cleaning: Skipped! Turned off by the user.\n');
 % end
 
 % -------------------------------------------------------------------------
@@ -196,21 +172,8 @@ EEG = do_reref(EEG, 'aRegular');
 generate_ictemplateweights(EEG, EXT, cfg);
 
 % -------------------------------------------------------------------------
-% Deeper cleaning
+% ICA
 % -------------------------------------------------------------------------
-% % MWF
-% if cfg.mwf.do
-%     EEG = do_mwf(EEG,EXT,cfg);
-% else
-%     fprintf('\nMWF cleaning: Skipped! Turned off by the user.\n');
-% end
-% % ASR
-% if cfg.asr.do
-%     EEG = do_asr(EEG,cfg);
-% else
-%     fprintf('\nASR cleaning: Skipped! Turned off by the user.\n');
-% end
-%
 % % Interpolate bad electrodes
 % EEG = do_channelinterp(EEG, 'spherical');
 %
@@ -224,14 +187,31 @@ EEG = do_ica(EEG, cfg);
 % Interpolate bad electrodes
 EEG = do_channelinterp(EEG, 'spherical');
 
-% Detect artifact ICs
+% ICA: Detect artifacts
 EEG = detect_badcomponents_new(EEG, EXT, EMG, cfg);
 
-% Remove artifact ICs
+% ICA: Remove artifacts
 EEG = remove_badcomponents(EEG, cfg);
 
-% Report ICA
+% ICA: Report
 report_ica(EEG, cfg);
+
+% -------------------------------------------------------------------------
+% Deeper cleaning
+% -------------------------------------------------------------------------
+% GBF
+if cfg.gbf.do
+    EEG = do_gbf_time(EEG, cfg);
+else
+    fprintf('\GBF cleaning: Skipped! Turned off by the user.\n');
+end
+
+% % CCA
+% if cfg.cca.do
+%     EEG = do_cca(EEG, cfg);
+% else
+%     fprintf('\CCA cleaning: Skipped! Turned off by the user.\n');
+% end
 
 % -------------------------------------------------------------------------
 % Clean EMG (not done here?)

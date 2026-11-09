@@ -659,11 +659,16 @@ function [fh, diff_db] = plot_relative_power_diagnostics(rawpower_path, psd_post
 % 1. Load Pre-Cleaning Data
 % -------------------------------------------------------------------------
 assert(exist(rawpower_path, 'file') == 2, 'File not found: %s', rawpower_path);
-raw_dat = load(rawpower_path);
+data_power = load(rawpower_path);
 
-psd_pre   = raw_dat.psd_pre;
-freq_pre  = raw_dat.freq_pre(:);
+psd_pre   = data_power.psd_pre;
+freq_pre  = data_power.freq_pre(:);
 freq_post = freq_post(:);
+
+% Store
+data_power.freq_post = freq_post;
+data_power.psd_post  = psd_post;
+save(rawpower_path, 'data_power');
 
 n_chans = size(psd_pre, 1);
 assert(size(psd_post, 1) == n_chans, ...
@@ -794,7 +799,7 @@ for i_b = 1:n_bands
 
     % Row 3: Absolute Attenuation in Decibels
     ax3 = nexttile(i_b + 2 * n_bands);
-    mytopoplot(r_db, false(size(r_db)), '', ax3, clim_shift);
+    mytopoplot(r_db, [], '', ax3, clim_shift);
     colormap(ax3, brewermap([], '*RdBu'));
 
     clim(ax3, clim_shift);
@@ -810,7 +815,6 @@ for i_b = 1:n_bands
         ylabel(ax3, 'Difference (dB)', 'FontWeight', 'bold', 'FontSize', 12, 'Visible', 'on');
     end
 end
-
 end
 
 

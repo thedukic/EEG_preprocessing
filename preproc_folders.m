@@ -68,7 +68,7 @@ myPaths.subgroup    = '';
 myPaths.visit       = 1:5;
 
 % Utrecht datasets: Master clinical metadata file exported from R
-myPaths.table1      = 'C:\DATA\MATLAB\EEG\2_OTHER_DATA\FULL_CLINICAL_TABLE_2026-10-09.txt';
+myPaths.table1      = 'C:\DATA\MATLAB\EEG\2_OTHER_DATA\FULL_CLINICAL_TABLE_2026-11-03.txt';
 
 % =========================================================================
 % =========================================================================
@@ -93,6 +93,7 @@ fprintf('Cleaned: %s\n', myPaths.rootpreproc);
 
 % Track time
 myPaths.proctime = strrep(strrep(char(datetime("now")), ':', '-'), ' ', '-');
+myPaths.Table1 = readtable(myPaths.table1, 'VariableNamingRule', 'preserve');
 
 % Navigate the main folder
 cd(myPaths.mycodes);
@@ -128,9 +129,11 @@ if isempty(pathsFoldersTmp)
     pathsFoldersTmp{4} = fullfile(thisFolder, 'gedai_v1.8'); % 09/10/2026
     pathsFoldersTmp{5} = fullfile(thisFolder, 'restingiaf_20-Jan-2025');
     pathsFoldersTmp{6} = fullfile(thisFolder, 'brewermap_15-Sept-2026');
+    pathsFoldersTmp{7} = fullfile(thisFolder, 'near_channelrejection_30-Oct-2026');
 end
 
 addpath(pathsFoldersTmp{:});
+% addpath(genpath(pathsFoldersTmp{7}));
 fprintf('Adding external toolboxes:\n');
 fprintf('%s\n', pathsFoldersTmp{:});
 

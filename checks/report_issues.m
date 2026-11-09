@@ -15,7 +15,7 @@ issues_to_check.NumberIC4 = qa_data.ica.num_max;                        % ICA ()
 % issues_to_check.NumberOfBlocks = length(qa_data.subject.datablocks);
 
 % CMS dropouts
-issues_to_check.CMSDropout = sum(qa_data.cmsDropouts.NDropouts);
+issues_to_check.CMSDropout = sum(qa_data.cms_dropouts.num_drop); % num_drop / NDropouts
 
 % Flat channelss
 % issues_to_check.FlatElectrodesDiscrepancy = qa_data.badchaninfo.flatElectrodesDiscrepancy;

@@ -2,11 +2,11 @@ function DATA = reduce_linenoise1(DATA, cfg)
 % More or less just a wrapper function for the Zapline function
 % Zapline is slightly modifed to accept p.fig1 / p.fig2 inputs
 
-method = 'Zaplineplus';
-freq_noise = 50;
+% cfg.line.method = 'Zaplineplus';
+% cfg.line.freq = 50;
 
 fprintf('\n================================\n');
-fprintf('Removing %d Hz noise (%s)\n', freq_noise, method);
+fprintf('Removing %d Hz noise (%s)\n', cfg.line.freq, cfg.line.method);
 fprintf('================================\n');
 
 % ECG was not recorded at the beginning of the study
@@ -19,7 +19,7 @@ assert(sum(chanheog1) == 2 & sum(chanheog2) == 2);
 num_blocks = length(DATA);
 
 % Method
-switch method
+switch cfg.line.method
     case 'Zaplineplus'
         % Is it better to merge block and do it in one go?
         % If using RS blocks, window size should be <= 120/8s = 15s
@@ -27,18 +27,18 @@ switch method
 
         % Clean all blocks at once
         [data_clean, ~, analyticsResults, fh] = clean_data_with_zapline_plus(double(cat(2, DATA(:).data)), DATA(1).srate, ...
-            'noisefreqs', freq_noise, ...
+            'noisefreqs', cfg.line.freq, ...
             'winSizeCompleteSpectrum', 20, ...
             'plotResults', true, ...
             'plotVisible', cfg.figure.visible);
 
         % Split back into blocks
         mask_block = make_blockmasks(DATA);
-        mask_block = mask_block(1).ALSUTRECHT.blockinfo.rs_mask;
-        assert(size(data_clean, 2) == size(mask_block,2));
+        mask_block = mask_block(1).ALSUTRECHT.blocks.mask_block;
+        assert(size(data_clean, 2) == size(mask_block, 2));
 
         for i_block = 1:num_blocks
-            DATA(i_block).data = data_clean(:, mask_block(i_block,:));
+            DATA(i_block).data = data_clean(:, mask_block(i_block, :));
             assert(size(DATA(i_block).data, 2) == DATA(i_block).pnts);
         end
 

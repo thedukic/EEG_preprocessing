@@ -306,16 +306,16 @@ for i_blk = 1:NBLK
     % =====================================================================
     % Log
     % =====================================================================
-    EEG(i_blk).ALSUTRECHT.extremeNoise.absoluteAmplitudeExceededThreshold = extremeMask1;
-    EEG(i_blk).ALSUTRECHT.extremeNoise.muscleExceededThreshold            = extremeMask2;
-    EEG(i_blk).ALSUTRECHT.extremeNoise.allMethodsExtremeEpochRejections   = extremeMaskCombined;
+    EEG(i_blk).ALSUTRECHT.bad_segments.absoluteAmplitudeExceededThreshold = extremeMask1;
+    EEG(i_blk).ALSUTRECHT.bad_segments.muscleExceededThreshold            = extremeMask2;
+    EEG(i_blk).ALSUTRECHT.bad_segments.allMethodsExtremeEpochRejections   = extremeMaskCombined;
 
-    EEG(i_blk).ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier = mean(extremeMaskFinal);
-    EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochs0                 = extremeMaskCombined;
-    EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochs1                 = extremeMaskFinal;
-    EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochs2                 = extremeNoiseEpochs2;
-    EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochs3                 = extremeNoiseEpochs3;
-    EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochsRS                = ~maskGoodRS;
+    EEG(i_blk).ALSUTRECHT.bad_segments.proportionExcludedForExtremeOutlier = mean(extremeMaskFinal);
+    EEG(i_blk).ALSUTRECHT.bad_segments.extremeNoiseEpochs0                 = extremeMaskCombined;
+    EEG(i_blk).ALSUTRECHT.bad_segments.extremeNoiseEpochs1                 = extremeMaskFinal;
+    EEG(i_blk).ALSUTRECHT.bad_segments.extremeNoiseEpochs2                 = extremeNoiseEpochs2;
+    EEG(i_blk).ALSUTRECHT.bad_segments.extremeNoiseEpochs3                 = extremeNoiseEpochs3;
+    EEG(i_blk).ALSUTRECHT.bad_segments.extremeNoiseEpochsRS                = ~maskGoodRS;
 
     % Add for easy visualisation
     % vis_artifacts(EEG(1), EEG(1));
@@ -323,7 +323,7 @@ for i_blk = 1:NBLK
 
     extremeMaskFinalVisual{i_blk} = extremeNoiseEpochs3;
 
-    tmp = EEG(i_blk).ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier;
+    tmp = EEG(i_blk).ALSUTRECHT.bad_segments.proportionExcludedForExtremeOutlier;
     if tmp == 0
         fprintf('No extremely bad EEG segments were found.\n');
     elseif tmp < 0.01
@@ -336,14 +336,14 @@ for i_blk = 1:NBLK
     fprintf(EEG(i_blk).ALSUTRECHT.subject.fid,'Block %d: Extremely bad epochs\n',i_blk);
     fprintf(EEG(i_blk).ALSUTRECHT.subject.fid,'---------------------------------------------------------\n');
     fprintf(EEG(i_blk).ALSUTRECHT.subject.fid,'These data will be excluded from further analysis.\n');
-    fprintf(EEG(i_blk).ALSUTRECHT.subject.fid,'Detected: %1.2f\n', EEG(i_blk).ALSUTRECHT.extremeNoise.proportionExcludedForExtremeOutlier);
+    fprintf(EEG(i_blk).ALSUTRECHT.subject.fid,'Detected: %1.2f\n', EEG(i_blk).ALSUTRECHT.bad_segments.proportionExcludedForExtremeOutlier);
 
 end
 
 % =========================================================================
 % Report visually
 % =========================================================================
-report_badsegments(EEG,extremeMaskFinalVisual,'extremeperiods');
+report_badsegments(EEG, extremeMaskFinalVisual, 'bad_segments');
 
 % =========================================================================
 % Remove bad chunks
@@ -355,8 +355,8 @@ if any(~cellfun(@isempty, extremeMaskFinalVisual))
     fprintf('Extremely bad chunks detected. Removing them now...\n');
 
     for i_blk = 1:NBLK
-        maskBlockTmp1 = EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochs3;
-        maskBlockTmp2 = EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochsRS;
+        maskBlockTmp1 = EEG(i_blk).ALSUTRECHT.bad_segments.extremeNoiseEpochs3;
+        maskBlockTmp2 = EEG(i_blk).ALSUTRECHT.bad_segments.extremeNoiseEpochsRS;
 
         % Remove if not empty
         if ~isempty(maskBlockTmp1)
@@ -371,7 +371,7 @@ if any(~cellfun(@isempty, extremeMaskFinalVisual))
         % Make sure that the block masks are the right size
         % -> Only needed for RS data
         if ~maskRemoveblock(i_blk)
-            assert(size(EEG(i_blk).data,2) == length(EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochsRS));
+            assert(size(EEG(i_blk).data,2) == length(EEG(i_blk).ALSUTRECHT.bad_segments.extremeNoiseEpochsRS));
         end
     end
 
@@ -393,7 +393,7 @@ end
 maskRS = [];
 L = NaN(NBLK,1);
 for i_blk = 1:NBLK
-    maskTmp    = EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochsRS;
+    maskTmp    = EEG(i_blk).ALSUTRECHT.bad_segments.extremeNoiseEpochsRS;
     maskTmp(1) = true;
     maskRS     = [maskRS, maskTmp];
     L(i_blk)   = EEG(i_blk).pnts;
@@ -404,9 +404,9 @@ assert(length(maskRS) == sum(L));
 
 % Store
 for i_blk = 1:NBLK
-    EEG(i_blk).ALSUTRECHT.extremeNoise.extremeNoiseEpochsRSFinal = maskRS;
-    EEG(i_blk).ALSUTRECHT.extremeNoise.extremeBadChannels        = badChans;
-    EEG(i_blk).ALSUTRECHT.extremeNoise.maskRemoveblock           = maskRemoveblock;
+    EEG(i_blk).ALSUTRECHT.bad_segments.extremeNoiseEpochsRSFinal = maskRS;
+    EEG(i_blk).ALSUTRECHT.bad_segments.extremeBadChannels        = badChans;
+    EEG(i_blk).ALSUTRECHT.bad_segments.maskRemoveblock           = maskRemoveblock;
 end
 
 % =========================================================================

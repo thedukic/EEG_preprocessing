@@ -22,8 +22,8 @@ ICsGenBad  = EEG.ALSUTRECHT.ica.final.genbad(:);
 % -------------------------------------------------------------------------
 % Dynamic Variance & Rank Evaluation
 % -------------------------------------------------------------------------
-% floor_compvar  = 0.5; % PVAF floor (%): ICs with < 0.5% compvar are spared past rank 25
-% protect_rank_n = 25;   % Top 25 components are always evaluated regardless of PVAF
+% floor_compvar  = 0.5; % PVAF floor (%): ICs with < X% compvar are spared past rank X
+% protect_rank_n = 25;  % Top X components are always evaluated regardless of PVAF
 
 floor_compvar  = cfg.ica.floor_compvar;
 protect_rank_n = cfg.ica.protect_rank_n;
@@ -36,8 +36,8 @@ vaf_compvar = EEG.ALSUTRECHT.ica.vaf_compvar(:);
 num_ics     = length(vaf_compvar);
 ic_ranks    = (1:num_ics)';
 
-% Spares components that have low PVAF (< 0.25%) AND are outside top 25 rank
-is_negligible = (vaf_compvar < floor_compvar) & (ic_ranks > protect_rank_n);
+% Spares components that have low PVAF (< X%) AND are outside top X rank
+is_negligible = (vaf_compvar < floor_compvar) | (ic_ranks > protect_rank_n);
 
 % Track spared components
 cnt_m = sum(ICsMuscle  & is_negligible);

@@ -42,10 +42,10 @@ eeg_data = double(EEG.data(mask_eeg, :, :));
 % Demean each trial along the time axis
 eeg_data = eeg_data - mean(eeg_data, 2);
 
-fs = EEG.srate;
-win_len = min(n_pnts, 2 * fs); % 2-second window or full epoch length
+fs       = EEG.srate;
+win_len  = min(n_pnts, 2 * fs); % 2-second window or full epoch length
 noverlap = 0;
-nfft = win_len;
+nfft     = win_len;
 
 % Initialise with trial 1 to obtain frequency bins
 [pxx_init, f] = pwelch(eeg_data(:, :, 1)', win_len, noverlap, nfft, fs);
@@ -82,9 +82,7 @@ if fail_spectral
     status_str = 'FLAG (Excessive HF Noise)';
 end
 
-fprintf('Spectral Noise Audit [%d-%d Hz / %d-%d Hz]:\n', ...
-    f_high(1), f_high(2), f_low(1), f_low(2));
-fprintf('  Mean Ratio = %.3f (Thresh: %.2f) | Max Chan = %.3f -> %s\n', ...
-    emg_ratio, thresh, max(chan_ratios, [], 'omitnan'), status_str);
+fprintf('Spectral Noise Audit [%d-%d Hz / %d-%d Hz]:\n', f_high(1), f_high(2), f_low(1), f_low(2));
+fprintf('  Mean Ratio = %.3f (Thresh: %.2f) | Max Chan = %.3f -> %s\n', emg_ratio, thresh, max(chan_ratios, [], 'omitnan'), status_str);
 
 end
